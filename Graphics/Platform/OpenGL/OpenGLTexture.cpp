@@ -19,15 +19,14 @@ namespace Graphics {
 		m_InternalFormat = GL_RGBA8;
 		m_DataFormat = GL_RGBA;
 
-		glGenTextures(1, &m_RendererID);
-		glBindTexture(GL_TEXTURE_2D, m_RendererID);
+		glCreateTextures(GL_TEXTURE_2D, 1, &m_RendererID);
 		glTextureStorage2D(m_RendererID, 1, m_InternalFormat, m_Width, m_Height);
 		
-		//glTexParameteri(m_RendererID, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-		//glTexParameteri(m_RendererID, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-		//
-		//glTexParameteri(m_RendererID, GL_TEXTURE_WRAP_S, GL_REPEAT);
-		//glTexParameteri(m_RendererID, GL_TEXTURE_WRAP_T, GL_REPEAT);
+		glTexParameteri(m_RendererID, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexParameteri(m_RendererID, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		
+		glTexParameteri(m_RendererID, GL_TEXTURE_WRAP_S, GL_REPEAT);
+		glTexParameteri(m_RendererID, GL_TEXTURE_WRAP_T, GL_REPEAT);
 	}
 
 	OpenGLTexture2D::OpenGLTexture2D(const std::string& path)

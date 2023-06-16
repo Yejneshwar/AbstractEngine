@@ -17,7 +17,11 @@
 #include "ImGuiHandler/ImGuiHandler.h"
 #include <Renderer/Shader.h>
 #include <Renderer/Renderer2D.h>
+#include <Renderer/RenderCommand.h>
 #include <cstddef>
+#include <Renderer/VertexArray.h>
+#include <Renderer/UniformBuffer.h>
+
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
     glViewport(0, 0, width, height);
@@ -27,10 +31,16 @@ struct UBODataVertex {
     glm::mat4 model;
     glm::mat4 view;
     glm::mat4 projection;
+    glm::vec3 color;
 };
 
 struct UBODataFragment {
     glm::vec3 triangleColor;
+};
+
+struct TriangleVertex {
+    glm::vec3 aPos;
+    glm::vec3 aColor;
 };
 
 int main() {
@@ -84,31 +94,87 @@ int main() {
 
     ImGuiHandler imgui(window, "#version 330");
 
+
+    // Vertex data
+    float vertices[] = {
+        // positions         // colors
+         0.5f, -0.5f, 0.0f,  1.0f, 0.0f, 0.0f,  // bottom right
+        -0.5f, -0.5f, 0.0f,  0.0f, 1.0f, 0.0f,  // bottom left
+         0.0f,  0.5f, 0.0f,  0.0f, 0.0f, 1.0f   // top 
+    };
+
+
+    // Vertex data
+    //float vertices[] = {
+    //    // positions         // colors
+    //     0.5f, -0.5f, 0.0f,
+    //    -0.5f, -0.5f, 0.0f,
+    //     0.0f,  0.5f, 0.0f
+    //};
+
     // Link shaders to a shader program
     auto shader = Graphics::Shader::Create("./Resources/Shaders/BasicShader.glsl");
     GLuint shaderProgram = shader->GetId();
 
-    // Vertex data
-    float vertices[] = {
-        -0.5f, -0.5f, 0.0f,
-         0.5f, -0.5f, 0.0f,
-         0.0f,  0.5f, 0.0f
-    };
+    static const uint32_t MaxQuads = 20000;
+    static const uint32_t MaxVertices = MaxQuads * 4;
+    static const uint32_t MaxIndices = MaxQuads * 6;
+    Graphics::Ref<Graphics::VertexArray> TriangleVertexArray = Graphics::VertexArray::Create();
 
-    // Create VAO and VBO
-    GLuint VAO, VBO;
-    glGenVertexArrays(1, &VAO);
-    glGenBuffers(1, &VBO);
 
-    glBindVertexArray(VAO);
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
 
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
-    glEnableVertexAttribArray(0);
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    Graphics::Ref<Graphics::VertexBuffer> TriangleVertexBuffer = Graphics::VertexBuffer::Create(vertices, sizeof(vertices));
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glBindVertexArray(0);
+    /////OR/////
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    //Graphics::Ref<Graphics::VertexBuffer> TriangleVertexBuffer = Graphics::VertexBuffer::Create(MaxVertices * sizeof(TriangleVertex));
+    //TriangleVertex* TriangleVertexBufferBase = new TriangleVertex[MaxVertices];
+    //TriangleVertex* TriangleVertexBufferPtr = TriangleVertexBufferBase;
+    //
+    //TriangleVertexBufferPtr->aPos = { 0.5f, -0.5f, 0.0f };
+    //TriangleVertexBufferPtr->aColor = { 1.0f, 0.0f, 0.0f };
+    //TriangleVertexBufferPtr++;
+    //TriangleVertexBufferPtr->aPos = { -0.5f, -0.5f, 0.0f };
+    //TriangleVertexBufferPtr->aColor = { 0.0f, 1.0f, 0.0f };
+    //TriangleVertexBufferPtr++;
+    //TriangleVertexBufferPtr->aPos = { 0.0f, 0.5f, 0.0f };
+    //TriangleVertexBufferPtr->aColor = { 0.0f, 0.0f, 1.0f };
+    //TriangleVertexBufferPtr++;
+    //
+    //uint32_t dataSize = (uint32_t)((uint8_t*)TriangleVertexBufferPtr - (uint8_t*)TriangleVertexBufferBase);
+    //std::cout << "Data Size : " << dataSize << std::endl;
+    //TriangleVertexBuffer->SetData(TriangleVertexBufferBase, dataSize);
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    TriangleVertexBuffer->SetLayout({
+        { Graphics::ShaderDataType::Float3, "aPos"},
+        { Graphics::ShaderDataType::Float3, "aColor"}
+    });
+    TriangleVertexArray->AddVertexBuffer(TriangleVertexBuffer);
+
+
+
+    uint32_t* triangleIndices = new uint32_t[MaxIndices];
+
+    uint32_t offset = 0;
+    for (uint32_t i = 0; i < MaxIndices; i += 3)
+    {
+        triangleIndices[i + 0] = offset + 0;
+        triangleIndices[i + 1] = offset + 1;
+        triangleIndices[i + 2] = offset + 2;
+
+        offset += 3;
+    }
+
+    Graphics::Ref<Graphics::IndexBuffer> triangleIB = Graphics::IndexBuffer::Create(triangleIndices, MaxIndices);
+    TriangleVertexArray->SetIndexBuffer(triangleIB);
+    delete[] triangleIndices;
+
+
+
 
     // Main loop
     glm::vec3 triangleColor(1.0f, 0.5f, 0.2f);
@@ -127,22 +193,12 @@ int main() {
     UBODataFragment uboDataFragment;
     uboDataFragment.triangleColor = triangleColor;  // Set the color to white
     
-    GLuint uboVertex, uboFragment;
-    glCreateBuffers(1, &uboVertex);
-    glCreateBuffers(1, &uboFragment);
+    auto vertexBuffer = Graphics::UniformBuffer::Create(sizeof(UBODataVertex),0);
+    auto fragmentBuffer = Graphics::UniformBuffer::Create(sizeof(UBODataFragment),1); ////// REMEBER TO SET BINDING TO 1 in the shader
     
-    
-    glNamedBufferStorage(uboVertex, sizeof(UBODataVertex), &uboDataVertex, GL_DYNAMIC_STORAGE_BIT);
-    glNamedBufferStorage(uboFragment, sizeof(UBODataFragment), &uboDataFragment, GL_DYNAMIC_STORAGE_BIT);
-    
-    
-    // Bind buffer objects to binding points
-    GLuint bindingIndexVertex = 0;  // Vertex shader binding point
-    GLuint bindingIndexFragment = 1;  // Fragment shader binding point ////// REMEBER TO SET BINDING TO 1 in the shader
-    glBindBufferBase(GL_UNIFORM_BUFFER, bindingIndexVertex, uboVertex);
-    glBindBufferBase(GL_UNIFORM_BUFFER, bindingIndexFragment, uboFragment);
+    vertexBuffer->SetData(&uboDataVertex, sizeof(UBODataVertex));
+    fragmentBuffer->SetData(&uboDataFragment, sizeof(UBODataFragment));
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 
 
 
@@ -158,12 +214,10 @@ int main() {
         //      OR      //
         //shader->Bind();
 
-        glNamedBufferSubData(uboVertex, 0, sizeof(UBODataVertex), &uboDataVertex);
+        fragmentBuffer->SetData(&uboDataFragment, sizeof(UBODataFragment)); // If shader is using ubo.triangleColor then this is needed to update the data
 
-        glNamedBufferSubData(uboFragment, 0, sizeof(UBODataFragment), &uboDataFragment);
+        Graphics::RenderCommand::DrawIndexed(TriangleVertexArray);
 
-        glBindVertexArray(VAO);
-        glDrawArrays(GL_TRIANGLES, 0, 3);
 
         //The update function has to be after all of the above!
         //Due to the render function called within update.
@@ -196,8 +250,6 @@ int main() {
         glfwSwapBuffers(window);
     }
 
-    glDeleteBuffers(1, &VBO);
-    glDeleteVertexArrays(1, &VAO);
     glDeleteProgram(shaderProgram);
 
     glfwDestroyWindow(window);

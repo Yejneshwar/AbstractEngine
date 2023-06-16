@@ -237,7 +237,7 @@ namespace Graphics {
 				shaderc::SpvCompilationResult module = compiler.CompileGlslToSpv(source, Utils::GLShaderStageToShaderC(stage), m_FilePath.c_str(), options);
 				if (module.GetCompilationStatus() != shaderc_compilation_status_success)
 				{
-					//HZ_CORE_ERROR(module.GetErrorMessage());
+					std::cout << module.GetErrorMessage() << std::endl;
 					GRAPHICS_CORE_ASSERT(false);
 				}
 
@@ -372,7 +372,6 @@ namespace Graphics {
 	{
 		spirv_cross::Compiler compiler(shaderData);
 		spirv_cross::ShaderResources resources = compiler.get_shader_resources();
-
 		//HZ_CORE_TRACE("OpenGLShader::Reflect - {0} {1}", Utils::GLShaderStageToString(stage), m_FilePath);
 		//HZ_CORE_TRACE("    {0} uniform buffers", resources.uniform_buffers.size());
 		//HZ_CORE_TRACE("    {0} resources", resources.sampled_images.size());
@@ -380,6 +379,9 @@ namespace Graphics {
 		std::cout << "OpenGLShader::Reflect - {0} {1} " << Utils::GLShaderStageToString(stage) << m_FilePath << std::endl;
 		std::cout << "    {0} uniform buffers " << resources.uniform_buffers.size() << std::endl;
 		std::cout << "    {0} resources " << resources.sampled_images.size() << std::endl;
+		std::cout << "    {0} inputs " << resources.stage_inputs.size() << std::endl;
+		std::cout << "    {0} outputs " << resources.stage_outputs.size() << std::endl;
+
 
 		//HZ_CORE_TRACE("Uniform buffers:");
 		for (const auto& resource : resources.uniform_buffers)
@@ -389,15 +391,29 @@ namespace Graphics {
 			uint32_t binding = compiler.get_decoration(resource.id, spv::DecorationBinding);
 			int memberCount = bufferType.member_types.size();
 
-			//HZ_CORE_TRACE("  {0}", resource.name);
-			//HZ_CORE_TRACE("    Size = {0}", bufferSize);
-			//HZ_CORE_TRACE("    Binding = {0}", binding);
-			//HZ_CORE_TRACE("    Members = {0}", memberCount);
+			std::cout << "  " << resource.name << std::endl;
+			std::cout << "    Size = " << bufferSize << std::endl;
+			std::cout << "    Binding = " << binding << std::endl;
+			std::cout << "    Members = " << memberCount << std::endl;
+		}
 
-			std::cout << "  {0}" << resource.name << std::endl;
-			std::cout << "    Size = {0} " << bufferSize << std::endl;
-			std::cout << "    Binding = {0} " << binding << std::endl;
-			std::cout << "    Members = {0} " << memberCount << std::endl;
+		for (const auto& resource : resources.stage_inputs)
+		{
+			const auto& bufferType = compiler.get_type(resource.base_type_id);
+			uint32_t location = compiler.get_decoration(resource.id, spv::DecorationLocation);
+
+
+			std::cout << "  " << (resource.name.empty() ? "Unknown - input" : resource.name) << std::endl;
+			std::cout << "    Location = " << location << std::endl;
+		}
+		for (const auto& resource : resources.stage_outputs)
+		{
+			const auto& bufferType = compiler.get_type(resource.base_type_id);
+			uint32_t location = compiler.get_decoration(resource.id, spv::DecorationLocation);
+
+
+			std::cout << "  " << (resource.name.empty() ? "Unknown - output" : resource.name) << std::endl;
+			std::cout << "    Location = " << location << std::endl;
 		}
 	}
 
