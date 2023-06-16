@@ -12,6 +12,8 @@
 #include <shaderc/shaderc.hpp>
 #include <GLFW/glfw3.h>
 
+//Note: Keep bindings and locations explicit even in opengl?
+
 
 namespace Graphics {
 
@@ -98,16 +100,39 @@ namespace Graphics {
 		Utils::CreateCacheDirectoryIfNeeded();
 
 		std::string source = ReadFile(filepath);
-		std::cout << "########################################################" << std::endl;
-		std::cout << source << std::endl;
-		std::cout << "########################################################" << std::endl;
+
+		PreProcessIncludes(source);
+
 		auto shaderSources = PreProcess(source);
 
+
+		std::cout << "//////////////////////////////////////Compiling shader " << filepath << std::endl;
 		{
 			//Timer timer;
-			CompileOrGetVulkanBinaries(shaderSources);
-			CompileOrGetOpenGLBinaries();
-			CreateProgram();
+			try {
+				//CompileOrGetVulkanBinaries(shaderSources);
+				CompileOrGetOpenGLBinaries(shaderSources);
+				auto& shaderDataOpenGL = m_OpenGLSPIRV;
+				auto& shaderDataVulkan = m_VulkanSPIRV;
+				//std::cout << "//////////////////////////////////////Vulkan reflection" << std::endl;
+				//for (auto&& [stage, data] : shaderDataVulkan)
+				//	Reflect(stage, data);
+				std::cout << "//////////////////////////////////////OpenGL reflection" << std::endl;
+				for (auto&& [stage, data] : shaderDataOpenGL)
+					Reflect(stage, data);
+				CreateProgram();
+
+			}
+			catch (std::runtime_error e) {
+				std::cout << e.what() << std::endl;
+				std::cout << "//////////////////////////////////////End Compilation" << std::endl;
+				return;
+			}
+
+
+			std::cout << "//////////////////////////////////////End Compilation" << std::endl;
+
+
 			//HZ_CORE_WARN("Shader creation took {0} ms", timer.ElapsedMillis());
 		}
 
@@ -129,7 +154,7 @@ namespace Graphics {
 		sources[GL_FRAGMENT_SHADER] = fragmentSrc;
 
 		CompileOrGetVulkanBinaries(sources);
-		CompileOrGetOpenGLBinaries();
+		CompileOrGetOpenGLBinaries(sources);
 		CreateProgram();
 	}
 
@@ -170,9 +195,26 @@ namespace Graphics {
 		return result;
 	}
 
+	void OpenGLShader::PreProcessIncludes(std::string& source)
+	{
+		while (source.find("#include ") != source.npos)
+		{
+			const auto pos = source.find("#include ");
+			const auto p1 = source.find('<', pos);
+			const auto p2 = source.find('>', pos);
+			if (p1 == source.npos || p2 == source.npos || p2 <= p1)
+			{
+				printf("Error while loading shader program: %s\n", source.c_str());
+				return;
+			}
+			const std::string name = source.substr(p1 + 1, p2 - p1 - 1);
+			const std::string include = ReadFile(name.c_str());
+			source.replace(pos, p2 - pos + 1, include.c_str());
+		}
+	}
+
 	std::unordered_map<GLenum, std::string> OpenGLShader::PreProcess(const std::string& source)
 	{
-		
 
 		std::unordered_map<GLenum, std::string> shaderSources;
 
@@ -194,8 +236,8 @@ namespace Graphics {
 			shaderSources[Utils::ShaderTypeFromString(type)] = (pos == std::string::npos) ? source.substr(nextLinePos) : source.substr(nextLinePos, pos - nextLinePos);
 		}
 
-		std::cout << "Vertex Shader ###### \n" << shaderSources[GL_VERTEX_SHADER] << std::endl;
-		std::cout << "Fragment Shader ###### \n" << shaderSources[GL_FRAGMENT_SHADER] << std::endl;
+		//std::cout << "Vertex Shader ###### \n" << shaderSources[GL_VERTEX_SHADER] << std::endl;
+		//std::cout << "Fragment Shader ###### \n" << shaderSources[GL_FRAGMENT_SHADER] << std::endl;
 
 
 		return shaderSources;
@@ -238,6 +280,7 @@ namespace Graphics {
 				if (module.GetCompilationStatus() != shaderc_compilation_status_success)
 				{
 					std::cout << module.GetErrorMessage() << std::endl;
+					throw(std::runtime_error("Error in compiling shader for Vulkan"));
 					GRAPHICS_CORE_ASSERT(false);
 				}
 
@@ -254,10 +297,13 @@ namespace Graphics {
 			}
 		}
 
-		for (auto&& [stage, data]: shaderData)
-			Reflect(stage, data);
 	}
 
+
+	/**
+	* Uses vulkan binaries if already compiled
+	* Can have issues with : gl_VertexID
+	*/
 	void OpenGLShader::CompileOrGetOpenGLBinaries()
 	{
 		auto& shaderData = m_OpenGLSPIRV;
@@ -317,6 +363,63 @@ namespace Graphics {
 		}
 	}
 
+	void OpenGLShader::CompileOrGetOpenGLBinaries(const std::unordered_map<GLenum, std::string>& shaderSources)
+	{
+		auto& shaderData = m_OpenGLSPIRV;
+
+		shaderc::Compiler compiler;
+		shaderc::CompileOptions options;
+		options.SetTargetEnvironment(shaderc_target_env_opengl, shaderc_env_version_opengl_4_5);
+		const bool optimize = false;
+		if (optimize)
+			options.SetOptimizationLevel(shaderc_optimization_level_performance);
+
+		std::filesystem::path cacheDirectory = Utils::GetCacheDirectory();
+
+		shaderData.clear();
+		m_OpenGLSourceCode.clear();
+		for (auto&& [stage, source] : shaderSources)
+		{
+			std::filesystem::path shaderFilePath = m_FilePath;
+			std::filesystem::path cachedPath = cacheDirectory / (shaderFilePath.filename().string() + Utils::GLShaderStageCachedOpenGLFileExtension(stage));
+
+			std::ifstream in(cachedPath, std::ios::in | std::ios::binary);
+			if (in.is_open())
+			{
+				in.seekg(0, std::ios::end);
+				auto size = in.tellg();
+				in.seekg(0, std::ios::beg);
+
+				auto& data = shaderData[stage];
+				data.resize(size / sizeof(uint32_t));
+				in.read((char*)data.data(), size);
+			}
+			else
+			{
+				shaderc::SpvCompilationResult module = compiler.CompileGlslToSpv(source, Utils::GLShaderStageToShaderC(stage), m_FilePath.c_str(),options);
+				if (module.GetCompilationStatus() != shaderc_compilation_status_success)
+				{
+					//HZ_CORE_ERROR(module.GetErrorMessage());
+					std::cout << module.GetErrorMessage() << std::endl;
+					throw(std::runtime_error("Error in compiling shader for OPENGL"));
+
+					GRAPHICS_CORE_ASSERT(false);
+				}
+
+				shaderData[stage] = std::vector<uint32_t>(module.cbegin(), module.cend());
+
+				std::ofstream out(cachedPath, std::ios::out | std::ios::binary);
+				if (out.is_open())
+				{
+					auto& data = shaderData[stage];
+					out.write((char*)data.data(), data.size() * sizeof(uint32_t));
+					out.flush();
+					out.close();
+				}
+			}
+		}
+	}
+
 	void OpenGLShader::CreateProgram()
 	{
 		GLuint program = glCreateProgram();
@@ -324,12 +427,11 @@ namespace Graphics {
 		std::vector<GLuint> shaderIDs;
 		for (auto&& [stage, spirv] : m_OpenGLSPIRV)
 		{
-			std::cout << shaderIDs.emplace_back(glCreateShader(stage)) << std::endl;
 			GLuint shaderID = shaderIDs.emplace_back(glCreateShader(stage));
 			GLenum error = glGetError();
 			if (error != GL_NO_ERROR) {
 				// Handle the error appropriately
-				std::cout << "Error creating" << (stage == GL_VERTEX_SHADER ? "vertex" : "fragment") << "shader : " << error << std::endl;
+				std::cout << "Error creating" << (stage == GL_VERTEX_SHADER ? " vertex" : " fragment") << " shader : " << error << std::endl;
 				// Additional error handling code
 			}
 			glShaderBinary(1, &shaderID, GL_SHADER_BINARY_FORMAT_SPIR_V, spirv.data(), spirv.size() * sizeof(uint32_t));
@@ -350,13 +452,16 @@ namespace Graphics {
 
 			std::vector<GLchar> infoLog(maxLength);
 			glGetProgramInfoLog(program, maxLength, &maxLength, infoLog.data());
-			std::cout << "Shader linking failed (" << m_FilePath << "):\n"  <<  infoLog.data() << std::endl << program << std::endl;
 			//HZ_CORE_ERROR("Shader linking failed ({0}):\n{1}", m_FilePath, infoLog.data());
 
 			glDeleteProgram(program);
 
 			for (auto id : shaderIDs)
 				glDeleteShader(id);
+
+			const auto& string = std::format("Shader linking failed ({}):\n{}", infoLog.data(), program);
+			throw(std::runtime_error(string));
+			return;
 		}
 
 		for (auto id : shaderIDs)
@@ -376,11 +481,11 @@ namespace Graphics {
 		//HZ_CORE_TRACE("    {0} uniform buffers", resources.uniform_buffers.size());
 		//HZ_CORE_TRACE("    {0} resources", resources.sampled_images.size());
 
-		std::cout << "OpenGLShader::Reflect - {0} {1} " << Utils::GLShaderStageToString(stage) << m_FilePath << std::endl;
-		std::cout << "    {0} uniform buffers " << resources.uniform_buffers.size() << std::endl;
-		std::cout << "    {0} resources " << resources.sampled_images.size() << std::endl;
-		std::cout << "    {0} inputs " << resources.stage_inputs.size() << std::endl;
-		std::cout << "    {0} outputs " << resources.stage_outputs.size() << std::endl;
+		std::cout << std::format("OpenGLShader::Reflect - {} {} ", Utils::GLShaderStageToString(stage), m_FilePath) << std::endl;
+		std::cout << std::format("    {} uniform buffers ", resources.uniform_buffers.size())  << std::endl;
+		std::cout << std::format("    {} resources ", resources.sampled_images.size()) << std::endl;
+		std::cout << std::format("    {} inputs ", resources.stage_inputs.size()) << std::endl;
+		std::cout << std::format("    {} outputs ", resources.stage_outputs.size()) << std::endl;
 
 
 		//HZ_CORE_TRACE("Uniform buffers:");
@@ -397,23 +502,26 @@ namespace Graphics {
 			std::cout << "    Members = " << memberCount << std::endl;
 		}
 
+		std::cout << std::endl << "  Inputs : " << std::endl;
 		for (const auto& resource : resources.stage_inputs)
 		{
 			const auto& bufferType = compiler.get_type(resource.base_type_id);
 			uint32_t location = compiler.get_decoration(resource.id, spv::DecorationLocation);
 
 
-			std::cout << "  " << (resource.name.empty() ? "Unknown - input" : resource.name) << std::endl;
-			std::cout << "    Location = " << location << std::endl;
+			std::cout << "    " << (resource.name.empty() ? "Unknown - input" : resource.name) << std::endl;
+			std::cout << "        Location = " << location << std::endl;
 		}
+
+		std::cout << std::endl << "  Outputs : " << std::endl;
 		for (const auto& resource : resources.stage_outputs)
 		{
 			const auto& bufferType = compiler.get_type(resource.base_type_id);
 			uint32_t location = compiler.get_decoration(resource.id, spv::DecorationLocation);
 
 
-			std::cout << "  " << (resource.name.empty() ? "Unknown - output" : resource.name) << std::endl;
-			std::cout << "    Location = " << location << std::endl;
+			std::cout << "    " << (resource.name.empty() ? "Unknown - output" : resource.name) << std::endl;
+			std::cout << "        Location = " << location << std::endl;
 		}
 	}
 

@@ -169,8 +169,9 @@ int main() {
         offset += 3;
     }
 
-    Graphics::Ref<Graphics::IndexBuffer> triangleIB = Graphics::IndexBuffer::Create(triangleIndices, MaxIndices);
-    TriangleVertexArray->SetIndexBuffer(triangleIB);
+    // Uncomment if drawing index
+    // Graphics::Ref<Graphics::IndexBuffer> triangleIB = Graphics::IndexBuffer::Create(triangleIndices, MaxIndices);
+    //TriangleVertexArray->SetIndexBuffer(triangleIB);
     delete[] triangleIndices;
 
 
@@ -216,7 +217,12 @@ int main() {
 
         fragmentBuffer->SetData(&uboDataFragment, sizeof(UBODataFragment)); // If shader is using ubo.triangleColor then this is needed to update the data
 
-        Graphics::RenderCommand::DrawIndexed(TriangleVertexArray);
+        //Graphics::RenderCommand::DrawIndexed(TriangleVertexArray);
+        //      OR      //
+        Graphics::RenderCommand::DrawNonIndexed(TriangleVertexArray, 3);
+
+
+        
 
 
         //The update function has to be after all of the above!
