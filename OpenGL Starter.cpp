@@ -21,17 +21,12 @@
 #include <cstddef>
 #include <Renderer/VertexArray.h>
 #include <Renderer/UniformBuffer.h>
-
-
-void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
-    glViewport(0, 0, width, height);
-}
+#include <Renderer/3DCamera.h>
 
 struct UBODataVertex {
     glm::mat4 model;
     glm::mat4 view;
     glm::mat4 projection;
-    glm::vec3 color;
 };
 
 struct UBODataFragment {
@@ -42,6 +37,51 @@ struct TriangleVertex {
     glm::vec3 aPos;
     glm::vec3 aColor;
 };
+
+
+auto camera = Graphics::ThreeDCamera(glm::radians(180.0f), 800.0f / 600.0f, 0.1f, 1000.0f);
+glm::mat4 model = glm::mat4(1.0f);
+glm::mat4 view = camera.GetViewMatrix();
+glm::mat4 projection = camera.GetProjection();
+
+UBODataVertex uboDataVertex;
+
+UBODataFragment uboDataFragment;
+
+void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
+    glViewport(0, 0, width, height);
+}
+
+void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
+{
+    if (ImGui::GetIO().WantCaptureMouse) {
+        return;
+    }
+
+    camera.OnMouseScroll(yoffset);
+    uboDataVertex.view = camera.GetViewMatrix();  // Set your view matrix here
+    uboDataVertex.projection = camera.GetProjection();  // Set your projection matrix here
+}
+
+
+void mouse_callback(GLFWwindow* window, double xpos, double ypos) {
+    if (ImGui::GetIO().WantCaptureMouse) {
+        return;
+    }
+
+    const auto& leftButton = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT);
+    const auto& rightButton = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT);
+    if (!leftButton && !rightButton) {
+        camera.SetMousePos({ xpos,ypos });
+        return;
+    }
+
+
+    camera.OnUpdate(xpos, ypos, leftButton, rightButton);
+    uboDataVertex.view = camera.GetViewMatrix();  // Set your view matrix here
+    uboDataVertex.projection = camera.GetProjection();  // Set your projection matrix here
+
+}
 
 int main() {
 
@@ -74,6 +114,8 @@ int main() {
     }
     glfwMakeContextCurrent(window);
     glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
+    glfwSetScrollCallback(window, scroll_callback);
+    glfwSetCursorPosCallback(window, mouse_callback);
 
     // Load OpenGL using Glad
     if (!gladLoadGL((GLADloadfunc)glfwGetProcAddress)) {
@@ -180,18 +222,12 @@ int main() {
     // Main loop
     glm::vec3 triangleColor(1.0f, 0.5f, 0.2f);
 
+    
 
-    glm::mat4 model(1.0f);
-    glm::mat4 view(1.0f);
-    glm::mat4 projection = glm::perspective(glm::radians(45.0f), 800.0f / 600.0f, 0.1f, 100.0f);
-    view = glm::translate(view, glm::vec3(0.0f, 0.0f, -3.0f));
-
-    UBODataVertex uboDataVertex;
     uboDataVertex.model = model;  // Set your model matrix here
     uboDataVertex.view = view;  // Set your view matrix here
     uboDataVertex.projection = projection;  // Set your projection matrix here
-    
-    UBODataFragment uboDataFragment;
+
     uboDataFragment.triangleColor = triangleColor;  // Set the color to white
     
     auto vertexBuffer = Graphics::UniformBuffer::Create(sizeof(UBODataVertex),0);
@@ -203,6 +239,7 @@ int main() {
 
 
 
+    
  
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
@@ -214,7 +251,7 @@ int main() {
         glUseProgram(shaderProgram);
         //      OR      //
         //shader->Bind();
-
+        vertexBuffer->SetData(&uboDataVertex, sizeof(UBODataVertex));
         fragmentBuffer->SetData(&uboDataFragment, sizeof(UBODataFragment)); // If shader is using ubo.triangleColor then this is needed to update the data
 
         //Graphics::RenderCommand::DrawIndexed(TriangleVertexArray);

@@ -1,8 +1,9 @@
 #type vertex
 #version 450 core
 layout(location = 0) in vec3 aPos;
+layout(location = 1) in vec3 aColor;
 
-layout(set = 0, binding = 0) uniform UBO{
+layout(std140, binding = 0) uniform UBOVertex {
     mat4 model;
     mat4 view;
     mat4 projection;
@@ -17,7 +18,7 @@ void main()
 #version 450 core
 layout(location = 0) out vec4 FragColor;
 
-layout(set = 0, binding = 1) uniform UBO{
+layout(std140, binding = 1) uniform UBOFragment {
     vec3 triangleColor;
 } ubo;
 
