@@ -11,7 +11,7 @@ namespace Graphics {
 	class OpenGLShader : public Shader
 	{
 	public:
-		OpenGLShader(const std::string& filepath);
+		OpenGLShader(const std::string& filepath, bool cache);
 		OpenGLShader(const std::string& name, const std::string& vertexSrc, const std::string& fragmentSrc);
 		virtual ~OpenGLShader();
 
@@ -53,6 +53,7 @@ namespace Graphics {
 		uint32_t m_RendererID;
 		std::string m_FilePath;
 		std::string m_Name;
+		bool m_EnableCache;
 
 		std::unordered_map<GLenum, std::vector<uint32_t>> m_VulkanSPIRV;
 		std::unordered_map<GLenum, std::vector<uint32_t>> m_OpenGLSPIRV;

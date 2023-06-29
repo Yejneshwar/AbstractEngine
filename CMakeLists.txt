@@ -198,15 +198,34 @@ set(GRAPHICS_SRC "Graphics/GraphicsCore.h"
 "Graphics/stb_image.h"
 )
 
+set(APPLICATION_SRC "Application/AbstractApplication.h"
+"Application/AbstractApplication.cpp"
+"Application/Core/Base.h"
+"Application/Core/Layer.h"
+"Application/Core/LayerStack.h"
+"Application/Core/LayerStack.cpp"
+"Application/Events/Codes/KeyCodes.h"
+"Application/Events/Codes/MouseCodes.h"
+"Application/Events/EventTypes/ApplicationEvent.h"
+"Application/Events/EventTypes/KeyEvent.h"
+"Application/Events/EventTypes/MouseEvent.h"
+"Application/Events/Input.h"
+"Application/Events/Event.h"
+"Application/ImGuiHandler/ImGuiHandler.cpp"
+"Application/ImGuiHandler/ImGuiHandler.h"
+"Application/Window/Window.cpp"
+"Application/Window/Window.h"
+)
+
 set(SRC 
     "OpenGL Starter.cpp"
     "OpenGL Starter.h"
-    "ImGuiHandler/ImGuiHandler.cpp"
-    "ImGuiHandler/ImGuiHandler.h"
     ${GRAPHICS_SRC}
+    ${APPLICATION_SRC}
 )
 
 include_directories(Graphics)
+include_directories(Application)
 
 # Add source to this project's executable.
 add_executable (OpenGLStarter ${SRC})

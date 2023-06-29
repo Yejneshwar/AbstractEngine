@@ -6,12 +6,12 @@
 
 namespace Graphics {
 
-	Ref<Shader> Shader::Create(const std::string& filepath)
+	Ref<Shader> Shader::Create(const std::string& filepath, bool cache)
 	{
 		switch (Renderer::GetAPI())
 		{
 			case RendererAPI::API::None:    GRAPHICS_CORE_ASSERT(false, "RendererAPI::None is currently not supported!"); return nullptr;
-			case RendererAPI::API::OpenGL:  return CreateRef<OpenGLShader>(filepath);
+			case RendererAPI::API::OpenGL:  return CreateRef<OpenGLShader>(filepath, cache);
 		}
 
 		GRAPHICS_CORE_ASSERT(false, "Unknown RendererAPI!");

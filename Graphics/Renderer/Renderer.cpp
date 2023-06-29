@@ -10,7 +10,7 @@ namespace Graphics {
 		
 
 		RenderCommand::Init();
-		Renderer2D::Init();
+		//Renderer2D::Init();
 	}
 
 	void Renderer::Shutdown()
@@ -40,6 +40,11 @@ namespace Graphics {
 
 		vertexArray->Bind();
 		RenderCommand::DrawIndexed(vertexArray);
+	}
+
+	void Renderer::DrawGridTriangles()
+	{
+		RenderCommand::DrawGridTriangles();
 	}
 
 }

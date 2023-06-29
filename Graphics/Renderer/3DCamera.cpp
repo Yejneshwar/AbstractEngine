@@ -1,6 +1,8 @@
 #include "3DCamera.h"
 #include <iostream>
 #include <GLFW/glfw3.h>
+#include <Events/Input.h>
+
 
 
 
@@ -11,37 +13,24 @@ Graphics::ThreeDCamera::ThreeDCamera(float fov, float aspectRatio, float nearCli
 	UpdateView();
 }
 
-void Graphics::ThreeDCamera::OnUpdate(double x, double y, int leftButton, int rightButton)
+void Graphics::ThreeDCamera::OnUpdate()
 {
-	const glm::vec2& mouse{ x, y };
+	const glm::vec2& mouse{ Application::Input::GetMouseX(), Application::Input::GetMouseY() };
 	glm::vec2 delta = (mouse - m_InitialMousePosition) * 0.003f;
 	m_InitialMousePosition = mouse;
-
-	if (rightButton) {
-		MousePan(delta);
-	}
-	else if (leftButton) {
+	
+	if (Application::Input::IsMouseButtonPressed(Application::Mouse::ButtonLeft))
 		MouseRotate(delta);
-	}
-	//if (Input::IsKeyPressed(Key::LeftAlt))
-	//{
-	//	const glm::vec2& mouse{ Input::GetMouseX(), Input::GetMouseY() };
-	//	glm::vec2 delta = (mouse - m_InitialMousePosition) * 0.003f;
-	//	m_InitialMousePosition = mouse;
-	//
-	//	if (Input::IsMouseButtonPressed(Mouse::ButtonMiddle))
-	//		MousePan(delta);
-	//	else if (Input::IsMouseButtonPressed(Mouse::ButtonLeft))
-	//		MouseRotate(delta);
-	//	else if (Input::IsMouseButtonPressed(Mouse::ButtonRight))
-	//		MouseZoom(delta.y);
-	//}
+	else if (Application::Input::IsMouseButtonPressed(Application::Mouse::ButtonRight))
+		MouseZoom(delta.y);
 
 	UpdateView();
 }
 
-void Graphics::ThreeDCamera::OnEvent()
+void Graphics::ThreeDCamera::OnEvent(Application::Event& event)
 {
+	Application::EventDispatcher dispatcher(event);
+	dispatcher.Dispatch<Application::MouseScrolledEvent>(APP_BIND_EVENT_FN(Graphics::ThreeDCamera::OnMouseScroll));
 }
 
 glm::vec3 Graphics::ThreeDCamera::GetUpDirection() const
@@ -80,10 +69,10 @@ void Graphics::ThreeDCamera::UpdateView()
 	m_ViewMatrix = glm::inverse(m_ViewMatrix);
 }
 
-bool Graphics::ThreeDCamera::OnMouseScroll(double offset)
+
+bool Graphics::ThreeDCamera::OnMouseScroll(Application::MouseScrolledEvent& e)
 {
-	//float delta = e.GetYOffset() * 0.1f;
-	float delta = offset * 0.1f;
+	float delta = e.GetYOffset() * 0.1f;
 	MouseZoom(delta);
 	UpdateView();
 	return false;

@@ -40,8 +40,8 @@ namespace Graphics {
 		glEnable(GL_BLEND);
 		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-		glEnable(GL_DEPTH_TEST);
-		glEnable(GL_LINE_SMOOTH);
+		//glEnable(GL_DEPTH_TEST);
+		//glEnable(GL_LINE_SMOOTH);
 	}
 
 	void OpenGLRendererAPI::SetViewport(uint32_t x, uint32_t y, uint32_t width, uint32_t height)
@@ -80,6 +80,13 @@ namespace Graphics {
 	{
 		vertexArray->Bind();
 		glDrawArrays(GL_LINES, 0, vertexCount);
+	}
+
+	void OpenGLRendererAPI::DrawGridTriangles(){
+		//TODO: Remove this later
+		glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT);
+		glDrawArraysInstancedBaseInstance(GL_TRIANGLES, 0, 6, 1, 0);
 	}
 
 	void OpenGLRendererAPI::SetLineWidth(float width)

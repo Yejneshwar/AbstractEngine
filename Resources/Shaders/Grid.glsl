@@ -9,15 +9,15 @@ layout (location=1) out vec2 out_camPos;
 
 void main()
 {
-	mat4 MVP = proj * view;
+	mat4 MVP = ubo.projection * ubo.view;
 
 	int idx = indices[gl_VertexID];
 	vec3 position = pos[idx] * gridSize;
 	
-	position.x += cameraPos.x;
-	position.z += cameraPos.z;
+	position.x += ubo.cameraPos.x;
+	position.z += ubo.cameraPos.z;
 
-	out_camPos = cameraPos.xz;
+	out_camPos = ubo.cameraPos.xz;
 
 	gl_Position = MVP * vec4(position, 1.0);
 	uv = position.xz;

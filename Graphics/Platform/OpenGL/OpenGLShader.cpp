@@ -92,8 +92,8 @@ namespace Graphics {
 
 	}
 
-	OpenGLShader::OpenGLShader(const std::string& filepath)
-		: m_FilePath(filepath)
+	OpenGLShader::OpenGLShader(const std::string& filepath, bool cache)
+		: m_FilePath(filepath), m_EnableCache(cache)
 	{
 		
 
@@ -264,7 +264,7 @@ namespace Graphics {
 			std::filesystem::path cachedPath = cacheDirectory / (shaderFilePath.filename().string() + Utils::GLShaderStageCachedVulkanFileExtension(stage));
 
 			std::ifstream in(cachedPath, std::ios::in | std::ios::binary);
-			if (in.is_open())
+			if (in.is_open() && m_EnableCache)
 			{
 				in.seekg(0, std::ios::end);
 				auto size = in.tellg();
@@ -325,7 +325,7 @@ namespace Graphics {
 			std::filesystem::path cachedPath = cacheDirectory / (shaderFilePath.filename().string() + Utils::GLShaderStageCachedOpenGLFileExtension(stage));
 
 			std::ifstream in(cachedPath, std::ios::in | std::ios::binary);
-			if (in.is_open())
+			if (in.is_open() && m_EnableCache)
 			{
 				in.seekg(0, std::ios::end);
 				auto size = in.tellg();
@@ -384,7 +384,7 @@ namespace Graphics {
 			std::filesystem::path cachedPath = cacheDirectory / (shaderFilePath.filename().string() + Utils::GLShaderStageCachedOpenGLFileExtension(stage));
 
 			std::ifstream in(cachedPath, std::ios::in | std::ios::binary);
-			if (in.is_open())
+			if (in.is_open() && m_EnableCache)
 			{
 				in.seekg(0, std::ios::end);
 				auto size = in.tellg();

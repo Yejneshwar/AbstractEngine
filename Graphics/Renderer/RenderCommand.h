@@ -42,6 +42,10 @@ namespace Graphics {
 			s_RendererAPI->DrawLines(vertexArray, vertexCount);
 		}
 
+		static void DrawGridTriangles() {
+			s_RendererAPI->DrawGridTriangles();
+		}
+
 		static void SetLineWidth(float width)
 		{
 			s_RendererAPI->SetLineWidth(width);

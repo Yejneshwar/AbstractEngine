@@ -248,7 +248,7 @@ namespace Graphics {
 		s_Data.TriangleVertexPositions[1] = { 0.5f, -0.5f, 0.0f};
 		s_Data.TriangleVertexPositions[2] = { 0.0f,  0.5f, 0.0f};
 
-		s_Data.CameraUniformBuffer = UniformBuffer::Create(sizeof(Renderer2DData::CameraData), 0);
+		s_Data.CameraUniformBuffer = UniformBuffer::Create(sizeof(Renderer2DData::CameraData), 3);
 	}
 
 	void Renderer2D::Shutdown()

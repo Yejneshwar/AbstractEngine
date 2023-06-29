@@ -1,5 +1,10 @@
+#pragma once 
+
 #include "Camera.h"
 #include "glm/gtx/quaternion.hpp"
+#include "Events/Event.h"
+#include <Events/EventTypes/MouseEvent.h>
+
 
 namespace Graphics {
 
@@ -9,8 +14,9 @@ namespace Graphics {
 		ThreeDCamera() = default;
 		ThreeDCamera(float fov, float aspectRatio, float nearClip, float farClip);
 
-		void OnUpdate(double x, double y, int leftButton, int rightButton);
-		void OnEvent();
+		//void OnUpdate(double x, double y, int leftButton, int rightButton);
+		void OnUpdate();
+		void OnEvent(Application::Event& event);
 
 		inline float GetDistance() const { return m_Distance; }
 		inline void SetDistance(float distance) { m_Distance = distance; }
@@ -28,13 +34,15 @@ namespace Graphics {
 
 		float GetPitch() const { return m_Pitch; }
 		float GetYaw() const { return m_Yaw; }
-		bool OnMouseScroll(double offset);
+		//bool OnMouseScroll(double offset);
 
 		void SetMousePos(glm::vec2 mousePos) { m_InitialMousePosition = mousePos; }
 	private:
 		void UpdateProjection();
 		void UpdateView();
 
+
+		bool OnMouseScroll(Application::MouseScrolledEvent& e);
 
 		void MousePan(const glm::vec2& delta);
 		void MouseRotate(const glm::vec2& delta);

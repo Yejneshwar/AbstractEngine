@@ -1,9 +1,8 @@
-layout(std140, binding = 0) uniform PerFrameData
-{
-	mat4 view;
-	mat4 proj;
+layout(std140, binding = 0) uniform UBOCamera {
+    mat4 view;
+    mat4 projection;
 	vec4 cameraPos;
-};
+} ubo;
 
 struct Vertex
 {
