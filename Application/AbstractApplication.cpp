@@ -114,6 +114,8 @@ namespace GUI {
 				{
 					HZ_PROFILE_SCOPE("LayerStack OnUpdate");
 
+					Graphics::Renderer::Clear();
+
 					for (Layer* layer : m_LayerStack)
 						layer->OnUpdate();
 

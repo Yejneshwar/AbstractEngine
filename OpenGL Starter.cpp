@@ -37,10 +37,10 @@ namespace GUI {
         static const uint32_t MaxQuads = 20000;
         static const uint32_t MaxVertices = MaxQuads * 4;
         static const uint32_t MaxIndices = MaxQuads * 6;
-        glm::vec3 triangleColor = glm::vec3(1.0f, 0.5f, 0.2f);
+        glm::vec4 triangleColor = glm::vec4(1.0f, 0.5f, 0.2f, 0.1f);
 
         struct UBODataFragment {
-            glm::vec3 triangleColor;
+            glm::vec4 triangleColor;
         };
 
         struct TriangleVertex {
@@ -52,11 +52,14 @@ namespace GUI {
 
 		Graphics::Ref<Graphics::Shader> m_BasicShader;
         // Vertex data
-        float vertices[18] = {
+        float vertices[18+18] = {
             // positions         // colors
              0.5f, -0.5f, 0.0f,  1.0f, 0.0f, 0.0f,  // bottom right
             -0.5f, -0.5f, 0.0f,  0.0f, 1.0f, 0.0f,  // bottom left
-             0.0f,  0.5f, 0.0f,  0.0f, 0.0f, 1.0f   // top 
+             0.0f,  0.5f, 0.0f,  0.0f, 0.0f, 1.0f,   // top
+             0.5f, -0.5f, 1.0f,  1.0f, 0.0f, 0.0f,  // bottom right
+            -0.5f, -0.5f, 1.0f,  0.0f, 1.0f, 0.0f,  // bottom left
+             0.0f,  0.5f, 1.0f,  0.0f, 0.0f, 1.0f   // top 
         };
         Graphics::Ref<Graphics::VertexArray> TriangleVertexArray = Graphics::VertexArray::Create();
         ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -138,14 +141,14 @@ namespace GUI {
             //If drawing indexed//
             //Graphics::RenderCommand::DrawIndexed(TriangleVertexArray);
             //      OR      //
-            Graphics::RenderCommand::DrawNonIndexed(TriangleVertexArray, 3);
+            Graphics::RenderCommand::DrawNonIndexed(TriangleVertexArray, 6);
 
 		}
 
         void OnImGuiRender() {
             // ImGui window
             ImGui::Begin("Triangle Color");
-            ImGui::ColorEdit3("Color", glm::value_ptr(uboDataFragment.triangleColor));
+            ImGui::ColorEdit4("Color", glm::value_ptr(uboDataFragment.triangleColor));
             ImGui::End();
 
             {
@@ -177,8 +180,9 @@ namespace GUI {
 		TestGUI(const ApplicationSpecification& spec)
 			:AbstractApplication(spec)
 		{ 
-			PushLayer(new GridLayer());
+            //Because of opacity and draw order, The grid should always be the last layer
             PushLayer(new ObjectLayer());
+			PushLayer(new GridLayer());
 		}
 
 		~TestGUI() {

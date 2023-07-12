@@ -15,10 +15,10 @@ void main()
 layout(location = 0) out vec4 FragColor;
 
 layout(std140, binding = 1) uniform UBOFragment {
-    vec3 triangleColor;
+    vec4 triangleColor;
 } ubo;
 
 void main()
 {
-    FragColor = vec4(ubo.triangleColor, 1.0);
+    FragColor = ubo.triangleColor;
 }

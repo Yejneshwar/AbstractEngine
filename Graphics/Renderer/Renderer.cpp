@@ -47,4 +47,7 @@ namespace Graphics {
 		RenderCommand::DrawGridTriangles();
 	}
 
+	void Renderer::Clear() {
+		RenderCommand::Clear();
+	}
 }

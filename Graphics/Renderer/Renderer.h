@@ -22,6 +22,8 @@ namespace Graphics {
 
 		static void DrawGridTriangles();
 
+		static void Clear();
+
 		static RendererAPI::API GetAPI() { return RendererAPI::GetAPI(); }
 	private:
 		struct SceneData
