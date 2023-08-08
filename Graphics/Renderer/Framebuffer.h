@@ -10,6 +10,9 @@ namespace Graphics {
 
 		// Color
 		RGBA8,
+		R32UI,
+		RG32UI,
+		RGBA32UI,
 		RED_INTEGER,
 
 		// Depth/stencil
@@ -43,6 +46,9 @@ namespace Graphics {
 		uint32_t Width = 0, Height = 0;
 		FramebufferAttachmentSpecification Attachments;
 		uint32_t Samples = 1;
+		uint32_t oit1;
+		uint32_t oit2;
+
 
 		bool SwapChainTarget = false;
 	};
@@ -62,9 +68,13 @@ namespace Graphics {
 
 		virtual uint32_t GetColorAttachmentRendererID(uint32_t index = 0) const = 0;
 
+		virtual uint32_t GetDepthAttachmentRendererID() const = 0;
+
 		virtual const FramebufferSpecification& GetSpecification() const = 0;
 
 		static Ref<Framebuffer> Create(const FramebufferSpecification& spec);
+
+		virtual void BindTexture(uint32_t attachmentIndex = 0, uint32_t slot = 0) const = 0;
 	};
 
 

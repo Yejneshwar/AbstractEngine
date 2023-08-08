@@ -27,7 +27,9 @@ namespace Graphics {
 		virtual const std::string& GetName() const = 0;
 		virtual const uint32_t& GetId() const = 0;
 
-		static Ref<Shader> Create(const std::string& filepath, bool cache = true);
+		static Ref<Shader> Create(const std::string& filepath);
+		static Ref<Shader> Create(const std::string& filepath, bool cache, bool debug = false);
+		static Ref<Shader> Create(const std::string& filepath, const std::string vertexPrepend, const std::string fragmentPrepend, bool cache, bool debug);
 		static Ref<Shader> Create(const std::string& name, const std::string& vertexSrc, const std::string& fragmentSrc);
 	};
 

@@ -9,13 +9,27 @@
 #include "ImGuiHandler/ImGuiHandler.h"
 #include <Renderer/3DCamera.h>
 #include <Renderer/UniformBuffer.h>
+#include <Renderer/FrameBuffer.h>
+#include <Renderer/Shader.h>
 
 namespace GUI {
 
-	struct UBOCamera {
-		glm::mat4 view;
-		glm::mat4 projection;
-		glm::vec4 cameraPos;
+	struct SceneDataUBO {
+			// Vectors are multiplied on the right.
+			glm::mat4 projViewMatrix;
+			glm::mat4 viewMatrix;
+			glm::mat4 projectionMatrix;
+			glm::mat4 viewMatrixInverseTranspose;
+			glm::vec4 cameraPos;
+
+			glm::ivec3 viewport;  // (width, height, width*height)
+			// For SIMPLE, INTERLOCK, SPINLOCK, LOOP, and LOOP64, the number of OIT layers;
+			// for LINKEDLIST, the total number of elements in the A-buffer.
+			glm::uint linkedListAllocatedPerElement;
+
+			float alphaMin;
+			float alphaWidth;
+			glm::vec2  _pad1;
 	};
 
 	struct ApplicationCommandLineArgs
@@ -30,12 +44,21 @@ namespace GUI {
 		}
 	};
 
+	struct ApplicationSettings {
+
+
+
+
+	};
+
 	struct ApplicationSpecification
 	{
 		std::string Name = "Abstract Application";
 		std::string WorkingDirectory;
 		ApplicationCommandLineArgs CommandLineArgs;
+		ApplicationSettings ApplicationSettings;
 	};
+
 
 	class AbstractApplication {
 	public:
@@ -56,6 +79,15 @@ namespace GUI {
 
 		static AbstractApplication& Get() { return *s_Instance; }
 
+		static void BindFrameBufferTextures() { 
+			s_Instance->m_Framebuffer->BindTexture(1, 1);
+			s_Instance->m_Framebuffer->BindTexture(2, 2);
+		}
+
+		static void UnBindFrameBufferTextures() {
+			//s_Instance->m_Framebuffer->UnBindTextures();
+		}
+
 		const ApplicationSpecification& GetSpecification() const { return m_Specification; }
 
 		void SubmitToMainThread(const std::function<void()>& function);
@@ -65,6 +97,12 @@ namespace GUI {
 		bool OnWindowResize(Application::WindowResizeEvent& e);
 
 		void ExecuteMainThreadQueue();
+
+		static void UseShader(const ImDrawList* parent_list, const ImDrawCmd* cmd);
+
+		static void ClearFrameBuffer(const ImDrawList* parent_list, const ImDrawCmd* cmd);
+
+		void CoreUI();
 	private:
 		ApplicationSpecification m_Specification;
 		Graphics::Scope<Application::Window> m_Window;
@@ -75,8 +113,19 @@ namespace GUI {
 		float m_LastFrameTime = 0.0f;
 
 		Graphics::ThreeDCamera m_ApplicationCamera;
-		UBOCamera uboDataCamera;
+		SceneDataUBO m_uboDataScene;
 		Graphics::Ref<Graphics::UniformBuffer> m_CameraBuffer;
+
+		Graphics::Ref<Graphics::Framebuffer> m_Framebuffer;
+
+		const std::string m_passDefine = "#define PASS PASS_COMPOSITE\n";
+		const std::string m_compositeDefine = "#define PASS PASS_COMPOSITE\n";
+
+		Graphics::Ref<Graphics::Shader> m_PostProcessingShader;
+
+		bool m_ViewportFocused = false, m_ViewportHovered = false;
+		glm::vec2 m_ViewportSize = { 0.0f, 0.0f };
+		glm::vec2 m_ViewportBounds[2];
 
 		std::vector<std::function<void()>> m_MainThreadQueue;
 		std::mutex m_MainThreadQueueMutex;

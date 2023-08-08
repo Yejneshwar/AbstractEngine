@@ -25,6 +25,7 @@ namespace Application {
 		HZ_PROFILE_FUNCTION();
 
 		Init(props);
+		InitMonitors();
 	}
 
 	WindowsWindow::~WindowsWindow()
@@ -157,6 +158,28 @@ namespace Application {
 				MouseMovedEvent event((float)xPos, (float)yPos);
 				data.EventCallback(event);
 			});
+
+		glfwSetMonitorCallback([](GLFWmonitor* monitor, int event) 
+			{
+				std::cout << "Monitor Event" << std::endl;
+				std::cout << (event == GLFW_CONNECTED ? "Monitor Connected..." : "Monitor Disconnected....") << std::endl;
+
+				//auto window = glfwGetCurrentContext();
+				//WindowData& data = *(WindowData*)glfwGetWindowUserPointer(window);
+				//data.m_Settings.primaryMonitor = glfwGetPrimaryMonitor();
+				//data.m_Settings.monitors = glfwGetMonitors(&data.m_Settings.monitorCount);
+
+				//int xpos, ypos, width, height;
+				//glfwGetMonitorWorkarea(monitor, &xpos, &ypos, &width, &height);
+				//const GLFWvidmode* mode = glfwGetVideoMode(monitor);
+				//glfwSetWindowMonitor(window, data.m_Settings.primaryMonitor, xpos, ypos, width, height,mode->refreshRate);
+			});
+
+	}
+
+	void WindowsWindow::InitMonitors() {
+		m_Data.m_Settings.primaryMonitor = glfwGetPrimaryMonitor();
+		m_Data.m_Settings.monitors = glfwGetMonitors(&m_Data.m_Settings.monitorCount);
 	}
 
 	void WindowsWindow::Shutdown()
@@ -189,12 +212,12 @@ namespace Application {
 		else
 			glfwSwapInterval(0);
 
-		m_Data.VSync = enabled;
+		m_Data.m_Settings.VSync = enabled;
 	}
 
 	bool WindowsWindow::IsVSync() const
 	{
-		return m_Data.VSync;
+		return m_Data.m_Settings.VSync;
 	}
 
 	Graphics::Scope<Window> Window::Create(const WindowProps& props)

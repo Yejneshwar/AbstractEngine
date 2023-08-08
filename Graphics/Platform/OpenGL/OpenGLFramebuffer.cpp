@@ -3,6 +3,7 @@
 #include "Platform/OpenGL/OpenGLFramebuffer.h"
 
 #include <glad/gl.h>
+#include <cassert>
 
 namespace Graphics {
 
@@ -25,7 +26,7 @@ namespace Graphics {
 			glBindTexture(TextureTarget(multisampled), id);
 		}
 
-		static void AttachColorTexture(uint32_t id, int samples, GLenum internalFormat, GLenum format, uint32_t width, uint32_t height, int index)
+		static void AttachColorTexture(uint32_t id, int samples, GLenum internalFormat, GLenum format, uint32_t width, uint32_t height, int index, GLenum storageType = GL_UNSIGNED_BYTE)
 		{
 			bool multisampled = samples > 1;
 			if (multisampled)
@@ -34,7 +35,9 @@ namespace Graphics {
 			}
 			else
 			{
-				glTexImage2D(GL_TEXTURE_2D, 0, internalFormat, width, height, 0, format, GL_UNSIGNED_BYTE, nullptr);
+				//glTexImage2D(GL_TEXTURE_2D, 0, internalFormat, width, height, 0, format, GL_UNSIGNED_BYTE, nullptr);
+				glTexImage2D(GL_TEXTURE_2D, 0, internalFormat, width, height, 0, format, storageType, nullptr);
+
 
 				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -81,8 +84,11 @@ namespace Graphics {
 		{
 			switch (format)
 			{
-				case FramebufferTextureFormat::RGBA8:       return GL_RGBA8;
-				case FramebufferTextureFormat::RED_INTEGER: return GL_RED_INTEGER;
+				case FramebufferTextureFormat::RGBA8:			return GL_RGBA8;
+				case FramebufferTextureFormat::R32UI:			return GL_R32UI;
+				case FramebufferTextureFormat::RG32UI:			return GL_RG32UI;
+				case FramebufferTextureFormat::RGBA32UI:	    return GL_RGBA32UI;
+				case FramebufferTextureFormat::RED_INTEGER:		return GL_RED_INTEGER;
 			}
 
 			GRAPHICS_CORE_ASSERT(false);
@@ -143,6 +149,19 @@ namespace Graphics {
 					case FramebufferTextureFormat::RGBA8:
 						Utils::AttachColorTexture(m_ColorAttachments[i], m_Specification.Samples, GL_RGBA8, GL_RGBA, m_Specification.Width, m_Specification.Height, i);
 						break;
+					case FramebufferTextureFormat::R32UI:
+						//Utils::AttachColorTexture(m_ColorAttachments[i], m_Specification.Samples, GL_R32UI, GL_RED_INTEGER, m_Specification.Width, m_Specification.Height, i);
+						m_ColorAttachments[i] = m_Specification.oit2;
+						glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1 + i, GL_TEXTURE_2D, m_Specification.oit2, 0);
+						break;
+					case FramebufferTextureFormat::RG32UI:
+						//Utils::AttachColorTexture(m_ColorAttachments[i], m_Specification.Samples, GL_RG32UI, GL_RGBA, m_Specification.Width, m_Specification.Height, i);
+						m_ColorAttachments[i] = m_Specification.oit1;
+						glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1 + i, GL_TEXTURE_2D, m_Specification.oit1, 0);
+						break;
+					case FramebufferTextureFormat::RGBA32UI:
+						//Utils::AttachColorTexture(m_ColorAttachments[i], m_Specification.Samples, GL_RGBA8, GL_RGBA, m_Specification.Width, m_Specification.Height, i);
+						break;
 					case FramebufferTextureFormat::RED_INTEGER:
 						Utils::AttachColorTexture(m_ColorAttachments[i], m_Specification.Samples, GL_R32I, GL_RED_INTEGER, m_Specification.Width, m_Specification.Height, i);
 						break;
@@ -172,6 +191,10 @@ namespace Graphics {
 		{
 			// Only depth-pass
 			glDrawBuffer(GL_NONE);
+		}
+
+		if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+			std::cout << "Framebuffer is incomplete!" << std::endl;
 		}
 
 		GRAPHICS_CORE_ASSERT(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE, "Framebuffer is incomplete!");
@@ -217,10 +240,18 @@ namespace Graphics {
 	void OpenGLFramebuffer::ClearAttachment(uint32_t attachmentIndex, int value)
 	{
 		GRAPHICS_CORE_ASSERT(attachmentIndex < m_ColorAttachments.size());
+		assert(attachmentIndex < m_ColorAttachments.size());
 
 		auto& spec = m_ColorAttachmentSpecifications[attachmentIndex];
 		glClearTexImage(m_ColorAttachments[attachmentIndex], 0,
 			Utils::HazelFBTextureFormatToGL(spec.TextureFormat), GL_INT, &value);
+	}
+
+	void OpenGLFramebuffer::BindTexture(uint32_t attachmentIndex, uint32_t slot) const
+	{
+		GRAPHICS_CORE_ASSERT(attachmentIndex < m_ColorAttachments.size());
+		glActiveTexture(GL_TEXTURE0 + slot);
+		glBindTexture(GL_TEXTURE_2D, m_ColorAttachments[attachmentIndex]);
 	}
 
 }

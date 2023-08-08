@@ -92,7 +92,7 @@ namespace Graphics {
 
 	}
 
-	OpenGLShader::OpenGLShader(const std::string& filepath, bool cache)
+	OpenGLShader::OpenGLShader(const std::string& filepath, const std::string vertexPrepend, const std::string fragmentPrepend, bool cache, bool debug)
 		: m_FilePath(filepath), m_EnableCache(cache)
 	{
 		
@@ -105,6 +105,12 @@ namespace Graphics {
 
 		auto shaderSources = PreProcess(source);
 
+		ProcessPrepends(shaderSources, vertexPrepend, fragmentPrepend);
+
+		if (debug) {
+			std::cout << "Vertex Shader ###### \n" << shaderSources[GL_VERTEX_SHADER] << std::endl;
+			std::cout << "Fragment Shader ###### \n" << shaderSources[GL_FRAGMENT_SHADER] << std::endl;
+		}
 
 		std::cout << "//////////////////////////////////////Compiling shader " << filepath << std::endl;
 		{
@@ -117,14 +123,16 @@ namespace Graphics {
 				//std::cout << "//////////////////////////////////////Vulkan reflection" << std::endl;
 				//for (auto&& [stage, data] : shaderDataVulkan)
 				//	Reflect(stage, data);
-				std::cout << "//////////////////////////////////////OpenGL reflection" << std::endl;
-				for (auto&& [stage, data] : shaderDataOpenGL)
-					Reflect(stage, data);
+				if (debug) {
+					std::cout << "//////////////////////////////////////OpenGL reflection" << std::endl;
+					for (auto&& [stage, data] : shaderDataOpenGL)
+						Reflect(stage, data);
+				}
 				CreateProgram();
 
 			}
 			catch (std::runtime_error e) {
-				std::cout << e.what() << std::endl;
+				std::cout<< "Error : " << e.what() << std::endl;
 				std::cout << "//////////////////////////////////////End Compilation" << std::endl;
 				return;
 			}
@@ -188,7 +196,7 @@ namespace Graphics {
 		}
 		else
 		{
-			std::cout << "Could not open shader file" << std::endl;
+			std::cout << "Could not open shader file " << filepath << std::endl;
 			//HZ_CORE_ERROR("Could not open file '{0}'", filepath);
 		}
 
@@ -197,6 +205,7 @@ namespace Graphics {
 
 	void OpenGLShader::PreProcessIncludes(std::string& source)
 	{
+		int replaceCounter = 0;
 		while (source.find("#include ") != source.npos)
 		{
 			const auto pos = source.find("#include ");
@@ -204,12 +213,17 @@ namespace Graphics {
 			const auto p2 = source.find('>', pos);
 			if (p1 == source.npos || p2 == source.npos || p2 <= p1)
 			{
+				const std::string name = source.substr(p1 + 1, p2 - p1 - 1);
+				printf("Error : %s\n\n\n\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!", name.c_str());
 				printf("Error while loading shader program: %s\n", source.c_str());
 				return;
 			}
 			const std::string name = source.substr(p1 + 1, p2 - p1 - 1);
 			const std::string include = ReadFile(name.c_str());
 			source.replace(pos, p2 - pos + 1, include.c_str());
+			printf("Replace %d : %s\n", replaceCounter++, name.c_str());
+			//printf("\n\n\n%s\n\n\n", source.c_str());
+			printf("End Replace\n");
 		}
 	}
 
@@ -236,11 +250,41 @@ namespace Graphics {
 			shaderSources[Utils::ShaderTypeFromString(type)] = (pos == std::string::npos) ? source.substr(nextLinePos) : source.substr(nextLinePos, pos - nextLinePos);
 		}
 
-		//std::cout << "Vertex Shader ###### \n" << shaderSources[GL_VERTEX_SHADER] << std::endl;
-		//std::cout << "Fragment Shader ###### \n" << shaderSources[GL_FRAGMENT_SHADER] << std::endl;
-
-
 		return shaderSources;
+	}
+
+	void OpenGLShader::ProcessPrepends(std::unordered_map<GLenum, std::string>& shaderSources, const std::string vertexPrepend, const std::string fragmentPrepend)
+	{
+		std::cout << "Processing Prepends...." << std::endl;
+		std::cout << "Vertex Prepend : " << vertexPrepend << std::endl;
+		std::cout << "Fragment Prepend : " << fragmentPrepend << std::endl;
+
+		const char* versionToken = "#version";
+		if (!vertexPrepend.empty()) {
+			auto& source = shaderSources[GL_VERTEX_SHADER];
+			size_t pos = source.find(versionToken, 0);
+			if (pos != std::string::npos)
+			{
+				size_t eol = source.find_first_of("\r\n", pos); //End of version declaration line
+				size_t nextLinePos = source.find_first_not_of("\r\n", eol); //Start of shader code after shader type declaration line
+				GRAPHICS_CORE_ASSERT(nextLinePos != std::string::npos, "Syntax error");
+				source.insert(nextLinePos, vertexPrepend + "\n");
+			}
+		}
+
+		if (!fragmentPrepend.empty()) {
+			auto& source = shaderSources[GL_FRAGMENT_SHADER];
+			size_t pos = source.find(versionToken, 0);
+			if (pos != std::string::npos)
+			{
+				size_t eol = source.find_first_of("\r\n", pos); //End of version declaration line
+				size_t nextLinePos = source.find_first_not_of("\r\n", eol); //Start of shader code after shader type declaration line
+				GRAPHICS_CORE_ASSERT(nextLinePos != std::string::npos, "Syntax error");
+				source.insert(nextLinePos, fragmentPrepend + "\n");
+			}
+		}
+
+
 	}
 
 	void OpenGLShader::CompileOrGetVulkanBinaries(const std::unordered_map<GLenum, std::string>& shaderSources)

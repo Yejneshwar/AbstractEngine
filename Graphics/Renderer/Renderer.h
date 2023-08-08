@@ -24,6 +24,18 @@ namespace Graphics {
 
 		static void Clear();
 
+		static void ClearBuffers();
+
+		static void DepthTest(bool state);
+
+		static void InitOtiBuffers(int width, int height);
+
+		static void BindOtiBuffers();
+		static void UnBindOtiBuffers();
+		static void ClearOtiBuffers();
+
+		static uint32_t GetOitColorBuffer(int index);
+
 		static RendererAPI::API GetAPI() { return RendererAPI::GetAPI(); }
 	private:
 		struct SceneData

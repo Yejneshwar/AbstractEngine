@@ -22,7 +22,7 @@ void Graphics::ThreeDCamera::OnUpdate()
 	if (Application::Input::IsMouseButtonPressed(Application::Mouse::ButtonLeft))
 		MouseRotate(delta);
 	else if (Application::Input::IsMouseButtonPressed(Application::Mouse::ButtonRight))
-		MouseZoom(delta.y);
+		MousePan(delta);
 
 	UpdateView();
 }

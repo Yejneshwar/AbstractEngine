@@ -9,7 +9,7 @@ layout (location=1) out vec2 out_camPos;
 
 void main()
 {
-	mat4 MVP = ubo.projection * ubo.view;
+	mat4 MVP = ubo.projectionMatrix * ubo.viewMatrix;
 
 	int idx = indices[gl_VertexID];
 	vec3 position = pos[idx] * gridSize;

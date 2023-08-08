@@ -6,12 +6,22 @@
 
 namespace Graphics {
 
-	Ref<Shader> Shader::Create(const std::string& filepath, bool cache)
+	Ref<Shader> Shader::Create(const std::string& filepath)
+	{
+		return Create(filepath, "", "", true, false);
+	}
+
+	Ref<Shader> Shader::Create(const std::string& filepath, bool cache, bool debug)
+	{
+		return Create(filepath, "", "", cache, debug);
+	}
+
+	Ref<Shader> Shader::Create(const std::string& filepath, const std::string vertexPrepend, const std::string fragmentPrepend, bool cache, bool debug)
 	{
 		switch (Renderer::GetAPI())
 		{
 			case RendererAPI::API::None:    GRAPHICS_CORE_ASSERT(false, "RendererAPI::None is currently not supported!"); return nullptr;
-			case RendererAPI::API::OpenGL:  return CreateRef<OpenGLShader>(filepath, cache);
+			case RendererAPI::API::OpenGL:  return CreateRef<OpenGLShader>(filepath, vertexPrepend, fragmentPrepend, cache, debug);
 		}
 
 		GRAPHICS_CORE_ASSERT(false, "Unknown RendererAPI!");
@@ -51,7 +61,7 @@ namespace Graphics {
 
 	Ref<Shader> ShaderLibrary::Load(const std::string& name, const std::string& filepath)
 	{
-		auto shader = Shader::Create(filepath);
+		auto shader = Shader::Create(filepath, true, false);
 		Add(name, shader);
 		return shader;
 	}

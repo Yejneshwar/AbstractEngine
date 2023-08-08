@@ -1,5 +1,6 @@
 #include "AbstractApplication.h"
 #include "Renderer/Renderer.h"
+#include "glm/gtc/matrix_inverse.hpp"
 
 namespace GUI {
 	AbstractApplication* AbstractApplication::s_Instance = nullptr;
@@ -19,20 +20,49 @@ namespace GUI {
 		m_Window = Application::Window::Create(Application::WindowProps(m_Specification.Name));
 		m_Window->SetEventCallback(APP_BIND_EVENT_FN(AbstractApplication::OnEvent));
 
+		Graphics::FramebufferSpecification fbSpec;
+		fbSpec.Attachments = { 
+			//Graphics::FramebufferTextureFormat::RGBA8,
+			Graphics::FramebufferTextureFormat::RG32UI,
+			Graphics::FramebufferTextureFormat::R32UI,
+			//Graphics::FramebufferTextureFormat::RED_INTEGER,
+			//Graphics::FramebufferTextureFormat::Depth, 
+		};
+		fbSpec.Width = 1280;
+		fbSpec.Height = 720;
 		Graphics::Renderer::Init();
+		Graphics::Renderer::InitOtiBuffers(fbSpec.Width, fbSpec.Height);
+		fbSpec.oit1 = Graphics::Renderer::GetOitColorBuffer(0);
+		fbSpec.oit2 = Graphics::Renderer::GetOitColorBuffer(1);
+
+		m_Framebuffer = Graphics::Framebuffer::Create(fbSpec);
+
+
+		//For some fucking reason!!! creatin this shader (or the other one) right after creating the frame buffer fails. WTF? But creating it the second time works? 
+		m_PostProcessingShader = Graphics::Shader::Create("./Resources/Shaders/OIT/oitSimple.glsl", m_passDefine, m_compositeDefine, false, false);
+		m_PostProcessingShader = Graphics::Shader::Create("./Resources/Shaders/OIT/oitSimple.glsl", m_passDefine, m_compositeDefine, false, false);
+
+
 
 
 		m_ApplicationCamera = Graphics::ThreeDCamera(45.0f, 800.0f / 600.0f, 0.1f, 1000.0f);
-		UBOCamera uboDataCamera;
-		m_CameraBuffer = Graphics::UniformBuffer::Create(sizeof(UBOCamera), 0);
+		m_CameraBuffer = Graphics::UniformBuffer::Create(sizeof(SceneDataUBO), 0);
 
-		uboDataCamera.view = m_ApplicationCamera.GetViewMatrix();  // Set your view matrix here
-		uboDataCamera.projection = m_ApplicationCamera.GetProjection();  // Set your projection matrix here
-		uboDataCamera.cameraPos = glm::vec4(m_ApplicationCamera.GetPosition(), 1.0f);
-		m_CameraBuffer->SetData(&uboDataCamera, sizeof(UBOCamera));
+		m_uboDataScene.viewMatrix = m_ApplicationCamera.GetViewMatrix();  // Set your view matrix here
+		m_uboDataScene.projectionMatrix = m_ApplicationCamera.GetProjection();  // Set your projection matrix here
+		m_uboDataScene.projViewMatrix = m_ApplicationCamera.GetViewProjection();
+		m_uboDataScene.cameraPos = glm::vec4(m_ApplicationCamera.GetPosition(), 1.0f);
+
+		m_uboDataScene.alphaMin = 0.0f;
+		m_uboDataScene.alphaWidth = 1.0f;
+		m_uboDataScene.viewMatrixInverseTranspose = glm::inverseTranspose(m_uboDataScene.viewMatrix);
+		m_uboDataScene.viewport = { 1280,720,1280 * 720 };
+		m_uboDataScene.linkedListAllocatedPerElement = 8;
+		m_CameraBuffer->SetData(&m_uboDataScene, sizeof(SceneDataUBO));
 
 
 		m_ImGuiHandler = new ImGuiHandler((GLFWwindow*)m_Window->GetNativeWindow(), "#version 330");
+
 	}
 
 	AbstractApplication::~AbstractApplication()
@@ -79,14 +109,16 @@ namespace GUI {
 		dispatcher.Dispatch<Application::WindowResizeEvent>(APP_BIND_EVENT_FN(AbstractApplication::OnWindowResize));
 
 
-		if (ImGui::GetIO().WantCaptureMouse) return;
+		if (ImGui::GetIO().WantCaptureMouse && !m_ViewportHovered) return;
 
 		//Update camera and camera uniform here
 		m_ApplicationCamera.OnUpdate();
-		uboDataCamera.view = m_ApplicationCamera.GetViewMatrix();  // Set your view matrix here
-		uboDataCamera.projection = m_ApplicationCamera.GetProjection();  // Set your projection matrix here
-		uboDataCamera.cameraPos = glm::vec4(m_ApplicationCamera.GetPosition(), 1.0f);
-		m_CameraBuffer->SetData(&uboDataCamera, sizeof(UBOCamera));
+		m_uboDataScene.viewMatrix = m_ApplicationCamera.GetViewMatrix();  // Set your view matrix here
+		m_uboDataScene.projectionMatrix = m_ApplicationCamera.GetProjection();  // Set your projection matrix here
+		m_uboDataScene.projViewMatrix = m_ApplicationCamera.GetViewProjection();
+		m_uboDataScene.viewMatrixInverseTranspose = glm::inverseTranspose(m_uboDataScene.viewMatrix);
+		m_uboDataScene.cameraPos = glm::vec4(m_ApplicationCamera.GetPosition(), 1.0f);
+		m_CameraBuffer->SetData(&m_uboDataScene, sizeof(SceneDataUBO));
 		//
 
 		m_ApplicationCamera.OnEvent(e);
@@ -113,13 +145,20 @@ namespace GUI {
 			{
 				{
 					HZ_PROFILE_SCOPE("LayerStack OnUpdate");
-
+					Graphics::Renderer::DepthTest(true);
+					Graphics::Renderer::ClearBuffers();
+					m_Framebuffer->Bind();
 					Graphics::Renderer::Clear();
+					//m_Framebuffer->ClearAttachment(1, -1);
 
 					for (Layer* layer : m_LayerStack)
 						layer->OnUpdate();
 
+
+					m_Framebuffer->Unbind();
+
 					m_ImGuiHandler->Update([&]() {
+						CoreUI();
 						for (Layer* layer : m_LayerStack)
 							layer->OnImGuiRender();
 					});
@@ -161,5 +200,86 @@ namespace GUI {
 			func();
 
 		m_MainThreadQueue.clear();
+	}
+
+	void AbstractApplication::UseShader(const ImDrawList* parent_list, const ImDrawCmd* cmd) {
+		Graphics::Renderer::DepthTest(false);
+		Graphics::Renderer::BindOtiBuffers();
+		s_Instance->m_PostProcessingShader->Bind();
+
+	}
+
+	void AbstractApplication::ClearFrameBuffer(const ImDrawList* parent_list, const ImDrawCmd* cmd) {
+		Graphics::Renderer::ClearOtiBuffers();
+		//s_Instance->m_PostProcessingShader->Unbind();
+	}
+
+	void AbstractApplication::CoreUI() {
+		{
+			ImGui::Begin("Hello, world!");
+
+			ImGui::Text("Viewport Hovered : %s" , (m_ViewportHovered ? "Yes" : "No"));
+
+			auto io = ImGui::GetIO();
+			ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
+
+
+			ImGui::End();
+		}
+
+		{
+			ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2{ 0, 0 });
+			ImGui::Begin("Viewport");
+			ImDrawList* drawList = ImGui::GetWindowDrawList();
+			drawList->AddCallback(UseShader, nullptr);
+
+			auto viewportMinRegion = ImGui::GetWindowContentRegionMin();
+			auto viewportMaxRegion = ImGui::GetWindowContentRegionMax();
+			auto viewportOffset = ImGui::GetWindowPos();
+			m_ViewportBounds[0] = { viewportMinRegion.x + viewportOffset.x, viewportMinRegion.y + viewportOffset.y };
+			m_ViewportBounds[1] = { viewportMaxRegion.x + viewportOffset.x, viewportMaxRegion.y + viewportOffset.y };
+
+			m_ViewportFocused = ImGui::IsWindowFocused();
+			m_ViewportHovered = ImGui::IsWindowHovered();
+
+			//Application::Get().GetImGuiLayer()->BlockEvents(!m_ViewportHovered);
+
+			ImVec2 viewportPanelSize = ImGui::GetContentRegionAvail();
+			m_ViewportSize = { viewportPanelSize.x, viewportPanelSize.y };
+
+			uint64_t textureID = m_Framebuffer->GetColorAttachmentRendererID(0);
+
+			ImGui::Image(reinterpret_cast<void*>(textureID), ImVec2{ m_ViewportSize.x, m_ViewportSize.y }, ImVec2{ 0, 1 }, ImVec2{ 1, 0 });
+			drawList->AddCallback(ClearFrameBuffer, nullptr);
+			drawList->AddCallback(ImDrawCallback_ResetRenderState, nullptr);
+
+
+
+			ImGui::End();
+
+			ImGui::Begin("Depth");
+			uint64_t depthTextureID = m_Framebuffer->GetDepthAttachmentRendererID();
+			ImGui::Image(reinterpret_cast<void*>(depthTextureID), ImVec2{ m_ViewportSize.x, m_ViewportSize.y }, ImVec2{ 0, 1 }, ImVec2{ 1, 0 });
+			ImGui::End();
+
+			ImGui::PopStyleVar();
+		}
+
+		{
+			ImGui::Begin("Settings");
+
+			ImGui::Text("Monitor count : %d", m_Window->GetMonitorCount());
+
+			ImGui::Text("Primary Monitor : %s", m_Window->GetPrimaryMonitorName());
+
+			if(ImGui::Button("VSync")) m_Window->SetVSync(!m_Window->IsVSync());
+
+			auto cameraFocalPoint = m_ApplicationCamera.GetFocalPoint();
+			ImGui::Text("Camera Focus point : %.3f %.3f %.3f", cameraFocalPoint.x, cameraFocalPoint.y, cameraFocalPoint.z);
+
+			if (ImGui::Button("Reset Camera")) m_ApplicationCamera.ResetFocalPoint();
+
+			ImGui::End();
+		}
 	}
 }
