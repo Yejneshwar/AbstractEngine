@@ -11,7 +11,7 @@ namespace Graphics {
 	class OpenGLShader : public Shader
 	{
 	public:
-		OpenGLShader(const std::string& filepath, bool cache);
+		OpenGLShader(const std::string& filepath, const std::string vertexPrepend, const std::string fragmentPrepend, bool cache, bool debug);
 		OpenGLShader(const std::string& name, const std::string& vertexSrc, const std::string& fragmentSrc);
 		virtual ~OpenGLShader();
 
@@ -43,6 +43,7 @@ namespace Graphics {
 		std::string ReadFile(const std::string& filepath);
 		void PreProcessIncludes(std::string& source);
 		std::unordered_map<GLenum, std::string> PreProcess(const std::string& source);
+		void ProcessPrepends(std::unordered_map<GLenum, std::string>& shaderSources, const std::string vertexPrepend, const std::string fragmentPrepend);
 
 		void CompileOrGetVulkanBinaries(const std::unordered_map<GLenum, std::string>& shaderSources);
 		void CompileOrGetOpenGLBinaries();

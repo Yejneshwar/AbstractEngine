@@ -16,6 +16,8 @@ private:
 
     static void Render();
 
+    bool m_BlockEvents = true;
+
 public:
     using ImGuiUpdateFn = std::function<void()>;
 

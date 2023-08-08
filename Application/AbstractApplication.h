@@ -10,6 +10,7 @@
 #include <Renderer/3DCamera.h>
 #include <Renderer/UniformBuffer.h>
 #include <Renderer/FrameBuffer.h>
+#include <Renderer/Shader.h>
 
 namespace GUI {
 
@@ -43,12 +44,21 @@ namespace GUI {
 		}
 	};
 
+	struct ApplicationSettings {
+
+
+
+
+	};
+
 	struct ApplicationSpecification
 	{
 		std::string Name = "Abstract Application";
 		std::string WorkingDirectory;
 		ApplicationCommandLineArgs CommandLineArgs;
+		ApplicationSettings ApplicationSettings;
 	};
+
 
 	class AbstractApplication {
 	public:
@@ -69,6 +79,15 @@ namespace GUI {
 
 		static AbstractApplication& Get() { return *s_Instance; }
 
+		static void BindFrameBufferTextures() { 
+			s_Instance->m_Framebuffer->BindTexture(1, 1);
+			s_Instance->m_Framebuffer->BindTexture(2, 2);
+		}
+
+		static void UnBindFrameBufferTextures() {
+			//s_Instance->m_Framebuffer->UnBindTextures();
+		}
+
 		const ApplicationSpecification& GetSpecification() const { return m_Specification; }
 
 		void SubmitToMainThread(const std::function<void()>& function);
@@ -80,6 +99,12 @@ namespace GUI {
 		void CoreUI();
 
 		void ExecuteMainThreadQueue();
+
+		static void UseShader(const ImDrawList* parent_list, const ImDrawCmd* cmd);
+
+		static void ClearFrameBuffer(const ImDrawList* parent_list, const ImDrawCmd* cmd);
+
+		void CoreUI();
 	private:
 		ApplicationSpecification m_Specification;
 		Graphics::Scope<Application::Window> m_Window;
@@ -95,9 +120,14 @@ namespace GUI {
 
 		Graphics::Ref<Graphics::Framebuffer> m_Framebuffer;
 
+		const std::string m_passDefine = "#define PASS PASS_COMPOSITE\n";
+		const std::string m_compositeDefine = "#define PASS PASS_COMPOSITE\n";
+
+		Graphics::Ref<Graphics::Shader> m_PostProcessingShader;
+
 		bool m_ViewportFocused = false, m_ViewportHovered = false;
-        glm::vec2 m_ViewportSize = { 0.0f, 0.0f };
-        glm::vec2 m_ViewportBounds[2];
+		glm::vec2 m_ViewportSize = { 0.0f, 0.0f };
+		glm::vec2 m_ViewportBounds[2];
 
 		std::vector<std::function<void()>> m_MainThreadQueue;
 		std::mutex m_MainThreadQueueMutex;

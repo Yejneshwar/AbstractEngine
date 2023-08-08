@@ -32,6 +32,16 @@ namespace Graphics {
 		virtual void SetRendererMode(int mode) = 0;
 		virtual void SetRendererModeToDefault() = 0;
 
+		virtual void DepthTest(bool state) = 0;
+
+		virtual void InitOtiBuffers(int width, int height) = 0;
+
+		virtual void BindOtiBuffers() = 0;
+		virtual void UnBindOtiBuffers() = 0;
+		virtual void ClearOtiBuffers() = 0;
+
+		virtual uint32_t GetOitColorBuffer(int index) = 0;
+
 		static API GetAPI() { return s_API; }
 		static Scope<RendererAPI> Create();
 	private:

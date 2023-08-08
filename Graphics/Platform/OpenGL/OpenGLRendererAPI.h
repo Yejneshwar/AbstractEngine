@@ -24,6 +24,23 @@ namespace Graphics {
 		virtual void SetLineWidth(float width) override;
 		virtual void SetRendererMode(int mode) override;
 		virtual void SetRendererModeToDefault() override;
+		virtual void DepthTest(bool state) override;
+
+		virtual void InitOtiBuffers(int width, int height) override;
+
+		virtual void BindOtiBuffers() override;
+		virtual void UnBindOtiBuffers() override;
+		virtual void ClearOtiBuffers() override;
+
+		virtual uint32_t GetOitColorBuffer(int index) override;
+	private:
+		unsigned int m_imgAbufferImage;
+		unsigned int m_imgAuxImage;
+		unsigned int m_imgAbufferBuffer;
+		int m_width;
+		int m_height;
+		// Allocate temporary storage for clearing the image
+		std::vector<unsigned int> m_clearData;
 	};
 
 

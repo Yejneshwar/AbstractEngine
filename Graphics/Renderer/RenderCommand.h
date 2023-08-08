@@ -65,6 +65,35 @@ namespace Graphics {
 		{
 			s_RendererAPI->SetRendererModeToDefault();
 		}
+
+		static void DepthTest(bool state) {
+			s_RendererAPI->DepthTest(state);
+		}
+
+		static void InitOtiBuffers(int width, int height)
+		{
+			s_RendererAPI->InitOtiBuffers(width, height);
+		}
+
+		static void BindOtiBuffers()
+		{
+			s_RendererAPI->BindOtiBuffers();
+		}
+
+		static void UnBindOtiBuffers()
+		{
+			s_RendererAPI->UnBindOtiBuffers();
+		}
+
+		static void ClearOtiBuffers()
+		{
+			s_RendererAPI->ClearOtiBuffers();
+		}
+
+		static uint32_t GetOitColorBuffer(int index)
+		{
+			return s_RendererAPI->GetOitColorBuffer(index);
+		}
 	private:
 		static Scope<RendererAPI> s_RendererAPI;
 	};

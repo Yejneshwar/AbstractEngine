@@ -7,8 +7,6 @@ namespace Graphics {
 
 	void Renderer::Init()
 	{
-		
-
 		RenderCommand::Init();
 		//Renderer2D::Init();
 	}
@@ -53,5 +51,35 @@ namespace Graphics {
 
 	void Renderer::ClearBuffers() {
 		RenderCommand::ClearBuffers();
+	}
+
+	void Renderer::DepthTest(bool state)
+	{
+		RenderCommand::DepthTest(state);
+	}
+
+	void Renderer::InitOtiBuffers(int width, int height)
+	{
+		RenderCommand::InitOtiBuffers(width, height);
+	}
+
+	void Renderer::BindOtiBuffers()
+	{
+		RenderCommand::BindOtiBuffers();
+	}
+
+	void Renderer::UnBindOtiBuffers()
+	{
+		RenderCommand::UnBindOtiBuffers();
+	}
+
+	void Renderer::ClearOtiBuffers()
+	{
+		RenderCommand::ClearOtiBuffers();
+	}
+
+	uint32_t Renderer::GetOitColorBuffer(int index)
+	{
+		return RenderCommand::GetOitColorBuffer(index);
 	}
 }

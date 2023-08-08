@@ -7,7 +7,7 @@ layout(location = 1) in vec3 aColor;
 
 void main()
 {
-    gl_Position = ubo.projViewMatrix * vec4(aPos, 1.0);
+    gl_Position = ubo.projectionMatrix * ubo.viewMatrix * vec4(aPos, 1.0);
 }
 
 #type fragment
