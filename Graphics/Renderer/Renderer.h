@@ -24,6 +24,8 @@ namespace Graphics {
 
 		static void Clear();
 
+		static void ClearBuffers();
+
 		static RendererAPI::API GetAPI() { return RendererAPI::GetAPI(); }
 	private:
 		struct SceneData

@@ -50,4 +50,8 @@ namespace Graphics {
 	void Renderer::Clear() {
 		RenderCommand::Clear();
 	}
+
+	void Renderer::ClearBuffers() {
+		RenderCommand::ClearBuffers();
+	}
 }

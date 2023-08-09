@@ -7,7 +7,7 @@
 
 
 
-Graphics::ThreeDCamera::ThreeDCamera(float fov, float aspectRatio, float nearClip, float farClip) 
+Graphics::ThreeDCamera::ThreeDCamera(float fov, float aspectRatio, float nearClip, float farClip)
 	: m_FOV(fov), m_AspectRatio(aspectRatio), m_NearClip(nearClip), m_FarClip(farClip), Camera(glm::perspective(glm::radians(fov), aspectRatio, nearClip, farClip))
 {
 	UpdateView();
@@ -18,11 +18,11 @@ void Graphics::ThreeDCamera::OnUpdate()
 	const glm::vec2& mouse{ Application::Input::GetMouseX(), Application::Input::GetMouseY() };
 	glm::vec2 delta = (mouse - m_InitialMousePosition) * 0.003f;
 	m_InitialMousePosition = mouse;
-	
+
 	if (Application::Input::IsMouseButtonPressed(Application::Mouse::ButtonLeft))
 		MouseRotate(delta);
 	else if (Application::Input::IsMouseButtonPressed(Application::Mouse::ButtonRight))
-		MouseZoom(delta.y);
+		MousePan(delta);
 
 	UpdateView();
 }

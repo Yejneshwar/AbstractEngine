@@ -27,6 +27,11 @@ namespace Graphics {
 			s_RendererAPI->Clear();
 		}
 
+		static void ClearBuffers()
+		{
+			s_RendererAPI->ClearBuffers();
+		}
+
 		static void DrawNonIndexed(const Ref<VertexArray>& vertexArray, uint32_t count = 0, uint32_t start = 0)
 		{
 			s_RendererAPI->DrawNonIndexed(vertexArray, count, start);

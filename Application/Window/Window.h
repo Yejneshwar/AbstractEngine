@@ -13,7 +13,7 @@ namespace Application {
 		uint32_t Width;
 		uint32_t Height;
 
-		WindowProps(const std::string& title = "Hazel Engine",
+		WindowProps(const std::string& title = "Test GUI",
 			uint32_t width = 1600,
 			uint32_t height = 900)
 			: Title(title), Width(width), Height(height)
@@ -41,6 +41,9 @@ namespace Application {
 
 		virtual void* GetNativeWindow() const = 0;
 
+		virtual int GetMonitorCount() const = 0;
+		virtual const char* GetPrimaryMonitorName() const = 0;
+
 		static Graphics::Scope<Window> Create(const WindowProps& props = WindowProps());
 	};
 
@@ -61,21 +64,35 @@ namespace Application {
 		bool IsVSync() const override;
 
 		virtual void* GetNativeWindow() const { return m_Window; }
+
+		virtual int GetMonitorCount() const { return m_Data.m_Settings.monitorCount; }
+
+		virtual const char* GetPrimaryMonitorName() const { return glfwGetMonitorName(m_Data.m_Settings.primaryMonitor); }
 	private:
 		virtual void Init(const WindowProps& props);
+		virtual void InitMonitors();
 		virtual void Shutdown();
 	private:
 		GLFWwindow* m_Window;
 		Graphics::Scope<Graphics::GraphicsContext> m_Context;
 
+		struct WindowSettings {
+			bool VSync = true;
+			bool fullScreen = false;
+			GLFWmonitor* primaryMonitor;
+			GLFWmonitor** monitors;
+			int monitorCount;
+		};
+
 		struct WindowData
 		{
 			std::string Title;
 			unsigned int Width, Height;
-			bool VSync;
+			WindowSettings m_Settings;
 
 			EventCallbackFn EventCallback;
 		};
+
 
 		WindowData m_Data;
 	};

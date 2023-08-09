@@ -37,6 +37,12 @@ namespace Graphics {
 		//bool OnMouseScroll(double offset);
 
 		void SetMousePos(glm::vec2 mousePos) { m_InitialMousePosition = mousePos; }
+
+		void ResetFocalPoint() { m_FocalPoint = { 0.0f, 0.0f, 0.0f }; UpdateView(); }
+
+		void SetPosition(const glm::vec3& position) { m_Position = position; UpdateView(); }
+
+		glm::vec3 GetFocalPoint() { return m_FocalPoint; }
 	private:
 		void UpdateProjection();
 		void UpdateView();

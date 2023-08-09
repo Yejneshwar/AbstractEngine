@@ -9,13 +9,26 @@
 #include "ImGuiHandler/ImGuiHandler.h"
 #include <Renderer/3DCamera.h>
 #include <Renderer/UniformBuffer.h>
+#include <Renderer/FrameBuffer.h>
 
 namespace GUI {
 
-	struct UBOCamera {
-		glm::mat4 view;
-		glm::mat4 projection;
-		glm::vec4 cameraPos;
+	struct SceneDataUBO {
+			// Vectors are multiplied on the right.
+			glm::mat4 projViewMatrix;
+			glm::mat4 viewMatrix;
+			glm::mat4 projectionMatrix;
+			glm::mat4 viewMatrixInverseTranspose;
+			glm::vec4 cameraPos;
+
+			glm::ivec3 viewport;  // (width, height, width*height)
+			// For SIMPLE, INTERLOCK, SPINLOCK, LOOP, and LOOP64, the number of OIT layers;
+			// for LINKEDLIST, the total number of elements in the A-buffer.
+			glm::uint linkedListAllocatedPerElement;
+
+			float alphaMin;
+			float alphaWidth;
+			glm::vec2  _pad1;
 	};
 
 	struct ApplicationCommandLineArgs
@@ -64,6 +77,8 @@ namespace GUI {
 		bool OnWindowClose(Application::WindowCloseEvent& e);
 		bool OnWindowResize(Application::WindowResizeEvent& e);
 
+		void CoreUI();
+
 		void ExecuteMainThreadQueue();
 	private:
 		ApplicationSpecification m_Specification;
@@ -75,8 +90,14 @@ namespace GUI {
 		float m_LastFrameTime = 0.0f;
 
 		Graphics::ThreeDCamera m_ApplicationCamera;
-		UBOCamera uboDataCamera;
+		SceneDataUBO m_uboDataScene;
 		Graphics::Ref<Graphics::UniformBuffer> m_CameraBuffer;
+
+		Graphics::Ref<Graphics::Framebuffer> m_Framebuffer;
+
+		bool m_ViewportFocused = false, m_ViewportHovered = false;
+        glm::vec2 m_ViewportSize = { 0.0f, 0.0f };
+        glm::vec2 m_ViewportBounds[2];
 
 		std::vector<std::function<void()>> m_MainThreadQueue;
 		std::mutex m_MainThreadQueueMutex;

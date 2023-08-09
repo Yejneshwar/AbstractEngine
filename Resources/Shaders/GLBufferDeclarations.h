@@ -1,7 +1,20 @@
-layout(std140, binding = 0) uniform UBOCamera {
-    mat4 view;
-    mat4 projection;
+#define UBO_SCENE 0
+
+layout(std140, binding = UBO_SCENE) uniform SceneDataUBO {
+	mat4 projViewMatrix;
+	mat4 viewMatrix;
+	mat4 projectionMatrix;
+	mat4 viewMatrixInverseTranspose;
 	vec4 cameraPos;
+
+	ivec3 viewport;  // (width, height, width*height)
+	// For SIMPLE, INTERLOCK, SPINLOCK, LOOP, and LOOP64, the number of OIT layers;
+	// for LINKEDLIST, the total number of elements in the A-buffer.
+	uint linkedListAllocatedPerElement;
+
+	float alphaMin;
+	float alphaWidth;
+	vec2  _pad1;
 } ubo;
 
 struct Vertex
