@@ -103,8 +103,6 @@ namespace GUI {
 		static void UseShader(const ImDrawList* parent_list, const ImDrawCmd* cmd);
 
 		static void ClearFrameBuffer(const ImDrawList* parent_list, const ImDrawCmd* cmd);
-
-		void CoreUI();
 	private:
 		ApplicationSpecification m_Specification;
 		Graphics::Scope<Application::Window> m_Window;

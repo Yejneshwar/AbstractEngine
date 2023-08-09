@@ -159,7 +159,7 @@ namespace Application {
 				data.EventCallback(event);
 			});
 
-		glfwSetMonitorCallback([](GLFWmonitor* monitor, int event)
+		glfwSetMonitorCallback([](GLFWmonitor* monitor, int event) 
 			{
 				std::cout << "Monitor Event" << std::endl;
 				std::cout << (event == GLFW_CONNECTED ? "Monitor Connected..." : "Monitor Disconnected....") << std::endl;
