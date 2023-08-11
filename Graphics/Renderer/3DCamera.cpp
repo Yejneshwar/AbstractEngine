@@ -95,7 +95,7 @@ void Graphics::ThreeDCamera::MouseRotate(const glm::vec2& delta)
 void Graphics::ThreeDCamera::MouseZoom(float delta)
 {
 	m_Distance -= delta * ZoomSpeed();
-	if (m_Distance < 1.0f)
+	if (m_Distance < 0.01f)
 	{
 		m_FocalPoint += GetForwardDirection();
 		m_Distance = 1.0f;
