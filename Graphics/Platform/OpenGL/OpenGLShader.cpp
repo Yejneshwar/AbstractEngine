@@ -25,6 +25,8 @@ namespace Graphics {
 				return GL_VERTEX_SHADER;
 			if (type == "fragment" || type == "pixel")
 				return GL_FRAGMENT_SHADER;
+			if (type == "geometry")
+				return GL_GEOMETRY_SHADER;
 
 			GRAPHICS_CORE_ASSERT(false, "Unknown shader type!");
 			return 0;
@@ -36,6 +38,7 @@ namespace Graphics {
 			{
 				case GL_VERTEX_SHADER:   return shaderc_glsl_vertex_shader;
 				case GL_FRAGMENT_SHADER: return shaderc_glsl_fragment_shader;
+				case GL_GEOMETRY_SHADER: return shaderc_glsl_geometry_shader;
 			}
 			GRAPHICS_CORE_ASSERT(false);
 			return (shaderc_shader_kind)0;
@@ -47,6 +50,7 @@ namespace Graphics {
 			{
 				case GL_VERTEX_SHADER:   return "GL_VERTEX_SHADER";
 				case GL_FRAGMENT_SHADER: return "GL_FRAGMENT_SHADER";
+				case GL_GEOMETRY_SHADER: return "GL_GEOMETRY_SHADER";
 			}
 			GRAPHICS_CORE_ASSERT(false);
 			return nullptr;
@@ -73,6 +77,7 @@ namespace Graphics {
 			{
 				case GL_VERTEX_SHADER:    return ".cached_opengl.vert";
 				case GL_FRAGMENT_SHADER:  return ".cached_opengl.frag";
+				case GL_GEOMETRY_SHADER:  return ".cached_opengl.geom";
 			}
 			GRAPHICS_CORE_ASSERT(false);
 			return "";
@@ -84,6 +89,7 @@ namespace Graphics {
 			{
 			case GL_VERTEX_SHADER:    return ".cached_vulkan.vert";
 			case GL_FRAGMENT_SHADER:  return ".cached_vulkan.frag";
+			case GL_GEOMETRY_SHADER:  return ".cached_vulkan.geom";
 			}
 			GRAPHICS_CORE_ASSERT(false);
 			return "";
@@ -124,7 +130,7 @@ namespace Graphics {
 
 			}
 			catch (std::runtime_error e) {
-				std::cout << e.what() << std::endl;
+				std::cout << "Shader error : " << e.what() << std::endl;
 				std::cout << "//////////////////////////////////////End Compilation" << std::endl;
 				return;
 			}
@@ -401,6 +407,7 @@ namespace Graphics {
 				{
 					//HZ_CORE_ERROR(module.GetErrorMessage());
 					std::cout << module.GetErrorMessage() << std::endl;
+					std::cout << "Stage :" << Utils::GLShaderStageToString(stage) << std::endl;
 					throw(std::runtime_error("Error in compiling shader for OPENGL"));
 
 					GRAPHICS_CORE_ASSERT(false);
@@ -427,11 +434,12 @@ namespace Graphics {
 		std::vector<GLuint> shaderIDs;
 		for (auto&& [stage, spirv] : m_OpenGLSPIRV)
 		{
+			std::cout << "Creating " << Utils::GLShaderStageToString(stage) << " shader" << std::endl;
 			GLuint shaderID = shaderIDs.emplace_back(glCreateShader(stage));
 			GLenum error = glGetError();
 			if (error != GL_NO_ERROR) {
 				// Handle the error appropriately
-				std::cout << "Error creating" << (stage == GL_VERTEX_SHADER ? " vertex" : " fragment") << " shader : " << error << std::endl;
+				std::cout << "Error creating" << Utils::GLShaderStageToString(stage) << " shader : " << error << std::endl;
 				// Additional error handling code
 			}
 			glShaderBinary(1, &shaderID, GL_SHADER_BINARY_FORMAT_SPIR_V, spirv.data(), spirv.size() * sizeof(uint32_t));
