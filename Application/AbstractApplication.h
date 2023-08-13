@@ -20,6 +20,7 @@ namespace GUI {
 			glm::mat4 projectionMatrix;
 			glm::mat4 viewMatrixInverseTranspose;
 			glm::vec4 cameraPos;
+			glm::vec3 viewDirection;
 
 			glm::ivec3 viewport;  // (width, height, width*height)
 			// For SIMPLE, INTERLOCK, SPINLOCK, LOOP, and LOOP64, the number of OIT layers;

@@ -40,6 +40,7 @@ namespace GUI {
 		m_uboDataScene.projectionMatrix = m_ApplicationCamera.GetProjection();  // Set your projection matrix here
 		m_uboDataScene.projViewMatrix = m_ApplicationCamera.GetViewProjection();
 		m_uboDataScene.cameraPos = glm::vec4(m_ApplicationCamera.GetPosition(), 1.0f);
+		m_uboDataScene.viewDirection = m_ApplicationCamera.GetViewDirection();
 
 		m_uboDataScene.alphaMin = 0.0f;
 		m_uboDataScene.alphaWidth = 1.0f;
@@ -105,6 +106,8 @@ namespace GUI {
 		m_uboDataScene.projViewMatrix = m_ApplicationCamera.GetViewProjection();
 		m_uboDataScene.viewMatrixInverseTranspose = glm::inverseTranspose(m_uboDataScene.viewMatrix);
 		m_uboDataScene.cameraPos = glm::vec4(m_ApplicationCamera.GetPosition(), 1.0f);
+		m_uboDataScene.viewDirection = m_ApplicationCamera.GetViewDirection();
+
 		m_CameraBuffer->SetData(&m_uboDataScene, sizeof(SceneDataUBO));
 		//
 
@@ -239,6 +242,10 @@ namespace GUI {
 
     			auto cameraFocalPoint = m_ApplicationCamera.GetFocalPoint();
     			ImGui::Text("Camera Focus point : %.3f %.3f %.3f", cameraFocalPoint.x, cameraFocalPoint.y, cameraFocalPoint.z);
+
+				auto viewDirection = m_ApplicationCamera.GetViewDirection();
+				ImGui::Text("Camera View Direction : %.3f %.3f %.3f", viewDirection.x, viewDirection.y, viewDirection.z);
+				//auto fragNormal = glm::inverseTranspose(m_ApplicationCamera.GetViewMatrix()) * glm::vec3(0.0,0.0,1.0);
 
     			if (ImGui::Button("Reset Camera")) m_ApplicationCamera.ResetFocalPoint();
 

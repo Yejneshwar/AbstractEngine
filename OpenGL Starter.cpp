@@ -52,14 +52,14 @@ namespace GUI {
 
 		Graphics::Ref<Graphics::Shader> m_BasicShader;
         // Vertex data
-        float vertices[18+18] = {
-            // positions         // colors
-             0.5f, -0.5f, 0.0f,  1.0f, 0.0f, 0.0f,  // bottom right
-            -0.5f, -0.5f, 0.0f,  0.0f, 1.0f, 0.0f,  // bottom left
-             0.0f,  0.5f, 0.0f,  0.0f, 0.0f, 1.0f,   // top
-             0.5f, -0.5f, 1.0f,  1.0f, 0.0f, 0.0f,  // bottom right
-            -0.5f, -0.5f, 1.0f,  0.0f, 1.0f, 0.0f,  // bottom left
-             0.0f,  0.5f, 1.0f,  0.0f, 0.0f, 1.0f   // top 
+        float vertices[18+18+18] = {
+            // positions        //normals      // colors
+             0.5f, -0.5f, 0.0f, 0.0, 0.0, -1.0, 1.0f, 0.0f, 0.0f,  // bottom right
+            -0.5f, -0.5f, 0.0f, 0.0, 0.0, -1.0, 0.0f, 1.0f, 0.0f,  // bottom left
+             0.0f,  0.5f, 0.0f, 0.0, 0.0, -1.0, 0.0f, 0.0f, 1.0f,   // top
+             0.5f, -0.5f, 1.0f, 0.0, 0.0, 1.0, 1.0f, 0.0f, 0.0f,  // bottom right
+            -0.5f, -0.5f, 1.0f, 0.0, 0.0, 1.0, 0.0f, 1.0f, 0.0f,  // bottom left
+             0.0f,  0.5f, 1.0f, 0.0, 0.0, 1.0, 0.0f, 0.0f, 1.0f   // top 
         };
         Graphics::Ref<Graphics::VertexArray> TriangleVertexArray = Graphics::VertexArray::Create();
         ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -111,6 +111,7 @@ namespace GUI {
 
             TriangleVertexBuffer->SetLayout({
                     { Graphics::ShaderDataType::Float3, "aPos"},
+                    { Graphics::ShaderDataType::Float3, "aNormal"},
                     { Graphics::ShaderDataType::Float3, "aColor"}
                 });
             TriangleVertexArray->AddVertexBuffer(TriangleVertexBuffer);

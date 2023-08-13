@@ -31,6 +31,7 @@ namespace Graphics {
 		glm::vec3 GetForwardDirection() const;
 		const glm::vec3& GetPosition() const { return m_Position; }
 		glm::quat GetOrientation() const;
+		glm::vec3 GetViewDirection() const;
 
 		float GetPitch() const { return m_Pitch; }
 		float GetYaw() const { return m_Yaw; }
