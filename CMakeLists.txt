@@ -3,6 +3,16 @@
 #
 cmake_minimum_required (VERSION 3.20)
 
+if(NOT DEFINED GUI_PROJECT_NAME)
+   message( FATAL_ERROR "Set the project name with GUI_PROJECT_NAME." )
+endif()
+if(NOT DEFINED GUI_MAIN_CPP)
+   message( FATAL_ERROR "Set the main source file with GUI_MAIN_CPP." ) 
+endif()
+if(NOT DEFINED GUI_MAIN_H)
+   message( FATAL_ERROR "Set the main header file with GUI_MAIN_H." ) 
+endif()
+
 include(FetchContent)
 
 
@@ -16,11 +26,11 @@ if (POLICY CMP0141)
   set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT "$<IF:$<AND:$<C_COMPILER_ID:MSVC>,$<CXX_COMPILER_ID:MSVC>>,$<$<CONFIG:Debug,RelWithDebInfo>:EditAndContinue>,$<$<CONFIG:Debug,RelWithDebInfo>:ProgramDatabase>>")
 endif()
 
+project (${GUI_PROJECT_NAME} VERSION 1.0)
 
-
-
-
-project ("OpenGL Starter" VERSION 1.0)
+message("Project Name : ${GUI_PROJECT_NAME}")
+message("Main Source file : ${GUI_MAIN_CPP}")
+message("Main Header file : ${GUI_MAIN_H}")
 
 #if tags not set set them
 if (NOT DEFINED GLFW_TAG)
@@ -218,8 +228,8 @@ set(APPLICATION_SRC "Application/AbstractApplication.h"
 )
 
 set(SRC 
-    "OpenGL Starter.cpp"
-    "OpenGL Starter.h"
+    ${GUI_MAIN_CPP}
+    ${GUI_MAIN_H}
     ${GRAPHICS_SRC}
     ${APPLICATION_SRC}
 )
@@ -228,23 +238,23 @@ include_directories(Graphics)
 include_directories(Application)
 
 # Add source to this project's executable.
-add_executable (OpenGLStarter ${SRC})
-target_link_libraries(OpenGLStarter glad)
-target_link_libraries(OpenGLStarter glfw)
-target_link_libraries(OpenGLStarter glm)
-target_link_libraries(OpenGLStarter imgui)
-target_link_libraries(OpenGLStarter spirv-cross-core spirv-cross-glsl spirv-cross-cpp)
-target_link_libraries(OpenGLStarter shaderc)
+add_executable (${PROJECT_NAME} ${SRC})
+target_link_libraries(${PROJECT_NAME} glad)
+target_link_libraries(${PROJECT_NAME} glfw)
+target_link_libraries(${PROJECT_NAME} glm)
+target_link_libraries(${PROJECT_NAME} imgui)
+target_link_libraries(${PROJECT_NAME} spirv-cross-core spirv-cross-glsl spirv-cross-cpp)
+target_link_libraries(${PROJECT_NAME} shaderc)
 
 if(IMGUI_DOCKING_BRANCH)
-    target_compile_definitions(OpenGLStarter PRIVATE IMGUI_DOCKING_BRANCH_ENABLED)
+    target_compile_definitions(${PROJECT_NAME} PRIVATE IMGUI_DOCKING_BRANCH_ENABLED)
 endif()
 
 message("Final CXX_STANDARD ${CMAKE_CXX_STANDARD}")
 file(COPY Resources DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)
-  set_property(TARGET OpenGLStarter PROPERTY CXX_STANDARD 20)
+  set_property(TARGET ${PROJECT_NAME} PROPERTY CXX_STANDARD 20)
 endif()
 
 # TODO: Add tests and install targets if needed.
