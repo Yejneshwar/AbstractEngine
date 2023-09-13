@@ -9,6 +9,8 @@
 #include "stb_image.h"
 #include <iostream>
 
+#include "Logger.h"
+
 
 namespace Graphics {
 
@@ -32,7 +34,7 @@ namespace Graphics {
 	OpenGLTexture2D::OpenGLTexture2D(const std::string& path)
 		: m_Path(path)
 	{
-		std::cout << "Loading texture" << std::endl;
+		LOG_DEBUG_STREAM << "Loading texture";
 		int width, height, channels;
 		stbi_set_flip_vertically_on_load(1);
 		stbi_uc* data = nullptr;
@@ -62,7 +64,6 @@ namespace Graphics {
 			m_InternalFormat = internalFormat;
 			m_DataFormat = dataFormat;
 			
-			std::cout << "Renderer ID : "<< m_RendererID << std::endl;
 			assert(internalFormat & dataFormat && "Format not supported!");
 
 			glCreateTextures(GL_TEXTURE_2D, 1, &m_RendererID);
@@ -79,7 +80,7 @@ namespace Graphics {
 			stbi_image_free(data);
 		}
 		else {
-			std::cout << "texture data not loaded" << std::endl;
+			LOG_FATAL_STREAM << "texture data not loaded";
 			assert("Texture Loading failed");
 		}
 	}

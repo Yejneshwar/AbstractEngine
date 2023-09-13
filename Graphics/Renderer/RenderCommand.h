@@ -47,6 +47,15 @@ namespace Graphics {
 			s_RendererAPI->DrawLines(vertexArray, vertexCount);
 		}
 
+		static void DrawLinesIndexed(const Ref<VertexArray>& vertexArray, uint32_t indexCount = 0)
+		{
+			s_RendererAPI->DrawLinesIndexed(vertexArray, indexCount);
+		}
+
+		static void DrawWireFrameCube(const std::vector<glm::dvec3>& cube, const float& thickness) {
+			s_RendererAPI->DrawWireFrameCube(cube, thickness);
+		}
+
 		static void DrawGridTriangles() {
 			s_RendererAPI->DrawGridTriangles();
 		}

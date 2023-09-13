@@ -12,6 +12,7 @@
 #include <shaderc/shaderc.hpp>
 #include <GLFW/glfw3.h>
 
+#include "Logger.h"
 //Note: Keep bindings and locations explicit even in opengl?
 
 
@@ -36,9 +37,9 @@ namespace Graphics {
 		{
 			switch (stage)
 			{
-				case GL_VERTEX_SHADER:   return shaderc_glsl_vertex_shader;
-				case GL_FRAGMENT_SHADER: return shaderc_glsl_fragment_shader;
-				case GL_GEOMETRY_SHADER: return shaderc_glsl_geometry_shader;
+			case GL_VERTEX_SHADER:   return shaderc_glsl_vertex_shader;
+			case GL_FRAGMENT_SHADER: return shaderc_glsl_fragment_shader;
+			case GL_GEOMETRY_SHADER: return shaderc_glsl_geometry_shader;
 			}
 			GRAPHICS_CORE_ASSERT(false);
 			return (shaderc_shader_kind)0;
@@ -48,9 +49,9 @@ namespace Graphics {
 		{
 			switch (stage)
 			{
-				case GL_VERTEX_SHADER:   return "GL_VERTEX_SHADER";
-				case GL_FRAGMENT_SHADER: return "GL_FRAGMENT_SHADER";
-				case GL_GEOMETRY_SHADER: return "GL_GEOMETRY_SHADER";
+			case GL_VERTEX_SHADER:   return "GL_VERTEX_SHADER";
+			case GL_FRAGMENT_SHADER: return "GL_FRAGMENT_SHADER";
+			case GL_GEOMETRY_SHADER: return "GL_GEOMETRY_SHADER";
 			}
 			GRAPHICS_CORE_ASSERT(false);
 			return nullptr;
@@ -68,16 +69,16 @@ namespace Graphics {
 			if (!std::filesystem::exists(cacheDirectory))
 				std::filesystem::create_directories(cacheDirectory);
 
-			std::cout << "ShaderCache : " << std::filesystem::absolute(cacheDirectory) << std::endl;
+			LOG_DEBUG_STREAM << "ShaderCache : " << std::filesystem::absolute(cacheDirectory);
 		}
 
 		static const char* GLShaderStageCachedOpenGLFileExtension(uint32_t stage)
 		{
 			switch (stage)
 			{
-				case GL_VERTEX_SHADER:    return ".cached_opengl.vert";
-				case GL_FRAGMENT_SHADER:  return ".cached_opengl.frag";
-				case GL_GEOMETRY_SHADER:  return ".cached_opengl.geom";
+			case GL_VERTEX_SHADER:    return ".cached_opengl.vert";
+			case GL_FRAGMENT_SHADER:  return ".cached_opengl.frag";
+			case GL_GEOMETRY_SHADER:  return ".cached_opengl.geom";
 			}
 			GRAPHICS_CORE_ASSERT(false);
 			return "";
@@ -101,7 +102,7 @@ namespace Graphics {
 	OpenGLShader::OpenGLShader(const std::string& filepath, bool cache)
 		: m_FilePath(filepath), m_EnableCache(cache)
 	{
-		
+
 
 		Utils::CreateCacheDirectoryIfNeeded();
 
@@ -112,31 +113,33 @@ namespace Graphics {
 		auto shaderSources = PreProcess(source);
 
 
-		std::cout << "//////////////////////////////////////Compiling shader " << filepath << std::endl;
+		LOG_DEBUG_STREAM << "//////////////////////////////////////Compiling shader " << filepath;
 		{
 			//Timer timer;
 			try {
 				//CompileOrGetVulkanBinaries(shaderSources);
 				CompileOrGetOpenGLBinaries(shaderSources);
+#if IS_LOG_TRACE
 				auto& shaderDataOpenGL = m_OpenGLSPIRV;
 				auto& shaderDataVulkan = m_VulkanSPIRV;
-				//std::cout << "//////////////////////////////////////Vulkan reflection" << std::endl;
-				//for (auto&& [stage, data] : shaderDataVulkan)
-				//	Reflect(stage, data);
-				std::cout << "//////////////////////////////////////OpenGL reflection" << std::endl;
-				for (auto&& [stage, data] : shaderDataOpenGL)
+				LOG_TRACE_STREAM << "//////////////////////////////////////Vulkan reflection";
+				for (auto&& [stage, data] : shaderDataVulkan)
 					Reflect(stage, data);
+				LOG_TRACE_STREAM << "//////////////////////////////////////OpenGL reflection";
+					for (auto&& [stage, data] : shaderDataOpenGL)
+						Reflect(stage, data);
+#endif
 				CreateProgram();
 
 			}
 			catch (std::runtime_error e) {
-				std::cout << "Shader error : " << e.what() << std::endl;
-				std::cout << "//////////////////////////////////////End Compilation" << std::endl;
+				LOG_DEBUG_STREAM << "Shader error : " << e.what();
+				LOG_DEBUG_STREAM << "//////////////////////////////////////End Compilation";
 				return;
 			}
 
 
-			std::cout << "//////////////////////////////////////End Compilation" << std::endl;
+			LOG_DEBUG_STREAM << "//////////////////////////////////////End Compilation";
 
 
 			//HZ_CORE_WARN("Shader creation took {0} ms", timer.ElapsedMillis());
@@ -153,7 +156,7 @@ namespace Graphics {
 	OpenGLShader::OpenGLShader(const std::string& name, const std::string& vertexSrc, const std::string& fragmentSrc)
 		: m_Name(name)
 	{
-		
+
 
 		std::unordered_map<GLenum, std::string> sources;
 		sources[GL_VERTEX_SHADER] = vertexSrc;
@@ -166,14 +169,14 @@ namespace Graphics {
 
 	OpenGLShader::~OpenGLShader()
 	{
-		
+
 
 		glDeleteProgram(m_RendererID);
 	}
 
 	std::string OpenGLShader::ReadFile(const std::string& filepath)
 	{
-		
+
 
 		std::string result;
 		std::ifstream in(filepath, std::ios::in | std::ios::binary); // ifstream closes itself due to RAII
@@ -189,13 +192,12 @@ namespace Graphics {
 			}
 			else
 			{
-				//HZ_CORE_ERROR("Could not read from file '{0}'", filepath);
+				LOG_FATAL_STREAM << "Could not read from file " << filepath;
 			}
 		}
 		else
 		{
-			std::cout << "Could not open shader file" << std::endl;
-			//HZ_CORE_ERROR("Could not open file '{0}'", filepath);
+			LOG_FATAL_STREAM << "Could not open shader file";
 		}
 
 		return result;
@@ -210,7 +212,7 @@ namespace Graphics {
 			const auto p2 = source.find('>', pos);
 			if (p1 == source.npos || p2 == source.npos || p2 <= p1)
 			{
-				printf("Error while loading shader program: %s\n", source.c_str());
+				LOG_FATALF("Error while loading shader program: %s\n", source.c_str());
 				return;
 			}
 			const std::string name = source.substr(p1 + 1, p2 - p1 - 1);
@@ -242,8 +244,8 @@ namespace Graphics {
 			shaderSources[Utils::ShaderTypeFromString(type)] = (pos == std::string::npos) ? source.substr(nextLinePos) : source.substr(nextLinePos, pos - nextLinePos);
 		}
 
-		//std::cout << "Vertex Shader ###### \n" << shaderSources[GL_VERTEX_SHADER] << std::endl;
-		//std::cout << "Fragment Shader ###### \n" << shaderSources[GL_FRAGMENT_SHADER] << std::endl;
+		//LOG_DEBUG_STREAM << "Vertex Shader ###### \n" << shaderSources[GL_VERTEX_SHADER];
+		//LOG_DEBUG_STREAM << "Fragment Shader ###### \n" << shaderSources[GL_FRAGMENT_SHADER];
 
 
 		return shaderSources;
@@ -285,7 +287,7 @@ namespace Graphics {
 				shaderc::SpvCompilationResult module = compiler.CompileGlslToSpv(source, Utils::GLShaderStageToShaderC(stage), m_FilePath.c_str(), options);
 				if (module.GetCompilationStatus() != shaderc_compilation_status_success)
 				{
-					std::cout << module.GetErrorMessage() << std::endl;
+					LOG_FATAL_STREAM << module.GetErrorMessage();
 					throw(std::runtime_error("Error in compiling shader for Vulkan"));
 					GRAPHICS_CORE_ASSERT(false);
 				}
@@ -350,8 +352,7 @@ namespace Graphics {
 				shaderc::SpvCompilationResult module = compiler.CompileGlslToSpv(source, Utils::GLShaderStageToShaderC(stage), m_FilePath.c_str());
 				if (module.GetCompilationStatus() != shaderc_compilation_status_success)
 				{
-					//HZ_CORE_ERROR(module.GetErrorMessage());
-					std::cout << module.GetErrorMessage() << std::endl;
+					LOG_FATAL_STREAM << module.GetErrorMessage();
 					GRAPHICS_CORE_ASSERT(false);
 				}
 
@@ -402,12 +403,11 @@ namespace Graphics {
 			}
 			else
 			{
-				shaderc::SpvCompilationResult module = compiler.CompileGlslToSpv(source, Utils::GLShaderStageToShaderC(stage), m_FilePath.c_str(),options);
+				shaderc::SpvCompilationResult module = compiler.CompileGlslToSpv(source, Utils::GLShaderStageToShaderC(stage), m_FilePath.c_str(), options);
 				if (module.GetCompilationStatus() != shaderc_compilation_status_success)
 				{
-					//HZ_CORE_ERROR(module.GetErrorMessage());
-					std::cout << module.GetErrorMessage() << std::endl;
-					std::cout << "Stage :" << Utils::GLShaderStageToString(stage) << std::endl;
+					LOG_FATAL_STREAM << module.GetErrorMessage();
+					LOG_FATAL_STREAM << "Stage :" << Utils::GLShaderStageToString(stage);
 					throw(std::runtime_error("Error in compiling shader for OPENGL"));
 
 					GRAPHICS_CORE_ASSERT(false);
@@ -434,12 +434,12 @@ namespace Graphics {
 		std::vector<GLuint> shaderIDs;
 		for (auto&& [stage, spirv] : m_OpenGLSPIRV)
 		{
-			std::cout << "Creating " << Utils::GLShaderStageToString(stage) << " shader" << std::endl;
+			LOG_TRACE_STREAM << "Creating " << Utils::GLShaderStageToString(stage) << " shader";
 			GLuint shaderID = shaderIDs.emplace_back(glCreateShader(stage));
 			GLenum error = glGetError();
 			if (error != GL_NO_ERROR) {
 				// Handle the error appropriately
-				std::cout << "Error creating" << Utils::GLShaderStageToString(stage) << " shader : " << error << std::endl;
+				LOG_FATAL_STREAM << "Error creating" << Utils::GLShaderStageToString(stage) << " shader : " << error;
 				// Additional error handling code
 			}
 			glShaderBinary(1, &shaderID, GL_SHADER_BINARY_FORMAT_SPIR_V, spirv.data(), spirv.size() * sizeof(uint32_t));
@@ -485,12 +485,9 @@ namespace Graphics {
 	{
 		spirv_cross::Compiler compiler(shaderData);
 		spirv_cross::ShaderResources resources = compiler.get_shader_resources();
-		//HZ_CORE_TRACE("OpenGLShader::Reflect - {0} {1}", Utils::GLShaderStageToString(stage), m_FilePath);
-		//HZ_CORE_TRACE("    {0} uniform buffers", resources.uniform_buffers.size());
-		//HZ_CORE_TRACE("    {0} resources", resources.sampled_images.size());
 
 		std::cout << std::format("OpenGLShader::Reflect - {} {} ", Utils::GLShaderStageToString(stage), m_FilePath) << std::endl;
-		std::cout << std::format("    {} uniform buffers ", resources.uniform_buffers.size())  << std::endl;
+		std::cout << std::format("    {} uniform buffers ", resources.uniform_buffers.size()) << std::endl;
 		std::cout << std::format("    {} resources ", resources.sampled_images.size()) << std::endl;
 		std::cout << std::format("    {} inputs ", resources.stage_inputs.size()) << std::endl;
 		std::cout << std::format("    {} outputs ", resources.stage_outputs.size()) << std::endl;
@@ -540,14 +537,14 @@ namespace Graphics {
 
 	void OpenGLShader::Unbind() const
 	{
-		
+
 
 		glUseProgram(0);
 	}
 
 	void OpenGLShader::SetInt(const std::string& name, int value)
 	{
-		
+
 
 		UploadUniformInt(name, value);
 	}
@@ -559,35 +556,35 @@ namespace Graphics {
 
 	void OpenGLShader::SetFloat(const std::string& name, float value)
 	{
-		
+
 
 		UploadUniformFloat(name, value);
 	}
 
 	void OpenGLShader::SetFloat2(const std::string& name, const glm::vec2& value)
 	{
-		
+
 
 		UploadUniformFloat2(name, value);
 	}
 
 	void OpenGLShader::SetFloat3(const std::string& name, const glm::vec3& value)
 	{
-		
+
 
 		UploadUniformFloat3(name, value);
 	}
 
 	void OpenGLShader::SetFloat4(const std::string& name, const glm::vec4& value)
 	{
-		
+
 
 		UploadUniformFloat4(name, value);
 	}
 
 	void OpenGLShader::SetMat4(const std::string& name, const glm::mat4& value)
 	{
-		
+
 
 		UploadUniformMat4(name, value);
 	}

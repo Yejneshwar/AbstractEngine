@@ -124,10 +124,18 @@ FetchContent_Declare(
 
 FetchContent_MakeAvailable(glslang shaderc)
 
-#target_compile_options(glslang PRIVATE /MDd)
-#target_compile_options(shaderc_util PRIVATE /MDd)
-#target_compile_options(shaderc PRIVATE /MDd)
-#set_target_properties(shaderc PROPERTIES LINK_FLAGS "/FORCE:MULTIPLE")
+message("Build type is : ${CMAKE_BUILD_TYPE}")
+message("Current Flags :
+        CMAKE_CXX_FLAGS : ${CMAKE_CXX_FLAGS}
+        CMAKE_CXX_FLAGS_DEBUG : ${CMAKE_CXX_FLAGS_DEBUG}
+        CMAKE_CXX_FLAGS_RELEASE : ${CMAKE_CXX_FLAGS_RELEASE}
+        CMAKE_C_FLAGS : ${CMAKE_C_FLAGS}
+        CMAKE_C_FLAGS_DEBUG : ${CMAKE_C_FLAGS_DEBUG}
+        CMAKE_C_FLAGS_RELEASE : ${CMAKE_C_FLAGS_RELEASE}")
+target_compile_options(glslang PRIVATE /MDd)
+target_compile_options(shaderc_util PRIVATE /MDd)
+target_compile_options(shaderc PRIVATE /MDd)
+set_target_properties(shaderc PROPERTIES LINK_FLAGS "/FORCE:MULTIPLE")
 
 
 

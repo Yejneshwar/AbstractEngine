@@ -3,6 +3,8 @@
 
 #include <glad/gl.h>
 
+#include "Logger.h"
+
 namespace Graphics {
 	
 	void OpenGLMessageCallback(
@@ -43,6 +45,8 @@ namespace Graphics {
 		glEnable(GL_DEPTH_TEST);
 		glDepthFunc(GL_LEQUAL);
 		glEnable(GL_LINE_SMOOTH);
+		glEnable(GL_POLYGON_SMOOTH);
+		glEnable(GL_MULTISAMPLE);
 	}
 
 	void OpenGLRendererAPI::SetViewport(uint32_t x, uint32_t y, uint32_t width, uint32_t height)
@@ -77,7 +81,7 @@ namespace Graphics {
 	{
 		const auto& indexBuffer = vertexArray->GetIndexBuffer();
 		if (indexBuffer == nullptr) {
-			std::cout << "Index buffer not bound to vertexArray" << std::endl;
+			LOG_FATAL_STREAM << "Index buffer not bound to vertexArray";
 			return;
 		}
 		vertexArray->Bind();
@@ -88,6 +92,39 @@ namespace Graphics {
 	{
 		vertexArray->Bind();
 		glDrawArrays(GL_LINES, 0, vertexCount);
+	}
+
+	void OpenGLRendererAPI::DrawLinesIndexed(const Ref<VertexArray>& vertexArray, uint32_t indexCount)
+	{
+		const auto& indexBuffer = vertexArray->GetIndexBuffer();
+		if (indexBuffer == nullptr) {
+			LOG_FATAL_STREAM << "Index buffer not bound to vertexArray";
+			return;
+		}
+		vertexArray->Bind();
+		glDrawElements(GL_LINES, indexBuffer->GetCount(), GL_UNSIGNED_INT, nullptr);
+	}
+
+	void OpenGLRendererAPI::DrawWireFrameCube(const std::vector<glm::dvec3>& cube, const float& thickness) {
+		glLineWidth(thickness);
+		glColor3f(1.0,1.0,1.0);
+		glBegin(GL_LINES);
+		glVertex3d(0, 0, 0);
+		glVertex3d(-0.3, 0.5, 0.5);
+		std::cout << cube.at(0).x << std::endl;
+		glVertex3d(cube.at(0).x, cube.at(0).y, cube.at(0).z); glVertex3d(cube.at(1).x, cube.at(1).y, cube.at(1).z);
+		glVertex3d(cube.at(0).x, cube.at(0).y, cube.at(0).z); glVertex3d(cube.at(3).x, cube.at(3).y, cube.at(3).z);
+		glVertex3d(cube.at(0).x, cube.at(0).y, cube.at(0).z); glVertex3d(cube.at(4).x, cube.at(4).y, cube.at(4).z);
+		glVertex3d(cube.at(1).x, cube.at(1).y, cube.at(1).z); glVertex3d(cube.at(2).x, cube.at(2).y, cube.at(2).z);
+		glVertex3d(cube.at(1).x, cube.at(1).y, cube.at(1).z); glVertex3d(cube.at(5).x, cube.at(5).y, cube.at(5).z);
+		glVertex3d(cube.at(2).x, cube.at(2).y, cube.at(2).z); glVertex3d(cube.at(3).x, cube.at(3).y, cube.at(3).z);
+		glVertex3d(cube.at(2).x, cube.at(2).y, cube.at(2).z); glVertex3d(cube.at(6).x, cube.at(6).y, cube.at(6).z);
+		glVertex3d(cube.at(3).x, cube.at(3).y, cube.at(3).z); glVertex3d(cube.at(7).x, cube.at(7).y, cube.at(7).z);
+		glVertex3d(cube.at(4).x, cube.at(4).y, cube.at(4).z); glVertex3d(cube.at(5).x, cube.at(5).y, cube.at(5).z);
+		glVertex3d(cube.at(4).x, cube.at(4).y, cube.at(4).z); glVertex3d(cube.at(7).x, cube.at(7).y, cube.at(7).z);
+		glVertex3d(cube.at(5).x, cube.at(5).y, cube.at(5).z); glVertex3d(cube.at(6).x, cube.at(6).y, cube.at(6).z);
+		glVertex3d(cube.at(6).x, cube.at(6).y, cube.at(6).z); glVertex3d(cube.at(7).x, cube.at(7).y, cube.at(7).z);
+		glEnd();
 	}
 
 	void OpenGLRendererAPI::DrawGridTriangles(){

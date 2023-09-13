@@ -25,6 +25,8 @@ namespace Graphics {
 		virtual void DrawNonIndexed(const Ref<VertexArray>& vertexArray, uint32_t count = 0, uint32_t start = 0) = 0;
 		virtual void DrawIndexed(const Ref<VertexArray>& vertexArray, uint32_t indexCount = 0) = 0;
 		virtual void DrawLines(const Ref<VertexArray>& vertexArray, uint32_t vertexCount) = 0;
+		virtual void DrawLinesIndexed(const Ref<VertexArray>& vertexArray, uint32_t indexCount) = 0;
+		virtual void DrawWireFrameCube(const std::vector<glm::dvec3>& cube, const float& thickness) = 0;
 		virtual void DrawGridTriangles() = 0;
 		
 		virtual void SetLineWidth(float width) = 0;

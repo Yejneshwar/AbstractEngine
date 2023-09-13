@@ -11,6 +11,8 @@
 
 #include "Platform/OpenGL/OpenGLContext.h"
 
+#include "Logger.h"
+
 namespace Application {
 
 	static uint8_t s_GLFWWindowCount = 0;
@@ -63,6 +65,7 @@ namespace Application {
 			++s_GLFWWindowCount;
 		}
 
+		glfwWindowHint(GLFW_SAMPLES, 8);
 		m_Context = Graphics::GraphicsContext::Create(m_Window);
 		m_Context->Init();
 
@@ -161,8 +164,8 @@ namespace Application {
 
 		glfwSetMonitorCallback([](GLFWmonitor* monitor, int event)
 			{
-				std::cout << "Monitor Event" << std::endl;
-				std::cout << (event == GLFW_CONNECTED ? "Monitor Connected..." : "Monitor Disconnected....") << std::endl;
+				LOG_DEBUG_STREAM << "Monitor Event";
+				LOG_DEBUG_STREAM << (event == GLFW_CONNECTED ? "Monitor Connected..." : "Monitor Disconnected....");
 
 				//auto window = glfwGetCurrentContext();
 				//WindowData& data = *(WindowData*)glfwGetWindowUserPointer(window);

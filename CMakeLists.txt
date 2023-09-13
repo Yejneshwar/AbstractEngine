@@ -234,6 +234,12 @@ set(SRC
     ${APPLICATION_SRC}
 )
 
+FetchContent_Declare(LoggingLibrary                   #name of repository
+ GIT_REPOSITORY https://github.com/cubeItDone/LoggingLibrary.git
+ GIT_TAG        master)
+
+FetchContent_MakeAvailable(LoggingLibrary)
+
 include_directories(Graphics)
 include_directories(Application)
 
@@ -245,6 +251,8 @@ target_link_libraries(${PROJECT_NAME} glm)
 target_link_libraries(${PROJECT_NAME} imgui)
 target_link_libraries(${PROJECT_NAME} spirv-cross-core spirv-cross-glsl spirv-cross-cpp)
 target_link_libraries(${PROJECT_NAME} shaderc)
+target_link_libraries(${PROJECT_NAME} LoggingLibrary)
+
 
 if(IMGUI_DOCKING_BRANCH)
     target_compile_definitions(${PROJECT_NAME} PRIVATE IMGUI_DOCKING_BRANCH_ENABLED)
