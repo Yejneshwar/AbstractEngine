@@ -6,11 +6,8 @@ cmake_minimum_required (VERSION 3.20)
 if(NOT DEFINED GUI_PROJECT_NAME)
    message( FATAL_ERROR "Set the project name with GUI_PROJECT_NAME." )
 endif()
-if(NOT DEFINED GUI_MAIN_CPP)
-   message( FATAL_ERROR "Set the main source file with GUI_MAIN_CPP." ) 
-endif()
-if(NOT DEFINED GUI_MAIN_H)
-   message( FATAL_ERROR "Set the main header file with GUI_MAIN_H." ) 
+if(NOT DEFINED GUI_BUILD_TESTING)
+   set(GUI_BUILD_TESTING OFF CACHE BOOL "")
 endif()
 
 include(FetchContent)
@@ -29,8 +26,7 @@ endif()
 project (${GUI_PROJECT_NAME} VERSION 1.0)
 
 message("Project Name : ${GUI_PROJECT_NAME}")
-message("Main Source file : ${GUI_MAIN_CPP}")
-message("Main Header file : ${GUI_MAIN_H}")
+message("Building Testing : ${GUI_BUILD_TESTING}")
 
 #if tags not set set them
 if (NOT DEFINED GLFW_TAG)
@@ -228,8 +224,6 @@ set(APPLICATION_SRC "Application/AbstractApplication.h"
 )
 
 set(SRC 
-    ${GUI_MAIN_CPP}
-    ${GUI_MAIN_H}
     ${GRAPHICS_SRC}
     ${APPLICATION_SRC}
 )
@@ -245,6 +239,9 @@ include_directories(Application)
 
 # Add source to this project's executable.
 add_executable (${PROJECT_NAME} ${SRC})
+if(GUI_BUILD_TESTING)
+    target_sources(${PROJECT_NAME} PRIVATE "OpenGL Starter.cpp" "OpenGL Starter.h")
+endif()
 target_link_libraries(${PROJECT_NAME} glad)
 target_link_libraries(${PROJECT_NAME} glfw)
 target_link_libraries(${PROJECT_NAME} glm)
