@@ -10,6 +10,7 @@
 #include <Renderer/3DCamera.h>
 #include <Renderer/UniformBuffer.h>
 #include <Renderer/FrameBuffer.h>
+#include "glm/gtc/matrix_inverse.hpp"
 
 namespace GUI {
 
@@ -30,6 +31,38 @@ namespace GUI {
 			float alphaMin;
 			float alphaWidth;
 			glm::vec2  _pad1;
+	};
+
+	struct ViewPort {
+		const uint32_t id;
+		Graphics::Ref<Graphics::Framebuffer> Framebuffer;
+		Graphics::ThreeDCamera ViewPortCamera;
+		SceneDataUBO uboDataScene;
+		bool ViewportFocused = true, ViewportHovered = false;
+		glm::vec2 ViewportSize = { 0.0f, 0.0f };
+		glm::vec2 ViewportBounds[2];
+
+		explicit ViewPort(Graphics::FramebufferSpecification fbSpec, uint32_t _id) : id(_id) {
+			Framebuffer = Graphics::Framebuffer::Create(fbSpec);
+
+			ViewPortCamera = Graphics::ThreeDCamera(45.0f, 800.0f / 600.0f, 0.1f, 1000.0f);
+
+			uboDataScene.alphaMin = 0.0f;
+			uboDataScene.alphaWidth = 1.0f;
+			uboDataScene.viewMatrixInverseTranspose = glm::inverseTranspose(uboDataScene.viewMatrix);
+			uboDataScene.viewport = { 1280,720,1280 * 720 };
+			uboDataScene.linkedListAllocatedPerElement = 8;
+
+			this->update();
+
+		}
+		void update() {
+			uboDataScene.viewMatrix = ViewPortCamera.GetViewMatrix();  // Set your view matrix here
+			uboDataScene.projectionMatrix = ViewPortCamera.GetProjection();  // Set your projection matrix here
+			uboDataScene.projViewMatrix = ViewPortCamera.GetViewProjection();
+			uboDataScene.cameraPos = glm::vec4(ViewPortCamera.GetPosition(), 1.0f);
+			uboDataScene.viewDirection = ViewPortCamera.GetViewDirection();
+		}
 	};
 
 	struct ApplicationCommandLineArgs
@@ -90,15 +123,12 @@ namespace GUI {
 		Application::LayerStack m_LayerStack;
 		float m_LastFrameTime = 0.0f;
 
-		Graphics::ThreeDCamera m_ApplicationCamera;
-		SceneDataUBO m_uboDataScene;
+		Graphics::FramebufferSpecification m_fbSpec;
+
+		std::vector<ViewPort> m_ViewPorts;
+		uint32_t m_viewPortCount = 0;
+
 		Graphics::Ref<Graphics::UniformBuffer> m_CameraBuffer;
-
-		Graphics::Ref<Graphics::Framebuffer> m_Framebuffer;
-
-		bool m_ViewportFocused = false, m_ViewportHovered = false;
-        glm::vec2 m_ViewportSize = { 0.0f, 0.0f };
-        glm::vec2 m_ViewportBounds[2];
 
 		std::vector<std::function<void()>> m_MainThreadQueue;
 		std::mutex m_MainThreadQueueMutex;

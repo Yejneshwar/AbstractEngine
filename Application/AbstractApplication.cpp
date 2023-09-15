@@ -1,6 +1,7 @@
 #include "AbstractApplication.h"
 #include "Renderer/Renderer.h"
-#include "glm/gtc/matrix_inverse.hpp"
+#include <Logger.h>
+
 
 namespace GUI {
 	AbstractApplication* AbstractApplication::s_Instance = nullptr;
@@ -10,7 +11,7 @@ namespace GUI {
 	{
 		HZ_PROFILE_FUNCTION();
 
-		HZ_CORE_ASSERT(!s_Instance, "Application already exists!");
+		assert(!s_Instance, "Application already exists!");
 		s_Instance = this;
 
 		// Set working directory here
@@ -20,35 +21,20 @@ namespace GUI {
 		m_Window = Application::Window::Create(Application::WindowProps(m_Specification.Name));
 		m_Window->SetEventCallback(APP_BIND_EVENT_FN(AbstractApplication::OnEvent));
 
-		Graphics::FramebufferSpecification fbSpec;
-		fbSpec.Attachments = {
+		Graphics::Renderer::Init();
+
+		m_fbSpec.Attachments = {
 			Graphics::FramebufferTextureFormat::RGBA8,
 			Graphics::FramebufferTextureFormat::RED_INTEGER,
 			Graphics::FramebufferTextureFormat::Depth,
 		};
-		fbSpec.Width = 1280;
-		fbSpec.Height = 720;
+		m_fbSpec.Width = 1280;
+		m_fbSpec.Height = 720;
 
-		Graphics::Renderer::Init();
+		m_ViewPorts.push_back(ViewPort(m_fbSpec,m_viewPortCount)); // Default viewport
+		m_viewPortCount++;
 
-		m_Framebuffer = Graphics::Framebuffer::Create(fbSpec);
-
-		m_ApplicationCamera = Graphics::ThreeDCamera(45.0f, 800.0f / 600.0f, 0.1f, 1000.0f);
 		m_CameraBuffer = Graphics::UniformBuffer::Create(sizeof(SceneDataUBO), 0);
-
-        m_uboDataScene.viewMatrix = m_ApplicationCamera.GetViewMatrix();  // Set your view matrix here
-		m_uboDataScene.projectionMatrix = m_ApplicationCamera.GetProjection();  // Set your projection matrix here
-		m_uboDataScene.projViewMatrix = m_ApplicationCamera.GetViewProjection();
-		m_uboDataScene.cameraPos = glm::vec4(m_ApplicationCamera.GetPosition(), 1.0f);
-		m_uboDataScene.viewDirection = m_ApplicationCamera.GetViewDirection();
-
-		m_uboDataScene.alphaMin = 0.0f;
-		m_uboDataScene.alphaWidth = 1.0f;
-		m_uboDataScene.viewMatrixInverseTranspose = glm::inverseTranspose(m_uboDataScene.viewMatrix);
-		m_uboDataScene.viewport = { 1280,720,1280 * 720 };
-		m_uboDataScene.linkedListAllocatedPerElement = 8;
-		m_CameraBuffer->SetData(&m_uboDataScene, sizeof(SceneDataUBO));
-
 
 		m_ImGuiHandler = new ImGuiHandler((GLFWwindow*)m_Window->GetNativeWindow(), "#version 330");
 	}
@@ -97,21 +83,14 @@ namespace GUI {
 		dispatcher.Dispatch<Application::WindowResizeEvent>(APP_BIND_EVENT_FN(AbstractApplication::OnWindowResize));
 
 
-		if (ImGui::GetIO().WantCaptureMouse && !m_ViewportHovered) return;
+		if (ImGui::GetIO().WantCaptureMouse && std::all_of(m_ViewPorts.begin(), m_ViewPorts.end(), [](ViewPort v) { return v.ViewportHovered == false; })) return;
 
-		//Update camera and camera uniform here
-		m_ApplicationCamera.OnUpdate();
-		m_uboDataScene.viewMatrix = m_ApplicationCamera.GetViewMatrix();  // Set your view matrix here
-		m_uboDataScene.projectionMatrix = m_ApplicationCamera.GetProjection();  // Set your projection matrix here
-		m_uboDataScene.projViewMatrix = m_ApplicationCamera.GetViewProjection();
-		m_uboDataScene.viewMatrixInverseTranspose = glm::inverseTranspose(m_uboDataScene.viewMatrix);
-		m_uboDataScene.cameraPos = glm::vec4(m_ApplicationCamera.GetPosition(), 1.0f);
-		m_uboDataScene.viewDirection = m_ApplicationCamera.GetViewDirection();
-
-		m_CameraBuffer->SetData(&m_uboDataScene, sizeof(SceneDataUBO));
-		//
-
-		m_ApplicationCamera.OnEvent(e);
+		for (ViewPort& viewPort : m_ViewPorts) {
+			if (!viewPort.ViewportHovered && !viewPort.ViewportFocused) continue;
+			viewPort.ViewPortCamera.OnUpdate();
+			viewPort.update();
+			viewPort.ViewPortCamera.OnEvent(e);
+		}
 
 		for (auto it = m_LayerStack.rbegin(); it != m_LayerStack.rend(); ++it)
 		{
@@ -137,13 +116,15 @@ namespace GUI {
 					HZ_PROFILE_SCOPE("LayerStack OnUpdate");
 
 					Graphics::Renderer::ClearBuffers();
-					m_Framebuffer->Bind();
-					Graphics::Renderer::Clear();
-
-					for (Layer* layer : m_LayerStack)
-						layer->OnUpdate();
-
-                    m_Framebuffer->Unbind();
+					for (ViewPort& v : m_ViewPorts) {
+						if (!v.ViewportHovered && !v.ViewportFocused) continue;
+						m_CameraBuffer->SetData(&v.uboDataScene, sizeof(SceneDataUBO));
+						v.Framebuffer->Bind();
+						Graphics::Renderer::Clear();
+						for (Layer* layer : m_LayerStack)
+							layer->OnUpdate();
+						v.Framebuffer->Unbind();
+					}
 
 					m_ImGuiHandler->Update([&]() {
 						CoreUI();
@@ -194,7 +175,17 @@ namespace GUI {
     		{
     			ImGui::Begin("Hello, world!");
 
-    			ImGui::Text("Viewport Hovered : %s" , (m_ViewportHovered ? "Yes" : "No"));
+				if (ImGui::Button("Add ViewPort")) {
+					m_ViewPorts.push_back(ViewPort(m_fbSpec, m_viewPortCount));
+					m_viewPortCount++;
+				}
+
+				for (ViewPort v : m_ViewPorts) {
+    				ImGui::Text("Viewport Hovered : %s" , (v.ViewportHovered ? "Yes" : "No"));
+					ImGui::SameLine();
+					ImGui::Text("| Viewport Focused : %s", (v.ViewportFocused ? "Yes" : "No"));
+				}
+
 
     			auto io = ImGui::GetIO();
     			ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
@@ -203,33 +194,34 @@ namespace GUI {
     			ImGui::End();
     		}
 
-    		{
-    			ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2{ 0, 0 });
-    			ImGui::Begin("Viewport");
-    			ImDrawList* drawList = ImGui::GetWindowDrawList();
+			for (ViewPort& v : m_ViewPorts)
+			{
+				ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2{ 0, 0 });
+				ImGui::Begin(std::format("Viewport {}", v.id).c_str());
+				ImDrawList* drawList = ImGui::GetWindowDrawList();
 
-    			auto viewportMinRegion = ImGui::GetWindowContentRegionMin();
-    			auto viewportMaxRegion = ImGui::GetWindowContentRegionMax();
-    			auto viewportOffset = ImGui::GetWindowPos();
-    			m_ViewportBounds[0] = { viewportMinRegion.x + viewportOffset.x, viewportMinRegion.y + viewportOffset.y };
-    			m_ViewportBounds[1] = { viewportMaxRegion.x + viewportOffset.x, viewportMaxRegion.y + viewportOffset.y };
+				auto viewportMinRegion = ImGui::GetWindowContentRegionMin();
+				auto viewportMaxRegion = ImGui::GetWindowContentRegionMax();
+				auto viewportOffset = ImGui::GetWindowPos();
+				v.ViewportBounds[0] = { viewportMinRegion.x + viewportOffset.x, viewportMinRegion.y + viewportOffset.y };
+				v.ViewportBounds[1] = { viewportMaxRegion.x + viewportOffset.x, viewportMaxRegion.y + viewportOffset.y };
 
-    			m_ViewportFocused = ImGui::IsWindowFocused();
-    			m_ViewportHovered = ImGui::IsWindowHovered();
+				v.ViewportFocused = ImGui::IsWindowFocused();
+				v.ViewportHovered = ImGui::IsWindowHovered();
 
-    			//Application::Get().GetImGuiLayer()->BlockEvents(!m_ViewportHovered);
+				//Application::Get().GetImGuiLayer()->BlockEvents(!m_ViewportHovered);
 
-    			ImVec2 viewportPanelSize = ImGui::GetContentRegionAvail();
-    			m_ViewportSize = { viewportPanelSize.x, viewportPanelSize.y };
+				ImVec2 viewportPanelSize = ImGui::GetContentRegionAvail();
+				v.ViewportSize = { viewportPanelSize.x, viewportPanelSize.y };
 
-    			uint64_t textureID = m_Framebuffer->GetColorAttachmentRendererID(0);
+				uint64_t textureID = v.Framebuffer->GetColorAttachmentRendererID(0);
 
-    			ImGui::Image(reinterpret_cast<void*>(textureID), ImVec2{ m_ViewportSize.x, m_ViewportSize.y }, ImVec2{ 0, 1 }, ImVec2{ 1, 0 });
+				ImGui::Image(reinterpret_cast<void*>(textureID), ImVec2{ v.ViewportSize.x, v.ViewportSize.y }, ImVec2{ 0, 1 }, ImVec2{ 1, 0 });
 
-    			ImGui::End();
+				ImGui::End();
 
-    			ImGui::PopStyleVar();
-    		}
+				ImGui::PopStyleVar();
+			}
 
     		{
     			ImGui::Begin("Settings");
@@ -240,14 +232,17 @@ namespace GUI {
 
     			if(ImGui::Button("VSync")) m_Window->SetVSync(!m_Window->IsVSync());
 
-    			auto cameraFocalPoint = m_ApplicationCamera.GetFocalPoint();
-    			ImGui::Text("Camera Focus point : %.3f %.3f %.3f", cameraFocalPoint.x, cameraFocalPoint.y, cameraFocalPoint.z);
 
-				auto viewDirection = m_ApplicationCamera.GetViewDirection();
-				ImGui::Text("Camera View Direction : %.3f %.3f %.3f", viewDirection.x, viewDirection.y, viewDirection.z);
-				//auto fragNormal = glm::inverseTranspose(m_ApplicationCamera.GetViewMatrix()) * glm::vec3(0.0,0.0,1.0);
+				for (ViewPort& v : m_ViewPorts) {
+    				auto cameraFocalPoint = v.ViewPortCamera.GetFocalPoint();
+    				ImGui::Text("Camera Focus point : %.3f %.3f %.3f", cameraFocalPoint.x, cameraFocalPoint.y, cameraFocalPoint.z);
 
-    			if (ImGui::Button("Reset Camera")) m_ApplicationCamera.ResetFocalPoint();
+					auto viewDirection = v.ViewPortCamera.GetViewDirection();
+					ImGui::Text("Camera View Direction : %.3f %.3f %.3f", viewDirection.x, viewDirection.y, viewDirection.z);
+					//auto fragNormal = glm::inverseTranspose(m_ApplicationCamera.GetViewMatrix()) * glm::vec3(0.0,0.0,1.0);
+					if (ImGui::Button(std::format("Reset Camera {}", v.id).c_str())) { v.ViewPortCamera.ResetFocalPoint(); v.update(); };
+				}
+
 
     			ImGui::End();
     		}
