@@ -127,6 +127,7 @@ namespace GUI {
 
 		std::vector<ViewPort> m_ViewPorts;
 		uint32_t m_viewPortCount = 0;
+		bool m_updateAllViewPorts = false;
 
 		Graphics::Ref<Graphics::UniformBuffer> m_CameraBuffer;
 

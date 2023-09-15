@@ -115,14 +115,23 @@ namespace GUI {
 				{
 					HZ_PROFILE_SCOPE("LayerStack OnUpdate");
 
+					for (Layer* layer : m_LayerStack) {
+						if (layer->IsUpdateLayer())
+						{
+							layer->OnUpdateLayer();
+							layer->UpdateLayer(false);
+							m_updateAllViewPorts = true;
+						}
+					}
+
 					Graphics::Renderer::ClearBuffers();
 					for (ViewPort& v : m_ViewPorts) {
-						if (!v.ViewportHovered && !v.ViewportFocused) continue;
+						if (!v.ViewportHovered && !v.ViewportFocused && !m_updateAllViewPorts) continue;
 						m_CameraBuffer->SetData(&v.uboDataScene, sizeof(SceneDataUBO));
 						v.Framebuffer->Bind();
 						Graphics::Renderer::Clear();
 						for (Layer* layer : m_LayerStack)
-							layer->OnUpdate();
+							layer->OnDrawUpdate();
 						v.Framebuffer->Unbind();
 					}
 

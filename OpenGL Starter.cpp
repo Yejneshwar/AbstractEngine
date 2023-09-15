@@ -26,7 +26,7 @@ namespace GUI {
 			m_gridShader = Graphics::Shader::Create("./Resources/Shaders/Grid.glsl", false);
 		}
 
-		void OnUpdate() override {	
+		void OnDrawUpdate() override {	
 			m_gridShader->Bind();
 			Graphics::Renderer::DrawGridTriangles();
 		}
@@ -134,7 +134,7 @@ namespace GUI {
             ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 		}
 
-		void OnUpdate() {
+		void OnDrawUpdate() {
 
             fragmentBuffer->SetData(&uboDataFragment, sizeof(UBODataFragment));
             m_BasicShader->Bind();
