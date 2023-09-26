@@ -9,28 +9,9 @@
 #include <Renderer/Shader.h>
 #include <Core/Layer.h>
 #include <glm/gtc/type_ptr.hpp>
+#include <Renderer/Texture.h>
 
 namespace GUI {
-
-	class GridLayer : public Layer {
-		Graphics::Ref<Graphics::Shader> m_gridShader;
-	public:
-		//All events for this layer are handled by the camera in AbstractApplication
-		GridLayer() : Layer("GridLayer") {
-		}
-
-		~GridLayer() {
-		}
-
-		void OnAttach() {
-			m_gridShader = Graphics::Shader::Create("./Resources/Shaders/Grid.glsl", false);
-		}
-
-		void OnDrawUpdate() override {	
-			m_gridShader->Bind();
-			Graphics::Renderer::DrawGridTriangles();
-		}
-	};
 
 	class ObjectLayer : public Layer {
 
@@ -162,16 +143,12 @@ namespace GUI {
 		TestGUI(const ApplicationSpecification& spec)
 			:AbstractApplication(spec)
 		{ 
-            //Because of opacity and draw order, The grid should always be the last layer
             PushLayer(new ObjectLayer());
-			PushLayer(new GridLayer());
 		}
 
 		~TestGUI() {
 			std::cout << "TestGUI Destructor" << std::endl;
 		}
-
-
 	};
 
 	

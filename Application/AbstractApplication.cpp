@@ -1,6 +1,7 @@
 #include "AbstractApplication.h"
 #include "Renderer/Renderer.h"
 #include <Logger.h>
+#include <imgui_internal.h>
 
 
 namespace GUI {
@@ -31,10 +32,14 @@ namespace GUI {
 		m_fbSpec.Width = 1280;
 		m_fbSpec.Height = 720;
 
-		m_ViewPorts.push_back(ViewPort(m_fbSpec,m_viewPortCount)); // Default viewport
+		m_ViewPorts.push_back(ViewPort(m_fbSpec, CameraType::ThreeD ,m_viewPortCount)); // Default viewport
 		m_viewPortCount++;
 
 		m_CameraBuffer = Graphics::UniformBuffer::Create(sizeof(SceneDataUBO), 0);
+
+		m_font = Graphics::Texture2D::Create("./Resources/Textures/FontAtlas.png");
+		m_gridShader = Graphics::Shader::Create("./Resources/Shaders/Grid.glsl", false);
+		m_gridShader2D = Graphics::Shader::Create("./Resources/Shaders/Grid2D.glsl", false);
 
 		m_ImGuiHandler = new ImGuiHandler((GLFWwindow*)m_Window->GetNativeWindow(), "#version 330");
 	}
@@ -86,10 +91,10 @@ namespace GUI {
 		if (ImGui::GetIO().WantCaptureMouse && std::all_of(m_ViewPorts.begin(), m_ViewPorts.end(), [](ViewPort v) { return v.ViewportHovered == false; })) return;
 
 		for (ViewPort& viewPort : m_ViewPorts) {
-			if (!viewPort.ViewportHovered && !viewPort.ViewportFocused) continue;
-			viewPort.ViewPortCamera.OnUpdate();
+			if (!viewPort.ViewportHovered || !viewPort.ViewportFocused) continue;
+			viewPort.ViewPortCamera->OnUpdate();
+			viewPort.ViewPortCamera->OnEvent(e);
 			viewPort.update();
-			viewPort.ViewPortCamera.OnEvent(e);
 		}
 
 		for (auto it = m_LayerStack.rbegin(); it != m_LayerStack.rend(); ++it)
@@ -125,13 +130,34 @@ namespace GUI {
 					}
 
 					Graphics::Renderer::ClearBuffers();
+					m_font->Bind();
 					for (ViewPort& v : m_ViewPorts) {
+						//On viewport resize
+						if ((v.ViewportSize.x != v.Framebuffer->GetSpecification().Width) || (v.ViewportSize.y != v.Framebuffer->GetSpecification().Height)) {
+							v.Framebuffer->Resize((uint32_t)v.ViewportSize.x, (uint32_t)v.ViewportSize.y);
+							v.ViewPortCamera->SetViewportSize(v.ViewportSize.x, v.ViewportSize.y);
+							v.update();
+						}
 						if (!v.ViewportHovered && !v.ViewportFocused && !m_updateAllViewPorts) continue;
-						m_CameraBuffer->SetData(&v.uboDataScene, sizeof(SceneDataUBO));
+						m_CameraBuffer->SetData(&v.uboDataScene, sizeof(v.uboDataScene));
 						v.Framebuffer->Bind();
 						Graphics::Renderer::Clear();
-						for (Layer* layer : m_LayerStack)
-							layer->OnDrawUpdate();
+						if (v.cameraType == CameraType::ThreeD) {
+							for (Layer* layer : m_LayerStack)
+								layer->OnDrawUpdate();
+							//Grid Shader
+							m_gridShader->Bind();
+							Graphics::Renderer::DrawGridTriangles();
+							m_gridShader->Unbind();
+						}
+						else {
+							//Grid Shader
+							m_gridShader2D->Bind();
+							Graphics::Renderer::DrawGridTriangles();
+							m_gridShader2D->Unbind();
+							for (Layer* layer : m_LayerStack)
+								layer->OnDrawUpdate();
+						}
 						v.Framebuffer->Unbind();
 					}
 
@@ -180,12 +206,83 @@ namespace GUI {
 		m_MainThreadQueue.clear();
 	}
 
+	void DrawVec3Control(const std::string& label, glm::vec3& values, float resetValue = 0.0f, float columnWidth = 100.0f)
+	{
+		ImGuiIO& io = ImGui::GetIO();
+		auto boldFont = io.Fonts->Fonts[0];
+
+		ImGui::PushID(label.c_str());
+
+		ImGui::Columns(2);
+		ImGui::SetColumnWidth(0, columnWidth);
+		ImGui::Text("%s", label.c_str());
+		ImGui::NextColumn();
+
+		ImGui::PushMultiItemsWidths(3, ImGui::CalcItemWidth());
+		ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2{ 0, 0 });
+
+		float lineHeight = GImGui->Font->FontSize + GImGui->Style.FramePadding.y * 2.0f;
+		ImVec2 buttonSize = { lineHeight + 3.0f, lineHeight };
+
+		ImGui::PushStyleColor(ImGuiCol_Button, ImVec4{ 0.8f, 0.1f, 0.15f, 1.0f });
+		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4{ 0.9f, 0.2f, 0.2f, 1.0f });
+		ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4{ 0.8f, 0.1f, 0.15f, 1.0f });
+		ImGui::PushFont(boldFont);
+		if (ImGui::Button("X", buttonSize))
+			values.x = resetValue;
+		ImGui::PopFont();
+		ImGui::PopStyleColor(3);
+
+		ImGui::SameLine();
+		ImGui::DragFloat("##X", &values.x, 0.1f, 0.0f, 0.0f, "%.2f");
+		ImGui::PopItemWidth();
+		ImGui::SameLine();
+
+		ImGui::PushStyleColor(ImGuiCol_Button, ImVec4{ 0.2f, 0.7f, 0.2f, 1.0f });
+		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4{ 0.3f, 0.8f, 0.3f, 1.0f });
+		ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4{ 0.2f, 0.7f, 0.2f, 1.0f });
+		ImGui::PushFont(boldFont);
+		if (ImGui::Button("Y", buttonSize))
+			values.y = resetValue;
+		ImGui::PopFont();
+		ImGui::PopStyleColor(3);
+
+		ImGui::SameLine();
+		ImGui::DragFloat("##Y", &values.y, 0.1f, 0.0f, 0.0f, "%.2f");
+		ImGui::PopItemWidth();
+		ImGui::SameLine();
+
+		ImGui::PushStyleColor(ImGuiCol_Button, ImVec4{ 0.1f, 0.25f, 0.8f, 1.0f });
+		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4{ 0.2f, 0.35f, 0.9f, 1.0f });
+		ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4{ 0.1f, 0.25f, 0.8f, 1.0f });
+		ImGui::PushFont(boldFont);
+		if (ImGui::Button("Z", buttonSize))
+			values.z = resetValue;
+		ImGui::PopFont();
+		ImGui::PopStyleColor(3);
+
+		ImGui::SameLine();
+		ImGui::DragFloat("##Z", &values.z, 0.1f, 0.0f, 0.0f, "%.2f");
+		ImGui::PopItemWidth();
+
+		ImGui::PopStyleVar();
+
+		ImGui::Columns(1);
+
+		ImGui::PopID();
+	}
+
 	void AbstractApplication::CoreUI() {
     		{
     			ImGui::Begin("Hello, world!");
 
-				if (ImGui::Button("Add ViewPort")) {
-					m_ViewPorts.push_back(ViewPort(m_fbSpec, m_viewPortCount));
+				if (ImGui::Button("Add 3D ViewPort")) {
+					m_ViewPorts.push_back(ViewPort(m_fbSpec, CameraType::ThreeD, m_viewPortCount));
+					m_viewPortCount++;
+				}
+				ImGui::SameLine();
+				if (ImGui::Button("Add 2D ViewPort")) {
+					m_ViewPorts.push_back(ViewPort(m_fbSpec, CameraType::TwoD, m_viewPortCount));
 					m_viewPortCount++;
 				}
 
@@ -221,6 +318,7 @@ namespace GUI {
 				//Application::Get().GetImGuiLayer()->BlockEvents(!m_ViewportHovered);
 
 				ImVec2 viewportPanelSize = ImGui::GetContentRegionAvail();
+				
 				v.ViewportSize = { viewportPanelSize.x, viewportPanelSize.y };
 
 				uint64_t textureID = v.Framebuffer->GetColorAttachmentRendererID(0);
@@ -243,13 +341,26 @@ namespace GUI {
 
 
 				for (ViewPort& v : m_ViewPorts) {
-    				auto cameraFocalPoint = v.ViewPortCamera.GetFocalPoint();
+					auto camerPosition = v.ViewPortCamera->GetPosition();
+					ImGui::Text("Camera Position : %.3f %.3f %.3f", camerPosition.x, camerPosition.y, camerPosition.z);
+
+    				auto cameraFocalPoint = v.ViewPortCamera->GetFocalPoint();
     				ImGui::Text("Camera Focus point : %.3f %.3f %.3f", cameraFocalPoint.x, cameraFocalPoint.y, cameraFocalPoint.z);
 
-					auto viewDirection = v.ViewPortCamera.GetViewDirection();
+					auto tmp = cameraFocalPoint;
+					DrawVec3Control("Transform", cameraFocalPoint);
+					if (tmp != cameraFocalPoint) {
+						v.ViewPortCamera->SetFocalPoint(cameraFocalPoint);
+						v.update();
+					}
+
+
+					auto viewDirection = v.ViewPortCamera->GetViewDirection();
 					ImGui::Text("Camera View Direction : %.3f %.3f %.3f", viewDirection.x, viewDirection.y, viewDirection.z);
 					//auto fragNormal = glm::inverseTranspose(m_ApplicationCamera.GetViewMatrix()) * glm::vec3(0.0,0.0,1.0);
-					if (ImGui::Button(std::format("Reset Camera {}", v.id).c_str())) { v.ViewPortCamera.ResetFocalPoint(); v.update(); };
+					if (ImGui::Button(std::format("Reset Camera {}", v.id).c_str())) { v.ViewPortCamera->ResetFocalPoint(); v.update(); };
+					auto zoom = v.ViewPortCamera->getZoom();
+					ImGui::Text("Camera Zoom : %.20f", zoom);
 				}
 
 

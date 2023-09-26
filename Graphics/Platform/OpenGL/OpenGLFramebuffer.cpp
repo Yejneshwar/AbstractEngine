@@ -3,6 +3,7 @@
 #include "Platform/OpenGL/OpenGLFramebuffer.h"
 
 #include <glad/gl.h>
+#include <Logger.h>
 
 namespace Graphics {
 
@@ -194,7 +195,7 @@ namespace Graphics {
 	{
 		if (width == 0 || height == 0 || width > s_MaxFramebufferSize || height > s_MaxFramebufferSize)
 		{
-			//HZ_CORE_WARN("Attempted to rezize framebuffer to {0}, {1}", width, height);
+			LOG_WARN_STREAM << "Attempted to rezize framebuffer to " << width << ", " << height;
 			return;
 		}
 		m_Specification.Width = width;

@@ -6,15 +6,22 @@ layout(std140, binding = UBO_SCENE) uniform SceneDataUBO {
 	mat4 projectionMatrix;
 	mat4 viewMatrixInverseTranspose;
 	vec4 cameraPos;
+	vec4 viewDirection;
+	vec4 gridMinMax;
+	float aspectRatio;
+	float gridMajor;
+	float gridMinor;
+	float gridZoom;
 
-	ivec3 viewport;  // (width, height, width*height)
+
+	//ivec3 viewport;  // (width, height, width*height)
 	// For SIMPLE, INTERLOCK, SPINLOCK, LOOP, and LOOP64, the number of OIT layers;
 	// for LINKEDLIST, the total number of elements in the A-buffer.
-	uint linkedListAllocatedPerElement;
+	// uint linkedListAllocatedPerElement;
 
-	float alphaMin;
-	float alphaWidth;
-	vec2  _pad1;
+	// float alphaMin;
+	// float alphaWidth;
+	//vec2  _pad1;
 } ubo;
 
 struct Vertex

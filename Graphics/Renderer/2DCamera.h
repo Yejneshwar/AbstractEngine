@@ -5,14 +5,13 @@
 #include "Events/Event.h"
 #include <Events/EventTypes/MouseEvent.h>
 
-
 namespace Graphics {
 
-	class ThreeDCamera : public Camera
+	class TwoDCamera : public Camera
 	{
 	public:
-		ThreeDCamera() = default;
-		ThreeDCamera(float fov, float aspectRatio, float nearClip, float farClip);
+		TwoDCamera() = default;
+		TwoDCamera(float nearClip, float farClip);
 
 		//void OnUpdate(double x, double y, int leftButton, int rightButton);
 		void OnUpdate();
@@ -35,30 +34,25 @@ namespace Graphics {
 
 		float GetPitch() const { return m_Pitch; }
 		float GetYaw() const { return m_Yaw; }
-
-		double getWorldXmin() const { return 0; }
-		double getWorldXmax() const { return 0; }
-		double getWorldYmin() const { return 0; }
-		double getWorldYmax() const { return 0; }
-
-		double getAspectRatio() const { return m_AspectRatio; }
-		double getZoom() const { return 0; }
-
-		double getGridMinorSpacing() const { return 0; }
-		double getGridMajorSpacing() const { return 0; }
-
-
 		//bool OnMouseScroll(double offset);
 
 		void SetMousePos(glm::vec2 mousePos) { m_InitialMousePosition = mousePos; }
 
-		void ResetFocalPoint() { m_FocalPoint = { 0.0f, 0.0f, 0.0f }; UpdateView(); }
+		void ResetFocalPoint() { m_FocalPoint = { 0.0f, 0.0f, 0.0f }; UpdateView();}
 
 		void SetPosition(const glm::vec3& position) { m_Position = position; UpdateView(); }
 
 		glm::vec3 GetFocalPoint() { return m_FocalPoint; }
 		void SetFocalPoint(glm::vec3 point) { m_FocalPoint = point; UpdateView(); }
 
+		double getWorldXmin() const { return worldXmin; }
+		double getWorldXmax() const { return worldXmax; }
+		double getWorldYmin() const { return worldYmin; }
+		double getWorldYmax() const { return worldYmax; }
+		double getAspectRatio() const { return m_AspectRatio; }
+		double getGridMinorSpacing() const { return gridMinorSpacing; }
+		double getGridMajorSpacing() const { return gridMajorSpacing; }
+		double getZoom() const { return m_zoom;  }
 	private:
 		void UpdateProjection();
 		void UpdateView();
@@ -84,10 +78,15 @@ namespace Graphics {
 
 		glm::vec2 m_InitialMousePosition = { 0.0f, 0.0f };
 
-		float m_Distance = 10.0f;
+		float m_Distance = 1.0f;
+		double m_zoom = 4.0f;
+		double m_zoomLevel = 1.0;
 		float m_Pitch = 0.0f, m_Yaw = 0.0f;
 
 		float m_ViewportWidth = 1280, m_ViewportHeight = 720;
+
+		double worldXmin = 0, worldXmax = 0, worldYmin = 0, worldYmax = 0;
+		float gridMinorSpacing = 0.0f, gridMajorSpacing = 0.0f;
 	};
 
 }
