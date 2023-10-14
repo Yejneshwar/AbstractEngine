@@ -299,9 +299,9 @@ namespace Graphics {
 					delete[] triangleIndices;
 				}
 
-				s_Data.TriangleShader->Bind();
+				s_Data.StaticTriangleShader->Bind();
 				Graphics::RenderCommand::DrawIndexed(s_Data.StaticTriangleVertexArray, s_Data.storage.indices.size());
-				s_Data.TriangleShader->Unbind();
+				s_Data.StaticTriangleShader->Unbind();
 				//s_Data.Stats.DrawCalls++;
 				//s_Data.TriangleIndices.clear();
 			}
