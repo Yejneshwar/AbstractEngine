@@ -2,6 +2,7 @@
 #include "Platform/OpenGL/OpenGLVertexArray.h"
 
 #include <glad/gl.h>
+#include <Logger.h>
 
 namespace Graphics {
 
@@ -127,7 +128,11 @@ namespace Graphics {
 	void OpenGLVertexArray::SetIndexBuffer(const Ref<IndexBuffer>& indexBuffer)
 	{
 		
-
+		if (m_IndexBuffer.get() != nullptr) {
+			m_IndexBuffer->Unbind();
+			LOG_DEBUG_STREAM << "Removing Index buffer";
+			m_IndexBuffer->~IndexBuffer();
+		}
 		glBindVertexArray(m_RendererID);
 		indexBuffer->Bind();
 

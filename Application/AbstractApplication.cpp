@@ -2,6 +2,7 @@
 #include "Renderer/Renderer.h"
 #include <Logger.h>
 #include <imgui_internal.h>
+#include "Renderer/BatchRenderer.h"
 
 
 namespace GUI {
@@ -40,6 +41,7 @@ namespace GUI {
 		m_font = Graphics::Texture2D::Create("./Resources/Textures/FontAtlas.png");
 		m_gridShader = Graphics::Shader::Create("./Resources/Shaders/Grid.glsl", false);
 		m_gridShader2D = Graphics::Shader::Create("./Resources/Shaders/Grid2D.glsl", false);
+		Graphics::BatchRenderer::Init();
 
 		m_ImGuiHandler = new ImGuiHandler((GLFWwindow*)m_Window->GetNativeWindow(), "#version 330");
 	}
@@ -131,20 +133,29 @@ namespace GUI {
 
 					Graphics::Renderer::ClearBuffers();
 					m_font->Bind();
+					LOG_TRACE_STREAM << "Begin Viewports";
 					for (ViewPort& v : m_ViewPorts) {
 						//On viewport resize
 						if ((v.ViewportSize.x != v.Framebuffer->GetSpecification().Width) || (v.ViewportSize.y != v.Framebuffer->GetSpecification().Height)) {
+							LOG_TRACE_STREAM << "Viewport resized to: " << v.ViewportSize.x << " x " << v.ViewportSize.y;
 							v.Framebuffer->Resize((uint32_t)v.ViewportSize.x, (uint32_t)v.ViewportSize.y);
 							v.ViewPortCamera->SetViewportSize(v.ViewportSize.x, v.ViewportSize.y);
 							v.update();
 						}
 						if (!v.ViewportHovered && !v.ViewportFocused && !m_updateAllViewPorts) continue;
 						m_CameraBuffer->SetData(&v.uboDataScene, sizeof(v.uboDataScene));
+
 						v.Framebuffer->Bind();
+
+						Graphics::BatchRenderer::BeginScene();
 						Graphics::Renderer::Clear();
+
+						for (Layer* layer : m_LayerStack)
+							layer->OnDrawUpdate();
+
+						Graphics::BatchRenderer::EndScene();
+
 						if (v.cameraType == CameraType::ThreeD) {
-							for (Layer* layer : m_LayerStack)
-								layer->OnDrawUpdate();
 							//Grid Shader
 							m_gridShader->Bind();
 							Graphics::Renderer::DrawGridTriangles();
@@ -155,11 +166,10 @@ namespace GUI {
 							m_gridShader2D->Bind();
 							Graphics::Renderer::DrawGridTriangles();
 							m_gridShader2D->Unbind();
-							for (Layer* layer : m_LayerStack)
-								layer->OnDrawUpdate();
 						}
 						v.Framebuffer->Unbind();
 					}
+					LOG_TRACE_STREAM << "End Viewports";
 
 					m_ImGuiHandler->Update([&]() {
 						CoreUI();
@@ -296,38 +306,44 @@ namespace GUI {
     			auto io = ImGui::GetIO();
     			ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
 
+				ImGui::Text("Quad Count %d", Graphics::BatchRenderer::GetStats().QuadCount);
+				if (ImGui::Button("Recreate SHaders")) {
+					Graphics::BatchRenderer::ReCreateShaders();
+				}
 
     			ImGui::End();
     		}
 
-			for (ViewPort& v : m_ViewPorts)
-			{
+			auto ViewPortIt = m_ViewPorts.begin();
+			while (ViewPortIt != m_ViewPorts.end()) {
+				if (!ViewPortIt->isOpen) { ViewPortIt = m_ViewPorts.erase(ViewPortIt); continue; }
 				ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2{ 0, 0 });
-				ImGui::Begin(std::format("Viewport {}", v.id).c_str());
+				ImGui::Begin(std::format("Viewport {}", ViewPortIt->id).c_str(), &ViewPortIt->isOpen);
 				ImDrawList* drawList = ImGui::GetWindowDrawList();
 
 				auto viewportMinRegion = ImGui::GetWindowContentRegionMin();
 				auto viewportMaxRegion = ImGui::GetWindowContentRegionMax();
 				auto viewportOffset = ImGui::GetWindowPos();
-				v.ViewportBounds[0] = { viewportMinRegion.x + viewportOffset.x, viewportMinRegion.y + viewportOffset.y };
-				v.ViewportBounds[1] = { viewportMaxRegion.x + viewportOffset.x, viewportMaxRegion.y + viewportOffset.y };
+				ViewPortIt->ViewportBounds[0] = { viewportMinRegion.x + viewportOffset.x, viewportMinRegion.y + viewportOffset.y };
+				ViewPortIt->ViewportBounds[1] = { viewportMaxRegion.x + viewportOffset.x, viewportMaxRegion.y + viewportOffset.y };
 
-				v.ViewportFocused = ImGui::IsWindowFocused();
-				v.ViewportHovered = ImGui::IsWindowHovered();
+				ViewPortIt->ViewportFocused = ImGui::IsWindowFocused();
+				ViewPortIt->ViewportHovered = ImGui::IsWindowHovered();
 
 				//Application::Get().GetImGuiLayer()->BlockEvents(!m_ViewportHovered);
 
 				ImVec2 viewportPanelSize = ImGui::GetContentRegionAvail();
-				
-				v.ViewportSize = { viewportPanelSize.x, viewportPanelSize.y };
 
-				uint64_t textureID = v.Framebuffer->GetColorAttachmentRendererID(0);
+				ViewPortIt->ViewportSize = { viewportPanelSize.x, viewportPanelSize.y };
 
-				ImGui::Image(reinterpret_cast<void*>(textureID), ImVec2{ v.ViewportSize.x, v.ViewportSize.y }, ImVec2{ 0, 1 }, ImVec2{ 1, 0 });
+				uint64_t textureID = ViewPortIt->Framebuffer->GetColorAttachmentRendererID(0);
+
+				ImGui::Image(reinterpret_cast<void*>(textureID), ImVec2{ ViewPortIt->ViewportSize.x, ViewPortIt->ViewportSize.y }, ImVec2{ 0, 1 }, ImVec2{ 1, 0 });
 
 				ImGui::End();
 
 				ImGui::PopStyleVar();
+				ViewPortIt++;
 			}
 
     		{

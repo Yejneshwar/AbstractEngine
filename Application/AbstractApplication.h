@@ -49,7 +49,7 @@ namespace GUI {
 	};
 
 	struct ViewPort {
-		const uint32_t id;
+		uint32_t id;
 		CameraType cameraType = CameraType::ThreeD;
 		Graphics::Ref<Graphics::Framebuffer> Framebuffer;
 		Graphics::Ref<Graphics::Camera> ViewPortCamera;
@@ -57,6 +57,7 @@ namespace GUI {
 		bool ViewportFocused = true, ViewportHovered = false;
 		glm::vec2 ViewportSize = { 1.0f, 1.0f };
 		glm::vec2 ViewportBounds[2];
+		bool isOpen = true;
 
 		explicit ViewPort(Graphics::FramebufferSpecification fbSpec, CameraType camera, uint32_t _id) : cameraType(camera), id(_id) {
 			Framebuffer = Graphics::Framebuffer::Create(fbSpec);

@@ -75,12 +75,13 @@ float amplify(float d, float scale, float offset)
 
 void main()
 {
+    vec4 triangleColor = vec4(1.0f, 0.5f, 0.2f, 1.0f);
     float dotProductFrag = dot(normalize(GeomFragNormal), normalize(GeomFragPosition.xyz - vec3(0.0, 0.0, 1.0)));
 
     float d1 = min(min(gTriDistance.x, gTriDistance.y), gTriDistance.z);
-    vec4 color = amplify(d1, 40, -0.5) * ubo.triangleColor;
+    vec4 color = amplify(d1, 40, -0.5) * triangleColor;
 
     vec3 finalColor = dotProductFrag > 0.0 ? color.xyz : vec3(1.0, 1.0, 1.0);
 
-    FragColor = vec4(finalColor, ubo.triangleColor.a);
+    FragColor = vec4(finalColor, triangleColor.a);
 }

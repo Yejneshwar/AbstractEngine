@@ -158,6 +158,8 @@ add_subdirectory(thirdparty)
 
 set(GRAPHICS_SRC "Graphics/GraphicsCore.h"
 "Graphics/GraphicsBase.h"
+"Graphics/Renderer/BatchRenderer.h"
+"Graphics/Renderer/BatchRenderer.cpp"
 "Graphics/Renderer/Buffer.h"
 "Graphics/Renderer/Buffer.cpp"
 "Graphics/Renderer/Camera.h"

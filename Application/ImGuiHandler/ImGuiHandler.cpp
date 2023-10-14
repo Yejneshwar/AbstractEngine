@@ -6,7 +6,7 @@ void ImGuiHandler::NewFrame() {
     ImGui::NewFrame();
 }
 
-void ImGuiHandler::Render() {
+inline void ImGuiHandler::Render() {
     ImGui::Render();
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 }
@@ -32,7 +32,7 @@ ImGuiHandler::ImGuiHandler(GLFWwindow* window, const char* glsl_version) {
     ImGui_ImplOpenGL3_Init(glsl_version);
 }
 
-void ImGuiHandler::Update(ImGuiUpdateFn updateFn) {
+void ImGuiHandler::Update(const ImGuiUpdateFn& updateFn) {
     this->NewFrame();
 
 #ifdef IMGUI_DOCKING_BRANCH_ENABLED

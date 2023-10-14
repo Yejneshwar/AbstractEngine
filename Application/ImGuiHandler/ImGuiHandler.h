@@ -21,7 +21,7 @@ public:
 
     ImGuiHandler(GLFWwindow* window, const char* glsl_version);
 
-    void Update(ImGuiUpdateFn updateFn);
+    void Update(const ImGuiUpdateFn& updateFn);
 
     ~ImGuiHandler() {
         ImGui_ImplOpenGL3_Shutdown();

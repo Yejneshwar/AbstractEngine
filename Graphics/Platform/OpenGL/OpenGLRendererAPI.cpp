@@ -45,7 +45,7 @@ namespace Graphics {
 		glEnable(GL_DEPTH_TEST);
 		glDepthFunc(GL_LEQUAL);
 		glEnable(GL_LINE_SMOOTH);
-		glEnable(GL_POLYGON_SMOOTH);
+		//glEnable(GL_POLYGON_SMOOTH); // This sorta turns everything into a wireframe?
 		glEnable(GL_MULTISAMPLE);
 	}
 
@@ -85,7 +85,8 @@ namespace Graphics {
 			return;
 		}
 		vertexArray->Bind();
-		glDrawElements(GL_TRIANGLES, indexBuffer->GetCount(), GL_UNSIGNED_INT, nullptr);
+		if (indexCount < 0) indexCount = indexBuffer->GetCount();
+		glDrawElements(GL_TRIANGLES, indexCount, GL_UNSIGNED_INT, nullptr);
 	}
 
 	void OpenGLRendererAPI::DrawLines(const Ref<VertexArray>& vertexArray, uint32_t vertexCount)
