@@ -35,7 +35,7 @@ namespace Graphics {
 
 			static void addData(const std::vector<double>& vertices, const std::vector<uint32_t>& indices);
 
-			void DrawMesh(const std::vector<double>& vertices, const std::vector<uint32_t>& indices, const glm::vec4& color);
+			static void DrawMesh(const std::vector<double>& vertices, const std::vector<uint32_t>& indices, const glm::vec4& color);
 
 			static void DrawCircle(const glm::vec2& position, float radius, const glm::vec4& color);
 
