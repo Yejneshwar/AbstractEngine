@@ -3,6 +3,7 @@
 #include <Logger.h>
 #include <imgui_internal.h>
 #include "Renderer/BatchRenderer.h"
+#include <Events/Input.h>
 
 
 namespace GUI {
@@ -38,9 +39,7 @@ namespace GUI {
 
 		m_CameraBuffer = Graphics::UniformBuffer::Create(sizeof(SceneDataUBO), 0);
 
-		m_font = Graphics::Texture2D::Create("./Resources/Textures/FontAtlas.png");
-		m_gridShader = Graphics::Shader::Create("./Resources/Shaders/Grid.glsl", false);
-		m_gridShader2D = Graphics::Shader::Create("./Resources/Shaders/Grid2D.glsl", false);
+		this->CreateShaders();
 		Graphics::BatchRenderer::Init();
 
 		m_ImGuiHandler = new ImGuiHandler((GLFWwindow*)m_Window->GetNativeWindow(), "#version 330");
@@ -51,6 +50,12 @@ namespace GUI {
 		HZ_PROFILE_FUNCTION();
 
 		Graphics::Renderer::Shutdown();
+	}
+
+	void AbstractApplication::CreateShaders() {
+		m_font = Graphics::Texture2D::Create("./Resources/Textures/FontAtlas.png");
+		m_gridShader = Graphics::Shader::Create("./Resources/Shaders/Grid.glsl", false);
+		m_gridShader2D = Graphics::Shader::Create("./Resources/Shaders/Grid2D.glsl", false);
 	}
 
 	void AbstractApplication::PushLayer(Layer* layer)
@@ -296,7 +301,35 @@ namespace GUI {
 					m_viewPortCount++;
 				}
 
+				glm::vec2 pos = Application::Input::GetMousePosition();
+
+				std::string mousePos = std::format("Mouse pos screen : {} {}", pos.x, pos.y);
+				ImGui::Text(mousePos.c_str());
+
 				for (ViewPort v : m_ViewPorts) {
+					float worldXmax = v.ViewPortCamera->getWorldXmax();
+					float worldXmin = v.ViewPortCamera->getWorldXmin();
+					float worldYmax = v.ViewPortCamera->getWorldYmax();
+					float worldYmin = v.ViewPortCamera->getWorldYmin();
+					float screenWidth = v.ViewportSize.x;
+					float screenHeight = v.ViewportSize.y;
+
+					//ToDo: account for the vieport position.
+					glm::vec2 world = { ((pos.x / screenWidth) * (worldXmax - worldXmin)) + worldXmin , worldYmax - ((pos.y / screenHeight) * (worldYmax - worldYmin)) };
+
+					//Note: The mouse coordinates lose precision because of the below two lines 
+					world.x += v.ViewPortCamera->GetFocalPoint().x;
+					world.y += v.ViewPortCamera->GetFocalPoint().y;
+
+					
+					ImGui::Text("WorldX : %f -> %f", worldXmin, worldXmax);
+					ImGui::Text("WorldY : %f -> %f", worldYmin, worldYmax);
+					//Note: Warning! Mouse coordinates in world space will lose 0,0 precision if screen size is set to odd number
+					ImGui::Text("Screen : %f %f", screenWidth, screenHeight);
+
+					std::string viewPortMousePos = std::format("Mouse pos world : {} {}", world.x, world.y);
+
+					ImGui::Text(viewPortMousePos.c_str());
     				ImGui::Text("Viewport Hovered : %s" , (v.ViewportHovered ? "Yes" : "No"));
 					ImGui::SameLine();
 					ImGui::Text("| Viewport Focused : %s", (v.ViewportFocused ? "Yes" : "No"));
@@ -307,6 +340,9 @@ namespace GUI {
     			ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
 
 				ImGui::Text("Quad Count %d", Graphics::BatchRenderer::GetStats().QuadCount);
+				if (ImGui::Button("Recreate application SHaders")) {
+					this->CreateShaders();
+				}
 				if (ImGui::Button("Recreate SHaders")) {
 					Graphics::BatchRenderer::ReCreateShaders();
 				}
@@ -339,6 +375,9 @@ namespace GUI {
 				uint64_t textureID = ViewPortIt->Framebuffer->GetColorAttachmentRendererID(0);
 
 				ImGui::Image(reinterpret_cast<void*>(textureID), ImVec2{ ViewPortIt->ViewportSize.x, ViewPortIt->ViewportSize.y }, ImVec2{ 0, 1 }, ImVec2{ 1, 0 });
+				auto rectMin = ImVec2{ ViewPortIt->ViewportBounds[0].x, ViewPortIt->ViewportBounds[0].y };
+				auto rectMax = ImVec2{ ViewPortIt->ViewportBounds[1].x, ViewPortIt->ViewportBounds[1].y };
+				//ImGui::GetForegroundDrawList()->AddRect(rectMin, rectMax, IM_COL32(255, 255, 0, 255));
 
 				ImGui::End();
 

@@ -393,6 +393,24 @@ namespace Graphics {
 			s_Data.storage.updateBatch = true;
 		}
 
+		void BatchRenderer::DrawMesh(const std::vector<double>& vertices, const std::vector<uint32_t>& indices, const glm::vec4& color) {
+			assert((s_Data.inScene) && (vertices.size() % 3 == 0));
+
+			for (size_t i = 0; i < vertices.size(); i += 3) {
+				s_Data.TriangleVertexBufferPtr->Position = glm::vec3(static_cast<float>(vertices.at(i)), static_cast<float>(vertices.at(i + 1)), static_cast<float>(vertices.at(i + 2)));
+				s_Data.TriangleVertexBufferPtr->Color = color;
+				s_Data.TriangleVertexBufferPtr++;
+			}
+
+			for (const uint32_t& i : indices) {
+				*s_Data.TriangleIndexBufferPtr = i + s_Data.TriangleVertexBufferOffset;
+				s_Data.TriangleIndexBufferPtr++;
+			}
+
+			s_Data.TriangleIndexCount += indices.size();
+			s_Data.TriangleVertexBufferOffset += (vertices.size() / 3);
+		}
+
 		void BatchRenderer::DrawCircle(const glm::vec2& position, float radius ,const glm::vec4& color) {
 			assert(s_Data.inScene);
 

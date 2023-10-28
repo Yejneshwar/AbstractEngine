@@ -66,7 +66,6 @@ namespace Graphics {
 
 		glm::vec3 CalculatePosition() const;
 
-		std::pair<float, float> PanSpeed() const;
 		float RotationSpeed() const;
 		float ZoomSpeed() const;
 	private:
@@ -79,7 +78,7 @@ namespace Graphics {
 		glm::vec2 m_InitialMousePosition = { 0.0f, 0.0f };
 
 		float m_Distance = 1.0f;
-		double m_zoom = 4.0f;
+		double m_zoom = 4.0;
 		double m_zoomLevel = 1.0;
 		float m_Pitch = 0.0f, m_Yaw = 0.0f;
 

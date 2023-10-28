@@ -12,14 +12,12 @@ void main()
 	mat4 MVP = ubo.projViewMatrix;
 
 	int idx = indices[gl_VertexID];
-	vec3 position = pos[idx] * gridSize;
-	
-	position.x += ubo.cameraPos.x;
-	position.z += ubo.cameraPos.z;
+	vec3 position = pos[idx] * 1000;
+
 
 	out_camPos = ubo.cameraPos.xz;
 
-	gl_Position = MVP * vec4(position, 1.0);
+	gl_Position = MVP * (vec4(position, 1.0));
 	uv = position.xz;
 }
 

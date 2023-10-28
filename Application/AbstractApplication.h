@@ -122,6 +122,8 @@ namespace GUI {
 		AbstractApplication(const ApplicationSpecification& specification);
 		virtual ~AbstractApplication();
 
+		void CreateShaders();
+
 		void OnEvent(Application::Event& e);
 
 		void PushLayer(Layer* layer);

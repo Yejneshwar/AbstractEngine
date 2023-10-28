@@ -2,6 +2,7 @@
 #include <iostream>
 #include <GLFW/glfw3.h>
 #include <Events/Input.h>
+#include <array>
 #include <Logger.h>
 
 #define LABEL_PIXELS 80
@@ -64,15 +65,13 @@ void Graphics::TwoDCamera::OnUpdate()
 	bool mLeft = Application::Input::IsMouseButtonPressed(Application::Mouse::ButtonLeft);
 	bool mRight = Application::Input::IsMouseButtonPressed(Application::Mouse::ButtonRight);
 	const glm::vec2& mouse{ Application::Input::GetMouseX(), Application::Input::GetMouseY() };
-	glm::vec2 delta = (mouse - m_InitialMousePosition) * 0.003f;
+	glm::vec2 delta = (mouse - m_InitialMousePosition);
 	m_InitialMousePosition = mouse;
 
 	if (!mLeft && !mRight) return;
 
 
 	if (mLeft)
-		MouseRotate(delta);
-	else if (mRight)
 		MousePan(delta);
 
 	UpdateProjection();
@@ -157,9 +156,10 @@ bool Graphics::TwoDCamera::OnMouseScroll(Application::MouseScrolledEvent& e)
 
 void Graphics::TwoDCamera::MousePan(const glm::vec2& delta)
 {
-	auto [xSpeed, ySpeed] = PanSpeed();
-	m_FocalPoint += -GetRightDirection() * delta.x * m_Distance;
-	m_FocalPoint += GetUpDirection() * delta.y * m_Distance;
+	//Note: View will always lag behind the mouse due to delta being used. The pan has to "wait" for a change.
+	glm::vec2 scale = {(this->worldXmax - this->worldXmin) / this->m_ViewportWidth, (this->worldYmax - this->worldYmin)/ this->m_ViewportHeight };
+	auto C = delta * scale;
+	m_FocalPoint += glm::vec3(-C.x, C.y, 0.0);
 }
 
 void Graphics::TwoDCamera::MouseRotate(const glm::vec2& delta)
@@ -188,17 +188,6 @@ void Graphics::TwoDCamera::MouseZoom(float delta)
 glm::vec3 Graphics::TwoDCamera::CalculatePosition() const
 {
 	return m_FocalPoint - GetForwardDirection() * m_Distance;
-}
-
-std::pair<float, float> Graphics::TwoDCamera::PanSpeed() const
-{
-	float x = std::min(m_ViewportWidth / 1000.0f, 2.4f); // max = 2.4f
-	float xFactor = 0.0366f * (x * x) - 0.1778f * x + 0.3021f;
-
-	float y = std::min(m_ViewportHeight / 1000.0f, 2.4f); // max = 2.4f
-	float yFactor = 0.0366f * (y * y) - 0.1778f * y + 0.3021f;
-
-	return { xFactor, yFactor };
 }
 
 float Graphics::TwoDCamera::RotationSpeed() const
