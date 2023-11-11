@@ -18,7 +18,7 @@ namespace Graphics {
 		virtual void DrawNonIndexed(const Ref<VertexArray>& vertexArray, uint32_t count = 0, uint32_t start = 0) override;
 		virtual void DrawIndexed(const Ref<VertexArray>& vertexArray, uint32_t indexCount = -1) override;
 		virtual void DrawLines(const Ref<VertexArray>& vertexArray, uint32_t vertexCount) override;
-		virtual void DrawLinesIndexed(const Ref<VertexArray>& vertexArray, uint32_t indexCount) override;
+		virtual void DrawLinesIndexed(const Ref<VertexArray>& vertexArray, uint32_t indexCount = -1) override;
 
 
 		virtual void DrawWireFrameCube(const std::vector<glm::dvec3>& cube, const float& thickness) override;

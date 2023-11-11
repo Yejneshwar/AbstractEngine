@@ -88,6 +88,10 @@ namespace Graphics {
 		
 			Graphics::Ref<Graphics::VertexArray> LineVertexArray;
 			Graphics::Ref<Graphics::VertexBuffer> LineVertexBuffer;
+
+			Graphics::Ref<Graphics::VertexArray> IndexedLineVertexArray;
+			Graphics::Ref<Graphics::VertexBuffer> IndexedLineVertexBuffer;
+			Graphics::Ref<Graphics::IndexBuffer> IndexedLineIndexBuffer;
 			Graphics::Ref<Graphics::Shader> LineShader;
 		
 			uint32_t QuadIndexCount = 0;
@@ -113,6 +117,14 @@ namespace Graphics {
 			uint32_t LineVertexCount = 0;
 			LineVertex* LineVertexBufferBase = nullptr;
 			LineVertex* LineVertexBufferPtr = nullptr;
+
+			uint32_t IndexedLineIndexCount = 0;
+			LineVertex* IndexedLineVertexBufferBase = nullptr;
+			LineVertex* IndexedLineVertexBufferPtr = nullptr;
+			uint32_t* IndexedLineIndexBufferBase = nullptr;
+			uint32_t* IndexedLineIndexBufferPtr = nullptr;
+			uint32_t IndexedLineVertexBufferOffset = 0;
+
 		
 			float LineWidth = 2.0f;
 		
@@ -237,6 +249,22 @@ namespace Graphics {
 			s_Data.LineVertexArray->AddVertexBuffer(s_Data.LineVertexBuffer);
 			s_Data.LineVertexBufferBase = new LineVertex[s_Data.MaxVertices];
 
+
+			//IndexedLines
+			s_Data.IndexedLineVertexArray = Graphics::VertexArray::Create();
+
+			s_Data.IndexedLineVertexBuffer = Graphics::VertexBuffer::Create(s_Data.MaxVertices * sizeof(LineVertex));
+			s_Data.IndexedLineVertexBuffer->SetLayout({
+				{ Graphics::ShaderDataType::Float3, "aPos" },
+				{ Graphics::ShaderDataType::Float4, "aColor" }
+			});
+			s_Data.IndexedLineVertexArray->AddVertexBuffer(s_Data.IndexedLineVertexBuffer);
+			s_Data.IndexedLineIndexBuffer = Graphics::IndexBuffer::Create(s_Data.MaxIndices);
+			s_Data.IndexedLineVertexArray->SetIndexBuffer(s_Data.IndexedLineIndexBuffer);
+
+			s_Data.IndexedLineVertexBufferBase = new LineVertex[s_Data.MaxVertices];
+			s_Data.IndexedLineIndexBufferBase = new uint32_t[s_Data.MaxIndices];
+
 			CreateShaders();
 
 			glm::vec4 triangleColor = glm::vec4(1.0f, 0.5f, 0.2f, 1.0f);
@@ -337,6 +365,17 @@ namespace Graphics {
 				s_Data.LineShader->Unbind();
 			}
 
+			if (s_Data.IndexedLineIndexCount)
+			{
+				uint32_t dataSize = (uint32_t)((uint8_t*)s_Data.IndexedLineVertexBufferPtr - (uint8_t*)s_Data.IndexedLineVertexBufferBase);
+				s_Data.IndexedLineVertexBuffer->SetData(s_Data.IndexedLineVertexBufferBase, dataSize, 0);
+				s_Data.IndexedLineIndexBuffer->SetData(s_Data.IndexedLineIndexBufferBase, s_Data.IndexedLineIndexCount, 0);
+
+				s_Data.LineShader->Bind();
+				Graphics::RenderCommand::DrawLinesIndexed(s_Data.IndexedLineVertexArray, s_Data.IndexedLineIndexCount);
+				s_Data.LineShader->Unbind();
+			}
+
 		}
 
 		void BatchRenderer::StartBatch()
@@ -357,6 +396,11 @@ namespace Graphics {
 
 			s_Data.LineVertexCount = 0;
 			s_Data.LineVertexBufferPtr = s_Data.LineVertexBufferBase;
+
+			s_Data.IndexedLineIndexCount = 0;
+			s_Data.IndexedLineVertexBufferOffset = 0;
+			s_Data.IndexedLineVertexBufferPtr = s_Data.IndexedLineVertexBufferBase;
+			s_Data.IndexedLineIndexBufferPtr = s_Data.IndexedLineIndexBufferBase;
 
 			if (s_Data.storage.updateBatch) {
 				for (size_t i = 0; i < s_Data.storage.vertices.size(); i += 3) {
@@ -443,6 +487,55 @@ namespace Graphics {
 
 			s_Data.LineVertexCount += 2;
 
+		}
+
+		void BatchRenderer::DrawLines(const std::vector<glm::vec3>& points, const std::vector<uint32_t>& indices, const glm::vec4& color, bool withArrows) {
+			assert((s_Data.inScene));
+			int count = 0;
+			float arrowSize = 0.5f;
+			for (size_t i = 0; i < points.size(); i ++) {
+				s_Data.IndexedLineVertexBufferPtr->Position = points.at(i);
+				s_Data.IndexedLineVertexBufferPtr->Color = color;
+				s_Data.IndexedLineVertexBufferPtr++;
+			}
+
+			for (const uint32_t& i : indices) {
+				*s_Data.IndexedLineIndexBufferPtr = i + s_Data.IndexedLineVertexBufferOffset;
+				s_Data.IndexedLineIndexBufferPtr++;
+			}
+
+			if (withArrows) {
+				for (int i = 1; i < indices.size(); i += 2, count+=2) {
+
+					glm::vec3 direction = glm::normalize(points.at(indices[i]) - points.at(indices[i-1]));
+					glm::vec3 perpendicular(-direction.y, direction.x, 0.0f);
+					glm::vec3 arrowBase = points.at(indices[i]) - (direction * 0.15f);
+
+					s_Data.IndexedLineVertexBufferPtr->Position = arrowBase + (perpendicular * (0.15f/2.0f));
+					s_Data.IndexedLineVertexBufferPtr->Color = color;
+					s_Data.IndexedLineVertexBufferPtr++;
+
+					*s_Data.IndexedLineIndexBufferPtr = indices[i] + s_Data.IndexedLineVertexBufferOffset;
+					s_Data.IndexedLineIndexBufferPtr++;
+
+					*s_Data.IndexedLineIndexBufferPtr = (count) + s_Data.IndexedLineVertexBufferOffset + points.size();
+					s_Data.IndexedLineIndexBufferPtr++;
+
+					s_Data.IndexedLineVertexBufferPtr->Position = arrowBase - (perpendicular * (0.15f / 2.0f));
+					s_Data.IndexedLineVertexBufferPtr->Color = color;
+					s_Data.IndexedLineVertexBufferPtr++;
+
+					*s_Data.IndexedLineIndexBufferPtr = indices[i] + s_Data.IndexedLineVertexBufferOffset;
+					s_Data.IndexedLineIndexBufferPtr++;
+
+					*s_Data.IndexedLineIndexBufferPtr = (count + 1) + s_Data.IndexedLineVertexBufferOffset + points.size();
+					s_Data.IndexedLineIndexBufferPtr++;
+				}
+
+			}
+
+			s_Data.IndexedLineIndexCount += (indices.size() + (count*2));
+			s_Data.IndexedLineVertexBufferOffset += (points.size() + count);
 		}
 
 		void BatchRenderer::DrawQuad(const glm::vec2& p1, const glm::vec2& p2, const glm::vec2& p3, const glm::vec2& p4, const glm::vec4& color) {

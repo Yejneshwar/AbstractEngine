@@ -41,6 +41,8 @@ namespace Graphics {
 
 			static void DrawLine(const glm::vec2& from, const glm::vec2& to, const glm::vec4& color);
 
+			static void DrawLines(const std::vector<glm::vec3>& points, const std::vector<uint32_t>& indices, const glm::vec4& color, bool withArrows = false);
+
 
 			static void DrawQuad(const glm::vec2& p1, const glm::vec2& p2, const glm::vec2& p3, const glm::vec2& p4, const glm::vec4& color);
 

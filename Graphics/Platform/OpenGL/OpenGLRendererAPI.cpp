@@ -103,7 +103,8 @@ namespace Graphics {
 			return;
 		}
 		vertexArray->Bind();
-		glDrawElements(GL_LINES, indexBuffer->GetCount(), GL_UNSIGNED_INT, nullptr);
+		if (indexCount < 0) indexCount = indexBuffer->GetCount();
+		glDrawElements(GL_LINES, indexCount, GL_UNSIGNED_INT, nullptr);
 	}
 
 	void OpenGLRendererAPI::DrawWireFrameCube(const std::vector<glm::dvec3>& cube, const float& thickness) {
