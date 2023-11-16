@@ -22,6 +22,10 @@ namespace Graphics {
 
 		static void DrawGridTriangles();
 
+		static void DepthTest(bool enable);
+		
+		static void PolygonSmooth(bool enable);
+
 		static void Clear();
 
 		static void ClearBuffers();

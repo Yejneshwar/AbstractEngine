@@ -442,9 +442,9 @@ namespace Graphics {
 	{
 		
 
-		constexpr size_t quadVertexCount = 4;
+		size_t quadVertexCount = 4;
 		const float textureIndex = 0.0f; // White Texture
-		 glm::vec2 textureCoords[] = { { 0.0f, 0.0f }, { 1.0f, 0.0f }, { 1.0f, 1.0f }, { 0.0f, 1.0f } };
+		glm::vec2 textureCoords[] = { { 0.0f, 0.0f }, { 1.0f, 0.0f }, { 1.0f, 1.0f }, { 0.0f, 1.0f } };
 		const float tilingFactor = 1.0f;
 
 		if (s_Data.QuadIndexCount >= Renderer2DData::MaxIndices)
@@ -470,7 +470,7 @@ namespace Graphics {
 	{
 		
 
-		constexpr size_t quadVertexCount = 4;
+		size_t quadVertexCount = 4;
 		glm::vec2 textureCoords[] = { { 0.0f, 0.0f }, { 1.0f, 0.0f }, { 1.0f, 1.0f }, { 0.0f, 1.0f } };
 
 		if (s_Data.QuadIndexCount >= Renderer2DData::MaxIndices)
@@ -571,7 +571,7 @@ namespace Graphics {
 
 	void Renderer2D::DrawTriangle(const glm::mat4& transform, const glm::vec3& vertex1, const glm::vec3& vertex2, const glm::vec3& vertex3, const glm::vec4& color, int entityID)
 	{
-		constexpr size_t triangleVertexCount = 3;
+		size_t triangleVertexCount = 3;
 		const float textureIndex = 0.0f;
 		glm::vec2 textureCoords[] = { { 0.0f, 0.0f }, { 1.0f, 0.0f }, { 0.5f, 1.0f } };
 		const float tilingFactor = 1.0f;

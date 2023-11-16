@@ -27,6 +27,16 @@ namespace Graphics {
 			s_RendererAPI->Clear();
 		}
 
+		static void DepthTest(bool enable)
+		{
+			s_RendererAPI->DepthTest(enable);
+		}
+		
+		static void PolygonSmooth(bool enable)
+		{
+			s_RendererAPI->PolygonSmooth(enable);
+		}
+
 		static void ClearBuffers()
 		{
 			s_RendererAPI->ClearBuffers();

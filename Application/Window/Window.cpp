@@ -218,9 +218,26 @@ namespace Application {
 		m_Data.m_Settings.VSync = enabled;
 	}
 
+	void WindowsWindow::SetPolygonSmooth(bool enabled)
+	{
+		HZ_PROFILE_FUNCTION();
+
+		if (enabled)
+			Graphics::Renderer::PolygonSmooth(true);
+		else
+			Graphics::Renderer::PolygonSmooth(false);
+
+		m_Data.m_Settings.PolygonSmooth = enabled;
+	}
+
 	bool WindowsWindow::IsVSync() const
 	{
 		return m_Data.m_Settings.VSync;
+	}
+
+	bool WindowsWindow::IsPolygonSmooth() const
+	{
+		return m_Data.m_Settings.PolygonSmooth;
 	}
 
 	Graphics::Scope<Window> Window::Create(const WindowProps& props)

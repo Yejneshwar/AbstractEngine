@@ -145,36 +145,49 @@ namespace GUI {
 							LOG_TRACE_STREAM << "Viewport resized to: " << v.ViewportSize.x << " x " << v.ViewportSize.y;
 							v.Framebuffer->Resize((uint32_t)v.ViewportSize.x, (uint32_t)v.ViewportSize.y);
 							v.ViewPortCamera->SetViewportSize(v.ViewportSize.x, v.ViewportSize.y);
+							m_updateAllViewPorts = true;
 							v.update();
 						}
 						if (!v.ViewportHovered && !v.ViewportFocused && !m_updateAllViewPorts) continue;
 						m_CameraBuffer->SetData(&v.uboDataScene, sizeof(v.uboDataScene));
 
 						v.Framebuffer->Bind();
-
-						Graphics::BatchRenderer::BeginScene();
 						Graphics::Renderer::Clear();
 
-						for (Layer* layer : m_LayerStack)
-							layer->OnDrawUpdate();
-
-						Graphics::BatchRenderer::EndScene();
-
 						if (v.cameraType == CameraType::ThreeD) {
+
+							Graphics::BatchRenderer::BeginScene();
+
+							for (Layer* layer : m_LayerStack)
+								layer->OnDrawUpdate();
+
+							Graphics::BatchRenderer::EndScene();
+
 							//Grid Shader
 							m_gridShader->Bind();
 							Graphics::Renderer::DrawGridTriangles();
 							m_gridShader->Unbind();
 						}
 						else {
+							Graphics::Renderer::DepthTest(false);
 							//Grid Shader
 							m_gridShader2D->Bind();
 							Graphics::Renderer::DrawGridTriangles();
 							m_gridShader2D->Unbind();
+
+							Graphics::BatchRenderer::BeginScene();
+
+							for (Layer* layer : m_LayerStack)
+								layer->OnDrawUpdate();
+
+							Graphics::BatchRenderer::EndScene();
+							Graphics::Renderer::DepthTest(true);
 						}
 						v.Framebuffer->Unbind();
 					}
 					LOG_TRACE_STREAM << "End Viewports";
+
+					m_updateAllViewPorts = false;
 
 					m_ImGuiHandler->Update([&]() {
 						CoreUI();
@@ -393,6 +406,8 @@ namespace GUI {
     			ImGui::Text("Primary Monitor : %s", m_Window->GetPrimaryMonitorName());
 
     			if(ImGui::Button("VSync")) m_Window->SetVSync(!m_Window->IsVSync());
+				ImGui::SameLine();
+				if (ImGui::Button("Polygon Smooth")) { m_Window->SetPolygonSmooth(!m_Window->IsPolygonSmooth()); m_updateAllViewPorts = true; };
 
 
 				for (ViewPort& v : m_ViewPorts) {

@@ -45,7 +45,6 @@ namespace Graphics {
 		glEnable(GL_DEPTH_TEST);
 		glDepthFunc(GL_LEQUAL);
 		glEnable(GL_LINE_SMOOTH);
-		//glEnable(GL_POLYGON_SMOOTH); // This sorta turns everything into a wireframe?
 		glEnable(GL_MULTISAMPLE);
 	}
 
@@ -64,6 +63,20 @@ namespace Graphics {
 		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 		glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	}
+
+	void OpenGLRendererAPI::DepthTest(bool enable) {
+		if (enable)
+			glEnable(GL_DEPTH_TEST);
+		else
+			glDisable(GL_DEPTH_TEST);
+	}
+
+	void OpenGLRendererAPI::PolygonSmooth(bool enable) {
+		if (enable)
+			glEnable(GL_POLYGON_SMOOTH); // This sorta turns everything into a wireframe?
+		else
+			glDisable(GL_POLYGON_SMOOTH);
 	}
 
 	void OpenGLRendererAPI::ClearBuffers()

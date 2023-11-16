@@ -37,7 +37,9 @@ namespace Application {
 		// Window attributes
 		virtual void SetEventCallback(const EventCallbackFn& callback) = 0;
 		virtual void SetVSync(bool enabled) = 0;
+		virtual void SetPolygonSmooth(bool enabled) = 0;
 		virtual bool IsVSync() const = 0;
+		virtual bool IsPolygonSmooth() const = 0;
 
 		virtual void* GetNativeWindow() const = 0;
 
@@ -61,7 +63,9 @@ namespace Application {
 		// Window attributes
 		void SetEventCallback(const EventCallbackFn& callback) override { m_Data.EventCallback = callback; }
 		void SetVSync(bool enabled) override;
+		void SetPolygonSmooth(bool enabled) override;
 		bool IsVSync() const override;
+		bool IsPolygonSmooth() const override;
 
 		virtual void* GetNativeWindow() const { return m_Window; }
 
@@ -78,6 +82,7 @@ namespace Application {
 
 		struct WindowSettings {
 			bool VSync = true;
+			bool PolygonSmooth = false;
 			bool fullScreen = false;
 			GLFWmonitor* primaryMonitor;
 			GLFWmonitor** monitors;

@@ -47,6 +47,16 @@ namespace Graphics {
 		RenderCommand::DrawGridTriangles();
 	}
 
+	void Renderer::DepthTest(bool enable)
+	{
+		RenderCommand::DepthTest(enable);
+	}
+	
+	void Renderer::PolygonSmooth(bool enable)
+	{
+		RenderCommand::PolygonSmooth(enable);
+	}
+
 	void Renderer::Clear() {
 		RenderCommand::Clear();
 	}
