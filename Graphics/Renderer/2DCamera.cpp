@@ -60,28 +60,11 @@ Graphics::TwoDCamera::TwoDCamera(float nearClip = -100.0f, float farClip = 100.0
 	UpdateView();
 }
 
-void Graphics::TwoDCamera::OnUpdate()
-{
-	bool mLeft = Application::Input::IsMouseButtonPressed(Application::Mouse::ButtonLeft);
-	bool mRight = Application::Input::IsMouseButtonPressed(Application::Mouse::ButtonRight);
-	const glm::vec2& mouse{ Application::Input::GetMouseX(), Application::Input::GetMouseY() };
-	glm::vec2 delta = (mouse - m_InitialMousePosition);
-	m_InitialMousePosition = mouse;
-
-	if (!mLeft && !mRight) return;
-
-
-	if (mLeft)
-		MousePan(delta);
-
-	UpdateProjection();
-	UpdateView();
-}
-
 void Graphics::TwoDCamera::OnEvent(Application::Event& event)
 {
 	Application::EventDispatcher dispatcher(event);
 	dispatcher.Dispatch<Application::MouseScrolledEvent>(APP_BIND_EVENT_FN(Graphics::TwoDCamera::OnMouseScroll));
+	dispatcher.Dispatch<Application::MouseMovedEvent>(APP_BIND_EVENT_FN(Graphics::TwoDCamera::OnMouseMove));
 }
 
 glm::vec3 Graphics::TwoDCamera::GetUpDirection() const
@@ -151,6 +134,25 @@ bool Graphics::TwoDCamera::OnMouseScroll(Application::MouseScrolledEvent& e)
 	UpdateProjection();
 	UpdateView();
 	GetSpacing(m_ViewportWidth, worldXmin, worldXmax, gridMajorSpacing, gridMinorSpacing);
+	return false;
+}
+
+bool Graphics::TwoDCamera::OnMouseMove(Application::MouseMovedEvent& e)
+{
+	bool mLeft = Application::Input::IsMouseButtonPressed(Application::Mouse::ButtonLeft);
+	bool mRight = Application::Input::IsMouseButtonPressed(Application::Mouse::ButtonRight);
+	const glm::vec2& mouse{ Application::Input::GetMouseX(), Application::Input::GetMouseY() };
+	glm::vec2 delta = (mouse - m_InitialMousePosition);
+	m_InitialMousePosition = mouse;
+
+	if (!mLeft && !mRight) return false;
+
+
+	if (mLeft)
+		MousePan(delta);
+
+	UpdateProjection();
+	UpdateView();
 	return false;
 }
 

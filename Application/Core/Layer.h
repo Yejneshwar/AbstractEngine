@@ -16,6 +16,7 @@ namespace GUI {
 		virtual void OnUpdateLayer() {}
 		virtual void OnDrawUpdate() {}
 		virtual void OnEvent(Application::Event& event) {}
+		virtual void OnSelection(int objectId, bool state) {}
 		virtual void OnImGuiRender() {}
 
 		inline void UpdateLayer(bool update = true) { m_updateLayers = update; }

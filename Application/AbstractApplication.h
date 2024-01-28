@@ -15,7 +15,6 @@
 #include <Logger.h>
 #include <Renderer/Shader.h>
 #include <Renderer/Texture.h>
-
 namespace GUI {
 
 	struct SceneDataUBO {
@@ -27,10 +26,12 @@ namespace GUI {
 			glm::vec4 cameraPos;
 			glm::vec4 viewDirection;
 			glm::vec4 gridMinMax; //xmin, xmax, ymin, ymax
+			glm::vec4 viewport; //width, height, width*height, 0
 			glm::f32 aspectRatio;
 			glm::f32 gridMajor;
 			glm::f32 gridMinor;
 			glm::f32 gridZoom;
+			int selectedObject;
 
 
 			//glm::ivec3 viewport;  // (width, height, width*height)
@@ -43,6 +44,11 @@ namespace GUI {
 			//glm::vec2  _pad1;
 	};
 
+	struct ObjectSelection {
+		int objectID;
+		bool state; //true if selected - false if deselected
+	};
+
 	enum CameraType {
 		ThreeD,
 		TwoD
@@ -52,6 +58,9 @@ namespace GUI {
 		uint32_t id;
 		CameraType cameraType = CameraType::ThreeD;
 		Graphics::Ref<Graphics::Framebuffer> Framebuffer;
+		//Composite the init due to rendering artifacts
+		Graphics::Ref<Graphics::Framebuffer> JumpFloodICFramebuffer;
+		Graphics::Ref<Graphics::Framebuffer> JumpFloodFramebuffer;
 		Graphics::Ref<Graphics::Camera> ViewPortCamera;
 		SceneDataUBO uboDataScene;
 		bool ViewportFocused = true, ViewportHovered = false;
@@ -59,8 +68,19 @@ namespace GUI {
 		glm::vec2 ViewportBounds[2];
 		bool isOpen = true;
 
+		static int s_selectedObject;
+
 		explicit ViewPort(Graphics::FramebufferSpecification fbSpec, CameraType camera, uint32_t _id) : cameraType(camera), id(_id) {
 			Framebuffer = Graphics::Framebuffer::Create(fbSpec);
+
+			Graphics::FramebufferSpecification jumpFooldInitFbSpec = fbSpec;
+			Graphics::FramebufferSpecification jumpFooldFbSpec = fbSpec;
+
+			jumpFooldInitFbSpec.Attachments = { Graphics::FramebufferTextureFormat::RGBA8,Graphics::FramebufferTextureFormat::Depth };
+
+			jumpFooldFbSpec.Attachments = { Graphics::FramebufferTextureFormat::RGBA8 };
+			JumpFloodICFramebuffer = Graphics::Framebuffer::Create(jumpFooldInitFbSpec);
+			JumpFloodFramebuffer = Graphics::Framebuffer::Create(jumpFooldFbSpec);
 
 			//Note: It gets weird when near plane is set to 0.0f
 			if(camera == CameraType::ThreeD)
@@ -92,7 +112,9 @@ namespace GUI {
 			uboDataScene.projViewMatrix = ViewPortCamera->GetViewProjection();
 			uboDataScene.cameraPos = glm::vec4(ViewPortCamera->GetPosition(), 1.0f);
 			uboDataScene.viewDirection = glm::vec4(ViewPortCamera->GetViewDirection(),1.0);
+			uboDataScene.viewport = ViewPortCamera->getViewport();
 			uboDataScene.aspectRatio = static_cast<float>(ViewPortCamera->getAspectRatio());
+			uboDataScene.selectedObject = s_selectedObject;
 			SetGridValues();
 		}
 	};
@@ -156,6 +178,7 @@ namespace GUI {
 		bool m_Minimized = false;
 		Application::LayerStack m_LayerStack;
 		float m_LastFrameTime = 0.0f;
+		bool showBuffers = false;
 
 		Graphics::FramebufferSpecification m_fbSpec;
 
@@ -163,6 +186,8 @@ namespace GUI {
 
 		Graphics::Ref<Graphics::Shader> m_gridShader;
 		Graphics::Ref<Graphics::Shader> m_gridShader2D;
+
+		Graphics::Ref<Graphics::Shader> m_JumpFlood_init, m_JumpFlood_init2, m_JumpFlood_pass, m_JumpFlood_composite;
 
 		Graphics::Ref<Graphics::Texture> m_font;
 
@@ -173,6 +198,13 @@ namespace GUI {
 
 		std::vector<std::function<void()>> m_MainThreadQueue;
 		std::mutex m_MainThreadQueueMutex;
+
+
+		//TODO : Move to application event bus
+		ObjectSelection m_ObjectSelection = {-1, false};
+		bool m_emitSelectionEvent = false;
+
+
 	private:
 		static AbstractApplication* s_Instance;
 	};

@@ -15,6 +15,7 @@ namespace Graphics {
 		
 		struct StaticTriangleVertex
 		{
+			int aID;
 			glm::vec3 Position;
 			//glm::vec3 Normal;
 			//glm::vec3 Color;
@@ -22,18 +23,21 @@ namespace Graphics {
 
 		struct TriangleVertex
 		{
+			int aID;
 			glm::vec3 Position;
 			glm::vec4 Color;
 		};
 		
 		struct QuadVertex
 		{
+			int aID;
 			glm::vec3 Position;
 			glm::vec4 Color;
 		};
 		
 		struct CircleVertex
 		{
+			int aID;
 			glm::vec3 Position;
 			glm::vec3 CirclePosition;
 			glm::vec3 Normal;
@@ -43,6 +47,7 @@ namespace Graphics {
 		
 		struct LineVertex
 		{
+			int aID;
 			glm::vec3 Position;
 			glm::vec4 Color;
 		};
@@ -93,7 +98,9 @@ namespace Graphics {
 			Graphics::Ref<Graphics::VertexBuffer> IndexedLineVertexBuffer;
 			Graphics::Ref<Graphics::IndexBuffer> IndexedLineIndexBuffer;
 			Graphics::Ref<Graphics::Shader> LineShader;
-		
+
+			Graphics::Ref<Graphics::Shader> SelectedObjectShader;
+	
 			uint32_t QuadIndexCount = 0;
 			QuadVertex* QuadVertexBufferBase = nullptr;
 			QuadVertex* QuadVertexBufferPtr = nullptr;
@@ -172,6 +179,7 @@ namespace Graphics {
 			s_Data.TriangleShader = Graphics::Shader::Create("./Resources/Shaders/TriangleShader.glsl", false);
 			s_Data.CircleShader = Graphics::Shader::Create("./Resources/Shaders/CircleShader.glsl", false);
 			s_Data.LineShader = Graphics::Shader::Create("./Resources/Shaders/LineShader.glsl", false);
+			s_Data.SelectedObjectShader = Graphics::Shader::Create("./Resources/Shaders/SelectedObject.glsl", false);
 		}
 
 		void BatchRenderer::Init()
@@ -181,9 +189,10 @@ namespace Graphics {
 
 			s_Data.StaticTriangleVertexBuffer = Graphics::VertexBuffer::Create(s_Data.MaxVertices * sizeof(StaticTriangleVertex));
 			s_Data.StaticTriangleVertexBuffer->SetLayout({
+				{ Graphics::ShaderDataType::Int, "aID"},
 				{ Graphics::ShaderDataType::Float3, "aPos"},
 				//{ Graphics::ShaderDataType::Float3, "aNormal"},
-				//{ Graphics::ShaderDataType::Float3, "aColor"}
+				//{ Graphics::ShaderDataType::Float3, "aColor"},
 			});
 			s_Data.StaticTriangleVertexArray->AddVertexBuffer(s_Data.StaticTriangleVertexBuffer);
 			s_Data.StaticTriangleIndexBuffer = Graphics::IndexBuffer::Create(s_Data.MaxIndices);
@@ -195,8 +204,10 @@ namespace Graphics {
 
 			s_Data.TriangleVertexBuffer = Graphics::VertexBuffer::Create(s_Data.MaxVertices * sizeof(TriangleVertex));
 			s_Data.TriangleVertexBuffer->SetLayout({
+				{ Graphics::ShaderDataType::Int, "aID"},
 				{ Graphics::ShaderDataType::Float3, "aPos"},
-				{ Graphics::ShaderDataType::Float4, "aColor"}
+				{ Graphics::ShaderDataType::Float4, "aColor"},
+
 			});
 			s_Data.TriangleVertexArray->AddVertexBuffer(s_Data.TriangleVertexBuffer);
 			s_Data.TriangleIndexBuffer = Graphics::IndexBuffer::Create(s_Data.MaxIndices);
@@ -226,11 +237,12 @@ namespace Graphics {
 
 			s_Data.CircleVertexBuffer = Graphics::VertexBuffer::Create(s_Data.MaxVertices * sizeof(CircleVertex));
 			s_Data.CircleVertexBuffer->SetLayout({
+				{ Graphics::ShaderDataType::Int, "aID"},
 				{ Graphics::ShaderDataType::Float3, "aPos" },
 				{ Graphics::ShaderDataType::Float3, "aCirclePos" },
 				{ Graphics::ShaderDataType::Float3, "aNormal" },
 				{ Graphics::ShaderDataType::Float4, "aColor" },
-				{ Graphics::ShaderDataType::Float, "aRadius" }
+				{ Graphics::ShaderDataType::Float, "aRadius" },
 			});
 			s_Data.CircleVertexArray->AddVertexBuffer(s_Data.CircleVertexBuffer);
 			Graphics::Ref<Graphics::IndexBuffer> quadIB = Graphics::IndexBuffer::Create(quadIndices, s_Data.MaxIndices);
@@ -243,8 +255,10 @@ namespace Graphics {
 
 			s_Data.LineVertexBuffer = Graphics::VertexBuffer::Create(s_Data.MaxVertices * sizeof(LineVertex));
 			s_Data.LineVertexBuffer->SetLayout({
+				{ Graphics::ShaderDataType::Int, "aID"},
 				{ Graphics::ShaderDataType::Float3, "aPos" },
-				{ Graphics::ShaderDataType::Float4, "aColor" }
+				{ Graphics::ShaderDataType::Float4, "aColor" },
+
 			});
 			s_Data.LineVertexArray->AddVertexBuffer(s_Data.LineVertexBuffer);
 			s_Data.LineVertexBufferBase = new LineVertex[s_Data.MaxVertices];
@@ -255,8 +269,9 @@ namespace Graphics {
 
 			s_Data.IndexedLineVertexBuffer = Graphics::VertexBuffer::Create(s_Data.MaxVertices * sizeof(LineVertex));
 			s_Data.IndexedLineVertexBuffer->SetLayout({
+				{ Graphics::ShaderDataType::Int, "aID"},
 				{ Graphics::ShaderDataType::Float3, "aPos" },
-				{ Graphics::ShaderDataType::Float4, "aColor" }
+				{ Graphics::ShaderDataType::Float4, "aColor" },
 			});
 			s_Data.IndexedLineVertexArray->AddVertexBuffer(s_Data.IndexedLineVertexBuffer);
 			s_Data.IndexedLineIndexBuffer = Graphics::IndexBuffer::Create(s_Data.MaxIndices);
@@ -304,6 +319,38 @@ namespace Graphics {
 		{
 			Flush();
 			s_Data.inScene = false;
+		}
+
+		//Draw the selected object
+		void BatchRenderer::DrawSelected() {
+			//All of the vertex array will still be vaild
+			Renderer::DepthTest(false);
+			s_Data.SelectedObjectShader->Bind();
+			if (s_Data.StaticTriangleIndexCount)
+			{
+				Graphics::RenderCommand::DrawIndexed(s_Data.StaticTriangleVertexArray, s_Data.storage.indices.size());
+			}
+
+			if (s_Data.TriangleIndexCount) {
+				Graphics::RenderCommand::DrawIndexed(s_Data.TriangleVertexArray, s_Data.TriangleIndexCount);
+			}
+
+			if (s_Data.CircleIndexCount)
+			{
+				Graphics::RenderCommand::DrawIndexed(s_Data.CircleVertexArray, s_Data.CircleIndexCount);
+			}
+
+			if (s_Data.LineVertexCount)
+			{
+				Graphics::RenderCommand::DrawLines(s_Data.LineVertexArray, s_Data.LineVertexCount);
+			}
+
+			if (s_Data.IndexedLineIndexCount)
+			{
+				Graphics::RenderCommand::DrawLinesIndexed(s_Data.IndexedLineVertexArray, s_Data.IndexedLineIndexCount);
+			}
+			s_Data.SelectedObjectShader->Unbind();
+			Renderer::DepthTest(true);
 		}
 
 		void BatchRenderer::Flush()
@@ -376,6 +423,8 @@ namespace Graphics {
 				s_Data.LineShader->Unbind();
 			}
 
+			DrawSelected();
+
 		}
 
 		void BatchRenderer::StartBatch()
@@ -421,7 +470,7 @@ namespace Graphics {
 			StartBatch();
 		}
 
-		void BatchRenderer::addData(const std::vector<double>& vertices, const std::vector<uint32_t>& indices) {
+		void BatchRenderer::addData(const std::vector<double>& vertices, const std::vector<uint32_t>& indices, const int id) {
 			assert(!s_Data.inScene);
 			assert((vertices.size() % 3) == 0);
 			LOG_DEBUG_STREAM << "Adding data..." << " Vertices: " << vertices.size() << " Indices : " << indices.size();
@@ -437,10 +486,11 @@ namespace Graphics {
 			s_Data.storage.updateBatch = true;
 		}
 
-		void BatchRenderer::DrawMesh(const std::vector<double>& vertices, const std::vector<uint32_t>& indices, const glm::vec4& color) {
+		void BatchRenderer::DrawMesh(const std::vector<double>& vertices, const std::vector<uint32_t>& indices, const glm::vec4& color, const int id) {
 			assert((s_Data.inScene) && (vertices.size() % 3 == 0));
 
 			for (size_t i = 0; i < vertices.size(); i += 3) {
+				s_Data.TriangleVertexBufferPtr->aID = id;
 				s_Data.TriangleVertexBufferPtr->Position = glm::vec3(static_cast<float>(vertices.at(i)), static_cast<float>(vertices.at(i + 1)), static_cast<float>(vertices.at(i + 2)));
 				s_Data.TriangleVertexBufferPtr->Color = color;
 				s_Data.TriangleVertexBufferPtr++;
@@ -455,14 +505,15 @@ namespace Graphics {
 			s_Data.TriangleVertexBufferOffset += (vertices.size() / 3);
 		}
 
-		void BatchRenderer::DrawCircle(const glm::vec2& position, float radius ,const glm::vec4& color) {
+		void BatchRenderer::DrawCircle(const glm::vec3& position, float radius ,const glm::vec4& color, const int id) {
 			assert(s_Data.inScene);
 
-			QuadVertices(glm::vec3(position.x, position.y, 0.0), radius*2);
+			QuadVertices(position, radius*2);
 
 			for (unsigned int i = 0; i < 4; i++) {
+				s_Data.CircleVertexBufferPtr->aID = id;
 				s_Data.CircleVertexBufferPtr->Position = s_Data.quadVertices[i];
-				s_Data.CircleVertexBufferPtr->CirclePosition = glm::vec3(static_cast<float>(position.x), static_cast<float>(position.y), static_cast<float>(0.0));
+				s_Data.CircleVertexBufferPtr->CirclePosition = glm::vec3(static_cast<float>(position.x), static_cast<float>(position.y), static_cast<float>(position.z));
 				s_Data.CircleVertexBufferPtr->Normal = glm::vec3(static_cast <float>(0.0));
 				s_Data.CircleVertexBufferPtr->Color = color;
 				s_Data.CircleVertexBufferPtr->Radius = radius;
@@ -474,14 +525,23 @@ namespace Graphics {
 			//s_Data.Stats.QuadCount++;
 		}
 
-		void BatchRenderer::DrawLine(const glm::vec2& from, const glm::vec2& to, const glm::vec4& color) {
+		void BatchRenderer::DrawCircle(const glm::vec2& position, float radius, const glm::vec4& color, const int id) {
 			assert(s_Data.inScene);
 
-			s_Data.LineVertexBufferPtr->Position = glm::vec3(from.x, from.y, 0.0f);
+			DrawCircle(glm::vec3(position,0.0), radius, color, id);
+		}
+
+
+		void BatchRenderer::DrawLine(const glm::vec3& from, const glm::vec3& to, const glm::vec4& color, const int id) {
+			assert(s_Data.inScene);
+
+			s_Data.LineVertexBufferPtr->aID = id;
+			s_Data.LineVertexBufferPtr->Position = glm::vec3(from);
 			s_Data.LineVertexBufferPtr->Color = color;
 			s_Data.LineVertexBufferPtr++;
 
-			s_Data.LineVertexBufferPtr->Position = glm::vec3(to.x, to.y, 0.0f);
+			s_Data.LineVertexBufferPtr->aID = id;
+			s_Data.LineVertexBufferPtr->Position = glm::vec3(to);
 			s_Data.LineVertexBufferPtr->Color = color;
 			s_Data.LineVertexBufferPtr++;
 
@@ -489,11 +549,17 @@ namespace Graphics {
 
 		}
 
-		void BatchRenderer::DrawLines(const std::vector<glm::vec3>& points, const std::vector<uint32_t>& indices, const glm::vec4& color, bool withArrows) {
+		void BatchRenderer::DrawLine(const glm::vec2& from, const glm::vec2& to, const glm::vec4& color, const int id)
+		{
+			DrawLine(glm::vec3(from, 0.0), glm::vec3(to, 0.0), color, id);
+		}
+
+		void BatchRenderer::DrawLines(const std::vector<glm::vec3>& points, const std::vector<uint32_t>& indices, const glm::vec4& color, const int id, bool withArrows) {
 			assert((s_Data.inScene));
 			int count = 0;
 			float arrowSize = 0.5f;
 			for (size_t i = 0; i < points.size(); i ++) {
+				s_Data.IndexedLineVertexBufferPtr->aID = id;
 				s_Data.IndexedLineVertexBufferPtr->Position = points.at(i);
 				s_Data.IndexedLineVertexBufferPtr->Color = color;
 				s_Data.IndexedLineVertexBufferPtr++;
@@ -511,6 +577,7 @@ namespace Graphics {
 					glm::vec3 perpendicular(-direction.y, direction.x, 0.0f);
 					glm::vec3 arrowBase = points.at(indices[i]) - (direction * 0.15f);
 
+					s_Data.IndexedLineVertexBufferPtr->aID = id;
 					s_Data.IndexedLineVertexBufferPtr->Position = arrowBase + (perpendicular * (0.15f/2.0f));
 					s_Data.IndexedLineVertexBufferPtr->Color = color;
 					s_Data.IndexedLineVertexBufferPtr++;
@@ -521,6 +588,7 @@ namespace Graphics {
 					*s_Data.IndexedLineIndexBufferPtr = (count) + s_Data.IndexedLineVertexBufferOffset + points.size();
 					s_Data.IndexedLineIndexBufferPtr++;
 
+					s_Data.IndexedLineVertexBufferPtr->aID = id;
 					s_Data.IndexedLineVertexBufferPtr->Position = arrowBase - (perpendicular * (0.15f / 2.0f));
 					s_Data.IndexedLineVertexBufferPtr->Color = color;
 					s_Data.IndexedLineVertexBufferPtr++;
@@ -538,21 +606,25 @@ namespace Graphics {
 			s_Data.IndexedLineVertexBufferOffset += (points.size() + count);
 		}
 
-		void BatchRenderer::DrawQuad(const glm::vec2& p1, const glm::vec2& p2, const glm::vec2& p3, const glm::vec2& p4, const glm::vec4& color) {
+		void BatchRenderer::DrawQuad(const glm::vec3& p1, const glm::vec3& p2, const glm::vec3& p3, const glm::vec3& p4, const glm::vec4& color, const int id) {
 			assert(s_Data.inScene);
-			s_Data.TriangleVertexBufferPtr->Position = glm::vec3(p1.x, p1.y, 0.0f);
+			s_Data.TriangleVertexBufferPtr->aID = id;
+			s_Data.TriangleVertexBufferPtr->Position = glm::vec3(p1.x, p1.y, p1.z);
 			s_Data.TriangleVertexBufferPtr->Color = color;
 			s_Data.TriangleVertexBufferPtr++;
 
-			s_Data.TriangleVertexBufferPtr->Position = glm::vec3(p2.x, p2.y, 0.0f);
+			s_Data.TriangleVertexBufferPtr->aID = id;
+			s_Data.TriangleVertexBufferPtr->Position = glm::vec3(p2.x, p2.y, p2.z);
 			s_Data.TriangleVertexBufferPtr->Color = color;
 			s_Data.TriangleVertexBufferPtr++;
 
-			s_Data.TriangleVertexBufferPtr->Position = glm::vec3(p3.x, p3.y, 0.0f);
+			s_Data.TriangleVertexBufferPtr->aID = id;
+			s_Data.TriangleVertexBufferPtr->Position = glm::vec3(p3.x, p3.y, p3.z);
 			s_Data.TriangleVertexBufferPtr->Color = color;
 			s_Data.TriangleVertexBufferPtr++;
 
-			s_Data.TriangleVertexBufferPtr->Position = glm::vec3(p4.x, p4.y, 0.0f);
+			s_Data.TriangleVertexBufferPtr->aID = id;
+			s_Data.TriangleVertexBufferPtr->Position = glm::vec3(p4.x, p4.y, p4.z);
 			s_Data.TriangleVertexBufferPtr->Color = color;
 			s_Data.TriangleVertexBufferPtr++;
 
@@ -575,7 +647,11 @@ namespace Graphics {
 			s_Data.TriangleVertexBufferOffset += 4;
 		}
 
-		void BatchRenderer::DrawQuad(const glm::vec2& position, float size, const glm::vec4& color) {
+		void BatchRenderer::DrawQuad(const glm::vec2& p1, const glm::vec2& p2, const glm::vec2& p3, const glm::vec2& p4, const glm::vec4& color, const int id) {
+			DrawQuad(glm::vec3(p1,0.0), glm::vec3(p2, 0.0), glm::vec3(p3, 0.0), glm::vec3(p4, 0.0),color,id);
+		}
+
+		void BatchRenderer::DrawQuad(const glm::vec2& position, float size, const glm::vec4& color, const int id) {
 			assert(s_Data.inScene);
 
 			QuadVertices(glm::vec3(position.x, position.y, 0.0), size);
@@ -584,17 +660,35 @@ namespace Graphics {
 
 		}
 
-		void BatchRenderer::DrawQuad(const glm::vec2& position, const glm::vec2& size, const glm::vec4& color) {
+		void BatchRenderer::DrawQuad(const glm::vec2& position, const glm::vec2& size, const glm::vec4& color, const int id) {
 			assert(s_Data.inScene);
 
 			QuadVertices(glm::vec3(position.x, position.y, 0.0), size);
 
 			DrawQuad(s_Data.quadVertices[0], s_Data.quadVertices[1], s_Data.quadVertices[2], s_Data.quadVertices[3], color);
+
+		}
+
+		void BatchRenderer::DrawQuad(const glm::vec3& position, float size, const glm::vec4& color, const int id) {
+			assert(s_Data.inScene);
+
+			QuadVertices(glm::vec3(position.x, position.y, position.z), size);
+
+			DrawQuad(s_Data.quadVertices[0], s_Data.quadVertices[1], s_Data.quadVertices[2], s_Data.quadVertices[3], color, id);
+
+		}
+
+		void BatchRenderer::DrawQuad(const glm::vec3& position, const glm::vec2& size, const glm::vec4& color, const int id) {
+			assert(s_Data.inScene);
+
+			QuadVertices(glm::vec3(position.x, position.y, position.z), size);
+
+			DrawQuad(s_Data.quadVertices[0], s_Data.quadVertices[1], s_Data.quadVertices[2], s_Data.quadVertices[3], color, id);
 
 		}
 
 		//Draws Cap at start point
-		void BatchRenderer::DrawCap(const glm::vec2& start, const glm::vec2& end, float thickness, const glm::vec4& color) {
+		void BatchRenderer::DrawCap(const glm::vec3& start, const glm::vec3& end, float thickness, const glm::vec4& color, const int id) {
 			//Line Caps - params: center point to draw at and two points to the side.
 			assert(s_Data.inScene);
 
@@ -605,14 +699,16 @@ namespace Graphics {
 			float radius = thickness * 0.5f;
 			float angleIncrement = glm::pi<float>() / static_cast<float>(segments);
 
-			s_Data.TriangleVertexBufferPtr->Position = glm::vec3(start.x, start.y, 0.0f);
+			s_Data.TriangleVertexBufferPtr->aID = id;
+			s_Data.TriangleVertexBufferPtr->Position = glm::vec3(start.x, start.y, start.z);
 			s_Data.TriangleVertexBufferPtr->Color = color;
 			s_Data.TriangleVertexBufferPtr++;
 
 
 			for (int i = 0; i <= segments; i++) {
 				float angle = angleIncrement * 1 * i;
-				s_Data.TriangleVertexBufferPtr->Position = glm::vec3(start - (glm::rotate(normal, angle) * radius),0.0);
+				s_Data.TriangleVertexBufferPtr->aID = id;
+				s_Data.TriangleVertexBufferPtr->Position = glm::vec3(glm::vec2(start) - (glm::rotate(normal, angle) * radius),start.z);
 				s_Data.TriangleVertexBufferPtr->Color = color;
 				s_Data.TriangleVertexBufferPtr++;
 
@@ -632,36 +728,46 @@ namespace Graphics {
 		}
 
 
-		void BatchRenderer::DrawTrace(const glm::vec2& from, const glm::vec2& to, const glm::vec4& color, float thickness)
+		void BatchRenderer::DrawTrace(const glm::vec3& from, const glm::vec3& to, const glm::vec4& color, float thickness, const int id)
 		{
 			assert(s_Data.inScene);
-			glm::vec2 dir = glm::normalize(to - from);
-			glm::vec2 normal = glm::vec2(-dir.y, dir.x);
-			glm::vec2 p1 = from + normal * thickness / 2.0f;
-			glm::vec2 p2 = to + normal * thickness / 2.0f;
-			glm::vec2 p3 = to - normal * thickness / 2.0f;
-			glm::vec2 p4 = from - normal * thickness / 2.0f;
-			DrawCap(from, to, thickness, color);
-			DrawQuad(p1, p2, p3, p4, color);
-			DrawCap(to, from, thickness, color);
+			glm::vec3 dir = glm::normalize(to - from);
+			glm::vec3 normal = glm::vec3(-dir.y, dir.x, dir.z);
+			glm::vec3 p1 = from + normal * thickness / 2.0f;
+			glm::vec3 p2 = to + normal * thickness / 2.0f;
+			glm::vec3 p3 = to - normal * thickness / 2.0f;
+			glm::vec3 p4 = from - normal * thickness / 2.0f;
+			DrawCap(from, to, thickness, color, id);
+			DrawQuad(p1, p2, p3, p4, color, id);
+			DrawCap(to, from, thickness, color, id);
 		}
 
-		void BatchRenderer::DrawObround(const glm::vec2& position, const glm::vec2& size, const glm::vec4& color)
+		void BatchRenderer::DrawTrace(const glm::vec2& from, const glm::vec2& to, const glm::vec4& color, float thickness, const int id)
+		{
+			DrawTrace(glm::vec3(from, 0.0), glm::vec3(to, 0.0), color, thickness, id);
+		}
+
+		void BatchRenderer::DrawObround(const glm::vec3& position, const glm::vec2& size, const glm::vec4& color, const int id)
 		{
 			//If the obround is a circle
 			if (size.x == size.y) {
-				DrawCircle(position, size.x, color);
+				DrawCircle(position, size.x, color, id);
 				return;
 			}
 			//Position is the center of the obround
 			//size is the width and height of the obround
 			double obroundRadius = size.x / 2;
 			double halfHeightWithoutCap = (size.y - (obroundRadius * 2)) / 2;
-			glm::vec2 start = { position.x, position.y + halfHeightWithoutCap };
-			glm::vec2 end = { position.x, position.y - halfHeightWithoutCap };
+			glm::vec3 start = { position.x, position.y + halfHeightWithoutCap, position.z };
+			glm::vec3 end = { position.x, position.y - halfHeightWithoutCap, position.z };
 
 
-			DrawTrace(start, end, color, size.x);
+			DrawTrace(start, end, color, size.x, id);
+		}
+
+		void BatchRenderer::DrawObround(const glm::vec2& position, const glm::vec2& size, const glm::vec4& color, const int id)
+		{
+			DrawObround(glm::vec3(position, 0.0f), size, color, id);
 		}
 
 }

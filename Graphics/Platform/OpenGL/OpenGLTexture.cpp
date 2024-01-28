@@ -21,7 +21,7 @@ namespace Graphics {
 		m_InternalFormat = GL_RGBA8;
 		m_DataFormat = GL_RGBA;
 
-		glCreateTextures(GL_TEXTURE_2D, 1, &m_RendererID);
+		glCreateTextures(GL_TEXTURE_2D, 1, &m_RendererID);	
 		glTextureStorage2D(m_RendererID, 1, m_InternalFormat, m_Width, m_Height);
 		
 		glTexParameteri(m_RendererID, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
@@ -96,6 +96,13 @@ namespace Graphics {
 		uint32_t bpp = m_DataFormat == GL_RGBA ? 4 : 3;
 		assert(size == m_Width * m_Height * bpp && "Data must be entire texture!");
 		glTextureSubImage2D(m_RendererID, 0, 0, 0, m_Width, m_Height, m_DataFormat, GL_UNSIGNED_BYTE, data);
+	}
+
+	void OpenGLTexture2D::Resize(uint32_t width, uint32_t height)
+	{
+		m_Width = width;
+		m_Height = height;
+		glTextureStorage2D(m_RendererID, 1, m_InternalFormat, m_Width, m_Height);
 	}
 
 	void OpenGLTexture2D::Bind(uint32_t slot) const

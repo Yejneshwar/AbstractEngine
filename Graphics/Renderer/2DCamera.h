@@ -13,8 +13,6 @@ namespace Graphics {
 		TwoDCamera() = default;
 		TwoDCamera(float nearClip, float farClip);
 
-		//void OnUpdate(double x, double y, int leftButton, int rightButton);
-		void OnUpdate();
 		void OnEvent(Application::Event& event);
 
 		inline float GetDistance() const { return m_Distance; }
@@ -49,6 +47,8 @@ namespace Graphics {
 		double getWorldXmax() const { return worldXmax; }
 		double getWorldYmin() const { return worldYmin; }
 		double getWorldYmax() const { return worldYmax; }
+
+		glm::vec4 getViewport() const { return glm::vec4(m_ViewportWidth, m_ViewportHeight, m_ViewportWidth * m_ViewportHeight, 0); }
 		double getAspectRatio() const { return m_AspectRatio; }
 		double getGridMinorSpacing() const { return gridMinorSpacing; }
 		double getGridMajorSpacing() const { return gridMajorSpacing; }
@@ -59,6 +59,8 @@ namespace Graphics {
 
 
 		bool OnMouseScroll(Application::MouseScrolledEvent& e);
+		bool OnMouseMove(Application::MouseMovedEvent& e);
+
 
 		void MousePan(const glm::vec2& delta);
 		void MouseRotate(const glm::vec2& delta);

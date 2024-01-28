@@ -47,6 +47,10 @@ namespace Graphics {
 		RenderCommand::DrawGridTriangles();
 	}
 
+	void Renderer::Clear(float alpha) {
+		RenderCommand::Clear(alpha);
+	}
+
 	void Renderer::DepthTest(bool enable)
 	{
 		RenderCommand::DepthTest(enable);
@@ -57,11 +61,27 @@ namespace Graphics {
 		RenderCommand::PolygonSmooth(enable);
 	}
 
-	void Renderer::Clear() {
-		RenderCommand::Clear();
+	void Renderer::ClearStencil() {
+		RenderCommand::ClearStencil();
 	}
 
 	void Renderer::ClearBuffers() {
 		RenderCommand::ClearBuffers();
+	}
+
+	void Renderer::EnableStencil() {
+		RenderCommand::EnableStencil();
+	}
+
+	void Renderer::DisableStencil() {
+		RenderCommand::DisableStencil();
+	}
+
+	void Renderer::SetStencilFunc(unsigned int func, bool ref, uint8_t mask) {
+		RenderCommand::SetStencilFunc(func , ref, mask);
+	}
+
+	void Renderer::SetStencilOp(unsigned int sfail, unsigned int dpfail, unsigned int dppass) {
+		RenderCommand::SetStencilOp(sfail, dpfail, dppass);
 	}
 }

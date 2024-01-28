@@ -22,13 +22,19 @@ namespace Graphics {
 
 		static void DrawGridTriangles();
 
+		static void Clear(float alpha = 1.0);
 		static void DepthTest(bool enable);
 		
 		static void PolygonSmooth(bool enable);
 
-		static void Clear();
+		static void ClearStencil();
 
 		static void ClearBuffers();
+
+		static void EnableStencil();
+		static void DisableStencil();
+		static void SetStencilFunc(unsigned int func, bool ref, uint8_t mask);
+		static void SetStencilOp(unsigned int sfail, unsigned int dpfail, unsigned int dppass);
 
 		static RendererAPI::API GetAPI() { return RendererAPI::GetAPI(); }
 	private:

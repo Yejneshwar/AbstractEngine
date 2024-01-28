@@ -94,6 +94,11 @@ namespace Application {
 			std::string Title;
 			unsigned int Width, Height;
 			WindowSettings m_Settings;
+			std::chrono::high_resolution_clock::time_point m_mousePressStartLeft;
+			std::chrono::high_resolution_clock::time_point m_mousePressEndLeft;
+
+			std::chrono::high_resolution_clock::time_point m_mousePressStartRight;
+			std::chrono::high_resolution_clock::time_point m_mousePressEndRight;
 
 			EventCallbackFn EventCallback;
 		};

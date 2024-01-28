@@ -14,8 +14,6 @@ namespace Graphics {
 		ThreeDCamera() = default;
 		ThreeDCamera(float fov, float aspectRatio, float nearClip, float farClip);
 
-		//void OnUpdate(double x, double y, int leftButton, int rightButton);
-		void OnUpdate();
 		void OnEvent(Application::Event& event);
 
 		inline float GetDistance() const { return m_Distance; }
@@ -41,6 +39,7 @@ namespace Graphics {
 		double getWorldYmin() const { return 0; }
 		double getWorldYmax() const { return 0; }
 
+		glm::vec4 getViewport() const { return glm::vec4(m_ViewportWidth, m_ViewportHeight, m_ViewportWidth * m_ViewportHeight, 0); }
 		double getAspectRatio() const { return m_AspectRatio; }
 		double getZoom() const { return 0; }
 
@@ -65,6 +64,8 @@ namespace Graphics {
 
 
 		bool OnMouseScroll(Application::MouseScrolledEvent& e);
+		bool OnMouseMove(Application::MouseMovedEvent& e);
+
 
 		void MousePan(const glm::vec2& delta);
 		void MouseRotate(const glm::vec2& delta);

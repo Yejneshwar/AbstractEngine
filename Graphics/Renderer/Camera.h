@@ -14,7 +14,6 @@ namespace Graphics {
 
 		virtual ~Camera() = default;
 
-		virtual void OnUpdate() = 0;
 		virtual void OnEvent(Application::Event& event) = 0;
 
 		virtual inline void SetViewportSize(float width, float height) = 0;
@@ -26,6 +25,7 @@ namespace Graphics {
 		virtual double getWorldYmin() const = 0;
 		virtual double getWorldYmax() const = 0;
 
+		virtual glm::vec4 getViewport() const = 0;
 		virtual double getAspectRatio() const = 0;
 		virtual double getZoom() const = 0;
 

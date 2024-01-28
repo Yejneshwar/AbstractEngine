@@ -2,6 +2,7 @@
 #include <iostream>
 #include <GLFW/glfw3.h>
 #include <Events/Input.h>
+#include <Logger.h>
 
 
 
@@ -13,24 +14,11 @@ Graphics::ThreeDCamera::ThreeDCamera(float fov, float aspectRatio, float nearCli
 	UpdateView();
 }
 
-void Graphics::ThreeDCamera::OnUpdate()
-{
-	const glm::vec2& mouse{ Application::Input::GetMouseX(), Application::Input::GetMouseY() };
-	glm::vec2 delta = (mouse - m_InitialMousePosition) * 0.003f;
-	m_InitialMousePosition = mouse;
-
-	if (Application::Input::IsMouseButtonPressed(Application::Mouse::ButtonLeft))
-		MouseRotate(delta);
-	else if (Application::Input::IsMouseButtonPressed(Application::Mouse::ButtonRight))
-		MousePan(delta);
-
-	UpdateView();
-}
-
 void Graphics::ThreeDCamera::OnEvent(Application::Event& event)
 {
 	Application::EventDispatcher dispatcher(event);
 	dispatcher.Dispatch<Application::MouseScrolledEvent>(APP_BIND_EVENT_FN(Graphics::ThreeDCamera::OnMouseScroll));
+	dispatcher.Dispatch<Application::MouseMovedEvent>(APP_BIND_EVENT_FN(Graphics::ThreeDCamera::OnMouseMove));
 }
 
 glm::vec3 Graphics::ThreeDCamera::GetUpDirection() const
@@ -80,6 +68,22 @@ bool Graphics::ThreeDCamera::OnMouseScroll(Application::MouseScrolledEvent& e)
 {
 	float delta = e.GetYOffset() * 0.1f;
 	MouseZoom(delta);
+	UpdateView();
+	return false;
+}
+
+bool Graphics::ThreeDCamera::OnMouseMove(Application::MouseMovedEvent& e)
+{
+	const glm::vec2& mouse(Application::Input::GetMousePosition());
+
+	glm::vec2 delta = (mouse - m_InitialMousePosition) * 0.003f;
+	m_InitialMousePosition = mouse;
+
+	if (Application::Input::IsMouseButtonPressed(Application::Mouse::ButtonLeft))
+		MouseRotate(delta);
+	else if (Application::Input::IsMouseButtonPressed(Application::Mouse::ButtonRight))
+		MousePan(delta);
+
 	UpdateView();
 	return false;
 }

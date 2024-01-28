@@ -11,6 +11,7 @@ namespace Graphics {
 		// Color
 		RGBA8,
 		RED_INTEGER,
+		BLUE_INTEGER,
 
 		// Depth/stencil
 		DEPTH24STENCIL8,
@@ -60,11 +61,27 @@ namespace Graphics {
 
 		virtual void ClearAttachment(uint32_t attachmentIndex, int value) = 0;
 
+		virtual void DrawToAllColorBuffers() = 0;
+
+		virtual void SetDrawBuffer(uint8_t index) = 0;
+
+		virtual void BindColorAttachmentAsTexture(uint32_t index, uint32_t slot) = 0;
+
 		virtual uint32_t GetColorAttachmentRendererID(uint32_t index = 0) const = 0;
+
+		virtual uint32_t GetDepthAttachmentRendererID() const = 0;
+
+		virtual uint32_t GetStencilAttachmentRendererID() const = 0;
 
 		virtual const FramebufferSpecification& GetSpecification() const = 0;
 
+		virtual const size_t GetColorAttachmentCount() const = 0;
+
 		static Ref<Framebuffer> Create(const FramebufferSpecification& spec);
+
+		virtual const uint32_t getID() const = 0;
+
+		virtual void BlitBuffers(uint32_t src, uint32_t srcX0, uint32_t srcY0, uint32_t srcX1, uint32_t srcY1, uint32_t dstX0, uint32_t dstY0, uint32_t dstX1, uint32_t dstY1, uint32_t mask, uint16_t filter) = 0;
 	};
 
 

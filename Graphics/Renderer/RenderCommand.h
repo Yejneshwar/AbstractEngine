@@ -22,9 +22,14 @@ namespace Graphics {
 			s_RendererAPI->SetClearColor(color);
 		}
 
-		static void Clear()
+		static void Clear(float alpha = 1.0)
 		{
-			s_RendererAPI->Clear();
+			s_RendererAPI->Clear(alpha);
+		}
+
+		static void ClearStencil()
+		{
+			s_RendererAPI->ClearStencil();
 		}
 
 		static void DepthTest(bool enable)
@@ -41,6 +46,23 @@ namespace Graphics {
 		{
 			s_RendererAPI->ClearBuffers();
 		}
+
+
+		static void EnableStencil(){
+			s_RendererAPI->EnableStencil();
+		};
+
+		static void DisableStencil(){
+			s_RendererAPI->DisableStencil();
+		};
+
+		static void SetStencilFunc(unsigned int func, bool ref, uint8_t mask){
+			s_RendererAPI->SetStencilFunc(func, ref, mask);
+		};
+
+		static void SetStencilOp(unsigned int sfail, unsigned int dpfail, unsigned int dppass){
+			s_RendererAPI->SetStencilOp(sfail, dpfail, dppass);
+		};
 
 		static void DrawNonIndexed(const Ref<VertexArray>& vertexArray, uint32_t count = 0, uint32_t start = 0)
 		{

@@ -8,10 +8,12 @@ layout(std140, binding = UBO_SCENE) uniform SceneDataUBO {
 	vec4 cameraPos;
 	vec4 viewDirection;
 	vec4 gridMinMax;
+	vec4 viewport; // (width, height, width*height, 0)
 	float aspectRatio;
 	float gridMajor;
 	float gridMinor;
 	float gridZoom;
+	int selectedObject;
 
 
 	//ivec3 viewport;  // (width, height, width*height)

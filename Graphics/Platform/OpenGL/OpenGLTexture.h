@@ -29,6 +29,8 @@ namespace Graphics {
 
 		virtual void SetData(void* data, uint32_t size) override;
 
+		virtual void Resize(uint32_t width, uint32_t height) override;
+
 		virtual void Bind(uint32_t slot = 0) const override;
 
 		virtual bool IsLoaded() const override { return m_IsLoaded; }

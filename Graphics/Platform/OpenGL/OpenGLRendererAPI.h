@@ -11,11 +11,21 @@ namespace Graphics {
 		virtual void SetViewport(uint32_t x, uint32_t y, uint32_t width, uint32_t height) override;
 
 		virtual void SetClearColor(const glm::vec4& color) override;
-		virtual void Clear() override;
+		virtual void Clear(float alpha = 1.0) override;
 		virtual void DepthTest(bool enable) override;
 		virtual void PolygonSmooth(bool enable) override;
 
+		virtual void ClearStencil() override;
+
 		virtual void ClearBuffers() override;
+
+		virtual void EnableStencil() override;
+
+		virtual void DisableStencil() override;
+
+		virtual void SetStencilFunc(unsigned int func, bool ref, uint8_t mask) override;
+
+		virtual void SetStencilOp(unsigned int sfail, unsigned int dpfail, unsigned int dppass) override;
 
 		virtual void DrawNonIndexed(const Ref<VertexArray>& vertexArray, uint32_t count = 0, uint32_t start = 0) override;
 		virtual void DrawIndexed(const Ref<VertexArray>& vertexArray, uint32_t indexCount = -1) override;

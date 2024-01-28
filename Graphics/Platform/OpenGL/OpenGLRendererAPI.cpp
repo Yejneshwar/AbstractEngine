@@ -45,6 +45,8 @@ namespace Graphics {
 		glEnable(GL_DEPTH_TEST);
 		glDepthFunc(GL_LEQUAL);
 		glEnable(GL_LINE_SMOOTH);
+		//glEnable(GL_POLYGON_SMOOTH); // This sorta turns everything into a wireframe?
+		glEnable(GL_STENCIL_TEST);
 		glEnable(GL_MULTISAMPLE);
 	}
 
@@ -58,11 +60,16 @@ namespace Graphics {
 		glClearColor(color.r, color.g, color.b, color.a);
 	}
 
-	void OpenGLRendererAPI::Clear()
+	void OpenGLRendererAPI::Clear(float alpha)
 	{
 		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-		glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		glClearColor(0.2f, 0.3f, 0.3f, alpha);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+	}
+
+	void OpenGLRendererAPI::ClearStencil()
+	{
+		glClear(GL_STENCIL_BUFFER_BIT);
 	}
 
 	void OpenGLRendererAPI::DepthTest(bool enable) {
@@ -81,7 +88,25 @@ namespace Graphics {
 
 	void OpenGLRendererAPI::ClearBuffers()
 	{
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+	}
+
+	void OpenGLRendererAPI::EnableStencil() {
+		glStencilMask(0xFF); // enable writing to the stencil buffer
+	}
+
+	void OpenGLRendererAPI::DisableStencil() {
+		glStencilMask(0x00); // Disable writing to stencil buffer
+	}
+
+
+
+	void OpenGLRendererAPI::SetStencilFunc(unsigned int func ,bool ref,uint8_t mask) {
+		glStencilFunc(func, ref, mask);
+	}
+
+	void OpenGLRendererAPI::SetStencilOp(unsigned int sfail, unsigned int dpfail, unsigned int dppass) {
+		glStencilOp(sfail, dpfail, dppass);
 	}
 
 	void OpenGLRendererAPI::DrawNonIndexed(const Ref<VertexArray>& vertexArray, uint32_t count, uint32_t start)

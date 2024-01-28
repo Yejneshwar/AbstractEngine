@@ -2,6 +2,8 @@
 
 #include "Events/Event.h"
 #include "Events/Codes/MouseCodes.h"
+#include <chrono>
+#include <future>
 
 namespace Application {
 
@@ -54,7 +56,8 @@ namespace Application {
 	public:
 		MouseCode GetMouseButton() const { return m_Button; }
 
-		EVENT_CLASS_CATEGORY(EventCategoryMouse | EventCategoryInput | EventCategoryMouseButton)
+		EVENT_CLASS_TYPE(MouseButtonPressedOrReleased)
+			EVENT_CLASS_CATEGORY(EventCategoryMouse | EventCategoryInput | EventCategoryMouseButton)
 	protected:
 		MouseButtonEvent(const MouseCode button)
 			: m_Button(button) {}
@@ -76,22 +79,31 @@ namespace Application {
 		}
 
 		EVENT_CLASS_TYPE(MouseButtonPressed)
+			EVENT_CLASS_CATEGORY(EventCategoryMouse | EventCategoryInput)
 	};
 
 	class MouseButtonReleasedEvent : public MouseButtonEvent
 	{
+	private:
+		std::chrono::milliseconds m_PressDuration;
+
 	public:
-		MouseButtonReleasedEvent(const MouseCode button)
-			: MouseButtonEvent(button) {}
+
+
+		MouseButtonReleasedEvent(const MouseCode button, std::chrono::milliseconds _pressDuration = std::chrono::milliseconds(0))
+			: MouseButtonEvent(button), m_PressDuration(_pressDuration) {}
+
+		std::chrono::milliseconds GetPressDuration() const { return m_PressDuration; }
 
 		std::string ToString() const override
 		{
 			std::stringstream ss;
-			ss << "MouseButtonReleasedEvent: " << m_Button;
+			ss << "MouseButtonReleasedEvent: " << m_Button << " pressed for: " << m_PressDuration;
 			return ss.str();
 		}
 
 		EVENT_CLASS_TYPE(MouseButtonReleased)
+			EVENT_CLASS_CATEGORY(EventCategoryMouse | EventCategoryInput)
 	};
 
 }

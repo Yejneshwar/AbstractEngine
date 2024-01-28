@@ -133,15 +133,34 @@ namespace Application {
 				{
 				case GLFW_PRESS:
 				{
+					if (button == GLFW_MOUSE_BUTTON_LEFT) {
+						data.m_mousePressStartLeft = std::chrono::high_resolution_clock::now();
+					}
+					else if (button == GLFW_MOUSE_BUTTON_RIGHT)
+						data.m_mousePressStartRight = std::chrono::high_resolution_clock::now();
+
+
 					MouseButtonPressedEvent event(button);
 					data.EventCallback(event);
 					break;
 				}
 				case GLFW_RELEASE:
 				{
-					MouseButtonReleasedEvent event(button);
-					data.EventCallback(event);
-					break;
+
+					if (button == GLFW_MOUSE_BUTTON_LEFT) {
+						data.m_mousePressEndLeft = std::chrono::high_resolution_clock::now();
+						MouseButtonReleasedEvent event(button, std::chrono::duration_cast<std::chrono::milliseconds>(data.m_mousePressEndLeft - data.m_mousePressStartLeft));
+						data.EventCallback(event);
+						break;
+					}
+					else if (button == GLFW_MOUSE_BUTTON_RIGHT) {
+						data.m_mousePressEndRight = std::chrono::high_resolution_clock::now();
+						MouseButtonReleasedEvent event(button, std::chrono::duration_cast<std::chrono::milliseconds>(data.m_mousePressEndRight - data.m_mousePressStartRight));
+						data.EventCallback(event);
+						break;
+					}
+
+
 				}
 				}
 			});
