@@ -5,7 +5,7 @@
 #include "Renderer/BatchRenderer.h"
 #include <Events/Input.h>
 
-
+#define MAX_SELECTED_OBJECT_ID 10000
 namespace GUI {
 
 	int ViewPort::s_selectedObject = -1;
@@ -132,7 +132,7 @@ namespace GUI {
 				LOG_TRACE_STREAM << "Selected Object :" << selectedObject;
 				viewPort.Framebuffer->Unbind();
 
-				if (selectedObject != -1 && selectedObject < 200) {
+				if (selectedObject != -1 && selectedObject < MAX_SELECTED_OBJECT_ID) {
 					m_ObjectSelection.objectID = selectedObject;
 					m_ObjectSelection.state = true;
 					m_emitSelectionEvent = true;
@@ -241,7 +241,7 @@ namespace GUI {
 
 
 						/////////////////////////////////////////////////////////////JUMP FLOOD - FOR SELECTED OBJECT/////////////////////////////////////////////////////////////////////////
-						if (m_ObjectSelection.objectID > -1 && m_ObjectSelection.objectID < 200) {
+						if (m_ObjectSelection.objectID > -1 && m_ObjectSelection.objectID < MAX_SELECTED_OBJECT_ID) {
 
 							v.Framebuffer->Unbind();
 

@@ -46,6 +46,10 @@ namespace Graphics {
 
 			static void DrawLine(const glm::vec2& from, const glm::vec2& to, const glm::vec4& color, const int id = -1);
 
+			static void DrawLine(const glm::vec3& from, const glm::vec3& to, const glm::vec4& color, float thickness, const int id = -1);
+
+			static void DrawLine(const glm::vec2& from, const glm::vec2& to, const glm::vec4& color, float thickness, const int id = -1);
+
 			static void DrawLines(const std::vector<glm::vec3>& points, const std::vector<uint32_t>& indices, const glm::vec4& color, const int id = -1, bool withArrows = false);
 
 
@@ -57,7 +61,7 @@ namespace Graphics {
 
 			static void DrawQuad(const glm::vec2& position, const glm::vec2& size, const glm::vec4& color, const int id = -1);
 
-			static void DrawQuad(const glm::vec3& position, float size, const glm::vec4& color, const int  = -1);
+			static void DrawQuad(const glm::vec3& position, float size, const glm::vec4& color, const int id = -1);
 
 			static void DrawQuad(const glm::vec3& position, const glm::vec2& size, const glm::vec4& color, const int id = -1);
 

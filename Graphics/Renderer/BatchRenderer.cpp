@@ -554,12 +554,29 @@ namespace Graphics {
 			DrawLine(glm::vec3(from, 0.0), glm::vec3(to, 0.0), color, id);
 		}
 
+		void BatchRenderer::DrawLine(const glm::vec3& from, const glm::vec3& to, const glm::vec4& color, float thickness, const int id)
+		{
+			assert(s_Data.inScene);
+			glm::vec3 dir = glm::normalize(to - from);
+			glm::vec3 normal = glm::vec3(-dir.y, dir.x, dir.z);
+			glm::vec3 p1 = from + normal * thickness / 2.0f;
+			glm::vec3 p2 = to + normal * thickness / 2.0f;
+			glm::vec3 p3 = to - normal * thickness / 2.0f;
+			glm::vec3 p4 = from - normal * thickness / 2.0f;
+			DrawQuad(p1, p2, p3, p4, color, id);
+		}
+
+		void BatchRenderer::DrawLine(const glm::vec2& from, const glm::vec2& to, const glm::vec4& color, float thickness, const int id)
+		{
+			DrawLine(glm::vec3(from, 0.0), glm::vec3(to, 0.0), color, thickness, id);
+		}
+
 		void BatchRenderer::DrawLines(const std::vector<glm::vec3>& points, const std::vector<uint32_t>& indices, const glm::vec4& color, const int id, bool withArrows) {
 			assert((s_Data.inScene));
 			int count = 0;
 			float arrowSize = 0.5f;
 			for (size_t i = 0; i < points.size(); i ++) {
-				s_Data.IndexedLineVertexBufferPtr->aID = id;
+				s_Data.IndexedLineVertexBufferPtr->aID = i;
 				s_Data.IndexedLineVertexBufferPtr->Position = points.at(i);
 				s_Data.IndexedLineVertexBufferPtr->Color = color;
 				s_Data.IndexedLineVertexBufferPtr++;
