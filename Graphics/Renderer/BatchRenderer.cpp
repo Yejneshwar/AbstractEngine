@@ -5,6 +5,7 @@
 #include <Renderer/UniformBuffer.h>
 #include <Renderer/Texture.h>
 #include <glm/gtc/type_ptr.hpp>
+#define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/rotate_vector.hpp>
 #include <Logger.h>
 
@@ -768,18 +769,31 @@ namespace Graphics {
 		{
 			//If the obround is a circle
 			if (size.x == size.y) {
-				DrawCircle(position, size.x, color, id);
+				DrawCircle(position, size.x / 2, color, id);
 				return;
 			}
 			//Position is the center of the obround
 			//size is the width and height of the obround
-			double obroundRadius = size.x / 2;
-			double halfHeightWithoutCap = (size.y - (obroundRadius * 2)) / 2;
-			glm::vec3 start = { position.x, position.y + halfHeightWithoutCap, position.z };
-			glm::vec3 end = { position.x, position.y - halfHeightWithoutCap, position.z };
+			double obroundRadius;
+			double halfHeightWithoutCap;
+			glm::vec3 start;
+			glm::vec3 end;
+			float thickness = size.x < size.y ? size.x : size.y;
 
+			if (size.x < size.y) {
+				obroundRadius = size.x / 2;
+				halfHeightWithoutCap = (size.y - (obroundRadius * 2)) / 2;
+				start = { position.x, position.y + halfHeightWithoutCap, position.z };
+				end = { position.x, position.y - halfHeightWithoutCap, position.z };
+			}
+			else {
+				obroundRadius = size.y / 2;
+				halfHeightWithoutCap = (size.x - (obroundRadius * 2)) / 2;
+				start = { position.x - halfHeightWithoutCap, position.y, position.z };
+				end = { position.x + halfHeightWithoutCap, position.y, position.z };
+			}
 
-			DrawTrace(start, end, color, size.x, id);
+			DrawTrace(start, end, color, thickness, id);
 		}
 
 		void BatchRenderer::DrawObround(const glm::vec2& position, const glm::vec2& size, const glm::vec4& color, const int id)

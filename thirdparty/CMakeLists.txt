@@ -14,13 +14,18 @@ set(CMAKE_CXX_STANDARD ${CXX_STANDARD})
 # Add the FetchContent module
 include(FetchContent)
 
-
+set(SPIRV_TOOLS_TAG "sdk-1.3.261.1")
+set(SPIRV_HEADERS_TAG "sdk-1.3.261.1")
+set(SPIRV_CROSS_TAG "sdk-1.3.261.1")
+set(GLSLANG_TAG "sdk-1.3.261.1")
+set(SHADERC_TAG "v2023.2")
+#set(BUILD_SHARED_LIBS 1)
 
 # Declare the SPIRV-Tools library and its source URL
 FetchContent_Declare(
     spirv-tools
     GIT_REPOSITORY https://github.com/KhronosGroup/SPIRV-Tools.git
-    GIT_TAG        v2023.2
+    GIT_TAG        ${SPIRV_TOOLS_TAG}
 )
 
 
@@ -83,7 +88,7 @@ FetchContent_Declare(
 FetchContent_Declare(
     spirv-headers
     GIT_REPOSITORY https://github.com/KhronosGroup/SPIRV-Headers.git
-    GIT_TAG        sdk-1.3.239.0
+    GIT_TAG        ${SPIRV_HEADERS_TAG}
 )
 
 # Build and add the SPIRV-Headers library to the project
@@ -95,7 +100,7 @@ FetchContent_MakeAvailable(spirv-tools)
 FetchContent_Declare(
     spirv-cross
     GIT_REPOSITORY https://github.com/KhronosGroup/SPIRV-Cross.git
-    GIT_TAG        sdk-1.3.239.0
+    GIT_TAG        ${SPIRV_CROSS_TAG}
 )
 
 # Build and add the spirv-cross library to the project
@@ -112,14 +117,14 @@ message("spirv includes :  ${spirv-cross_SOURCE_DIR}/include")
 FetchContent_Declare(
     glslang
     GIT_REPOSITORY https://github.com/KhronosGroup/glslang.git
-    GIT_TAG        sdk-1.3.239.0
+    GIT_TAG        ${GLSLANG_TAG}
 )
 
 # Declare the shaderc library and its source URL
 FetchContent_Declare(
     shaderc
     GIT_REPOSITORY https://github.com/google/shaderc.git
-    GIT_TAG        v2023.2
+    GIT_TAG        ${SHADERC_TAG}
 )
 
 FetchContent_MakeAvailable(glslang shaderc)
@@ -132,10 +137,28 @@ message("Current Flags :
         CMAKE_C_FLAGS : ${CMAKE_C_FLAGS}
         CMAKE_C_FLAGS_DEBUG : ${CMAKE_C_FLAGS_DEBUG}
         CMAKE_C_FLAGS_RELEASE : ${CMAKE_C_FLAGS_RELEASE}")
-target_compile_options(glslang PRIVATE /MDd)
-target_compile_options(shaderc_util PRIVATE /MDd)
-target_compile_options(shaderc PRIVATE /MDd)
-set_target_properties(shaderc PROPERTIES LINK_FLAGS "/FORCE:MULTIPLE")
+
+
+message("SPIRV-Tools tag : ${SPIRV_TOOLS_TAG}")
+message("SPIRV-Headers tag : ${SPIRV_HEADERS_TAG}")
+message("SPIRV-Cross tag : ${SPIRV_CROSS_TAG}")
+message("GLSLang tag : ${GLSLANG_TAG}")
+message("ShaderC tag : ${SHADERC_TAG}")
+
+message("BUILD type : ${CMAKE_BUILD_TYPE}")
+
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    message("Debug build for shaderc and glslang")
+    target_compile_options(glslang PRIVATE /MDd)
+    target_compile_options(shaderc_util PRIVATE /MDd)
+    target_compile_options(shaderc PRIVATE /MDd)
+    set_target_properties(shaderc PROPERTIES LINK_FLAGS "/FORCE:MULTIPLE")
+else()
+    message("Release build for shaderc and glslang")
+    target_compile_options(glslang PRIVATE /MD)
+    target_compile_options(shaderc_util PRIVATE /MD)
+    target_compile_options(shaderc PRIVATE /MD)
+endif()
 
 
 

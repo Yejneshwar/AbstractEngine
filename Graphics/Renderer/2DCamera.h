@@ -1,6 +1,7 @@
 #pragma once 
 
 #include "Camera.h"
+#define GLM_ENABLE_EXPERIMENTAL
 #include "glm/gtx/quaternion.hpp"
 #include "Events/Event.h"
 #include <Events/EventTypes/MouseEvent.h>
