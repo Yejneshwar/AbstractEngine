@@ -37,7 +37,7 @@ void ImGuiHandler::Update(const ImGuiUpdateFn& updateFn) {
 
 #ifdef IMGUI_DOCKING_BRANCH_ENABLED
     static ImGuiDockNodeFlags dockspace_flags = ImGuiDockNodeFlags_PassthruCentralNode;
-    ImGui::DockSpaceOverViewport(ImGui::GetMainViewport(), dockspace_flags);
+    ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), dockspace_flags);
 #endif
 
     updateFn();

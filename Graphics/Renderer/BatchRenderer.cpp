@@ -18,8 +18,8 @@ namespace Graphics {
 		{
 			int aID;
 			glm::vec3 Position;
-			//glm::vec3 Normal;
-			//glm::vec3 Color;
+			glm::vec3 Normal;
+			glm::vec4 Color;
 		};
 
 		struct TriangleVertex
@@ -55,6 +55,7 @@ namespace Graphics {
 
 		struct DrawList {
 			std::vector<double> vertices;
+			std::vector<double> normals;
 			std::vector<uint32_t> indices;
 			uint32_t indicesOffset = 0;
 			bool updateBatch = false;
@@ -192,8 +193,8 @@ namespace Graphics {
 			s_Data.StaticTriangleVertexBuffer->SetLayout({
 				{ Graphics::ShaderDataType::Int, "aID"},
 				{ Graphics::ShaderDataType::Float3, "aPos"},
-				//{ Graphics::ShaderDataType::Float3, "aNormal"},
-				//{ Graphics::ShaderDataType::Float3, "aColor"},
+				{ Graphics::ShaderDataType::Float3, "aNormal"},
+				{ Graphics::ShaderDataType::Float4, "aColor"}
 			});
 			s_Data.StaticTriangleVertexArray->AddVertexBuffer(s_Data.StaticTriangleVertexBuffer);
 			s_Data.StaticTriangleIndexBuffer = Graphics::IndexBuffer::Create(s_Data.MaxIndices);
@@ -454,9 +455,10 @@ namespace Graphics {
 
 			if (s_Data.storage.updateBatch) {
 				for (size_t i = 0; i < s_Data.storage.vertices.size(); i += 3) {
+					s_Data.StaticTriangleVertexBufferPtr->aID = -1;
 					s_Data.StaticTriangleVertexBufferPtr->Position = glm::vec3(static_cast<float>(s_Data.storage.vertices.at(i)), static_cast<float>(s_Data.storage.vertices.at(i + 1)), static_cast<float>(s_Data.storage.vertices.at(i + 2)));
-					//s_Data.StaticTriangleVertexBufferPtr->Normal = glm::vec3(0.0f);
-					//s_Data.StaticTriangleVertexBufferPtr->Color = glm::vec3(1.0f);
+					s_Data.StaticTriangleVertexBufferPtr->Normal = glm::vec3(1.0f,0.0f,0.0f);
+					s_Data.StaticTriangleVertexBufferPtr->Color = glm::vec4(1.0f);
 					s_Data.StaticTriangleVertexBufferPtr++;
 				}
 
@@ -471,12 +473,24 @@ namespace Graphics {
 			StartBatch();
 		}
 
-		void BatchRenderer::addData(const std::vector<double>& vertices, const std::vector<uint32_t>& indices, const int id) {
+		void BatchRenderer::addData(const std::vector<double>& vertices, const std::vector<double>& vertexNormals, const std::vector<uint32_t>& indices, const int id) {
 			assert(!s_Data.inScene);
 			assert((vertices.size() % 3) == 0);
-			LOG_DEBUG_STREAM << "Adding data..." << " Vertices: " << vertices.size() << " Indices : " << indices.size();
+			LOG_DEBUG_STREAM << "Adding data..." << " Vertices: " << vertices.size() << " Normals: " << vertexNormals.size() << " Indices : " << indices.size();
 
 			s_Data.storage.vertices.insert(s_Data.storage.vertices.end(), vertices.begin(), vertices.end());
+
+			if (vertexNormals.empty()) {
+				for (size_t i = 0; i < vertices.size(); i += 3) {
+					s_Data.storage.normals.push_back(0.0);
+					s_Data.storage.normals.push_back(0.0);
+					s_Data.storage.normals.push_back(0.0);
+				}
+			}
+			else {
+				assert((vertexNormals.size() % 3) == 0);
+				s_Data.storage.normals.insert(s_Data.storage.normals.end(), vertexNormals.begin(), vertexNormals.end());
+			}
 
 			for (const auto& face : indices) {
 				s_Data.storage.indices.push_back(face + s_Data.storage.indicesOffset);

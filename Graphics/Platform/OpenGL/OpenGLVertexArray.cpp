@@ -81,6 +81,9 @@ namespace Graphics {
 						element.Normalized ? GL_TRUE : GL_FALSE,
 						layout.GetStride(),
 						(const void*)element.Offset);
+					if(element.Instanced){
+						glVertexAttribDivisor(m_VertexBufferIndex, element.Divisor);
+					}
 					m_VertexBufferIndex++;
 					break;
 				}
@@ -96,6 +99,9 @@ namespace Graphics {
 						ShaderDataTypeToOpenGLBaseType(element.Type),
 						layout.GetStride(),
 						(const void*)element.Offset);
+					if(element.Instanced){
+						glVertexAttribDivisor(m_VertexBufferIndex, element.Divisor);
+					}
 					m_VertexBufferIndex++;
 					break;
 				}

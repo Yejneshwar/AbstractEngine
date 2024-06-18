@@ -84,6 +84,11 @@ namespace Graphics {
 			s_RendererAPI->DrawLinesIndexed(vertexArray, indexCount);
 		}
 
+		static void DrawLinesInstancedBaseInstance(const Ref<VertexArray>& vertexArray, uint32_t filrst, uint32_t vertexCount, uint32_t instanceCount, uint32_t baseInstance)
+		{
+			s_RendererAPI->DrawLinesInstancedBaseInstance(vertexArray, filrst, vertexCount, instanceCount, baseInstance);
+		}
+
 		static void DrawWireFrameCube(const std::vector<glm::dvec3>& cube, const float& thickness) {
 			s_RendererAPI->DrawWireFrameCube(cube, thickness);
 		}

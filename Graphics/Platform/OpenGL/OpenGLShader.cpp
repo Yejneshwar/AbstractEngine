@@ -439,7 +439,7 @@ namespace Graphics {
 			GLenum error = glGetError();
 			if (error != GL_NO_ERROR) {
 				// Handle the error appropriately
-				LOG_FATAL_STREAM << "Error creating" << Utils::GLShaderStageToString(stage) << " shader : " << error;
+				LOG_FATAL_STREAM << "Error creating " << Utils::GLShaderStageToString(stage) << " shader : " << error;
 				// Additional error handling code
 			}
 			glShaderBinary(1, &shaderID, GL_SHADER_BINARY_FORMAT_SPIR_V, spirv.data(), spirv.size() * sizeof(uint32_t));

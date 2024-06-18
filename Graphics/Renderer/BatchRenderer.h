@@ -34,7 +34,7 @@ namespace Graphics {
 			static void setUpdateRequired(bool _state);
 			static bool getUpdateRequired();
 
-			static void addData(const std::vector<double>& vertices, const std::vector<uint32_t>& indices, const int id = -1);
+			static void addData(const std::vector<double>& vertices, const std::vector<double>& vertexNormals, const std::vector<uint32_t>& indices, const int id = -1);
 
 			static void DrawMesh(const std::vector<double>& vertices, const std::vector<uint32_t>& indices, const glm::vec4& color, const int id = -1);
 

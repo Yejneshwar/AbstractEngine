@@ -19,13 +19,13 @@ namespace GUI {
 		virtual void OnSelection(int objectId, bool state) {}
 		virtual void OnImGuiRender() {}
 
-		inline void UpdateLayer(bool update = true) { m_updateLayers = update; }
+		static inline void UpdateLayer(bool update = true) { m_updateLayers = update; }
 
 		bool IsUpdateLayer() const { return m_updateLayers; }
 
 		const std::string& GetName() const { return m_DebugName; }
 	protected:
 		std::string m_DebugName;
-		bool m_updateLayers = false;
+		static bool m_updateLayers;
 	};
 }

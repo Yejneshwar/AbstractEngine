@@ -7,6 +7,7 @@
 
 #define MAX_SELECTED_OBJECT_ID 10000
 namespace GUI {
+	bool Layer::m_updateLayers = true;
 
 	int ViewPort::s_selectedObject = -1;
 
@@ -58,12 +59,12 @@ namespace GUI {
 
 	void AbstractApplication::CreateShaders() {
 		m_font = Graphics::Texture2D::Create("./Resources/Textures/FontAtlas.png");
-		m_gridShader = Graphics::Shader::Create("./Resources/Shaders/Grid.glsl", false);
-		m_gridShader2D = Graphics::Shader::Create("./Resources/Shaders/Grid2D.glsl", false);
-		m_JumpFlood_init = Graphics::Shader::Create("./Resources/Shaders/JumpFloodInit.glsl", false);
-		m_JumpFlood_init2 = Graphics::Shader::Create("./Resources/Shaders/JumpFloodInit2.glsl", false);
-		m_JumpFlood_pass = Graphics::Shader::Create("./Resources/Shaders/JumpFloodPass.glsl", false);
-		m_JumpFlood_composite = Graphics::Shader::Create("./Resources/Shaders/JumpFloodComposite.glsl", false);
+		m_gridShader = Graphics::Shader::Create("./Resources/Shaders/Grid.glsl", true);
+		m_gridShader2D = Graphics::Shader::Create("./Resources/Shaders/Grid2D.glsl", true);
+		m_JumpFlood_init = Graphics::Shader::Create("./Resources/Shaders/JumpFloodInit.glsl", true);
+		m_JumpFlood_init2 = Graphics::Shader::Create("./Resources/Shaders/JumpFloodInit2.glsl", true);
+		m_JumpFlood_pass = Graphics::Shader::Create("./Resources/Shaders/JumpFloodPass.glsl", true);
+		m_JumpFlood_composite = Graphics::Shader::Create("./Resources/Shaders/JumpFloodComposite.glsl", true);
 	}
 
 	void AbstractApplication::PushLayer(Layer* layer)

@@ -145,6 +145,12 @@ namespace Graphics {
 		glDrawElements(GL_LINES, indexCount, GL_UNSIGNED_INT, nullptr);
 	}
 
+	void OpenGLRendererAPI::DrawLinesInstancedBaseInstance(const Ref<VertexArray>& vertexArray, uint32_t filrst, uint32_t vertexCount, uint32_t instanceCount, uint32_t baseInstance)
+	{
+		vertexArray->Bind();
+		glDrawArraysInstancedBaseInstance(GL_LINES, filrst, vertexCount, instanceCount, baseInstance);
+	}
+
 	void OpenGLRendererAPI::DrawWireFrameCube(const std::vector<glm::dvec3>& cube, const float& thickness) {
 		glLineWidth(thickness);
 		glColor3f(1.0,1.0,1.0);
