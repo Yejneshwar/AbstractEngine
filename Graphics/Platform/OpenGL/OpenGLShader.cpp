@@ -108,10 +108,10 @@ namespace Graphics {
 
 		std::string source = ReadFile(filepath);
 
-		PreProcessIncludes(source);
 
 		auto shaderSources = PreProcess(source);
 
+		PreProcessIncludes(shaderSources);
 
 		LOG_DEBUG_STREAM << "//////////////////////////////////////Compiling shader " << filepath;
 		{
@@ -158,9 +158,10 @@ namespace Graphics {
 	{
 
 
-		std::unordered_map<GLenum, std::string> sources;
-		sources[GL_VERTEX_SHADER] = vertexSrc;
-		sources[GL_FRAGMENT_SHADER] = fragmentSrc;
+		ShaderSources sources;
+		sources[GL_VERTEX_SHADER] = {0 ,vertexSrc};
+		sources[GL_FRAGMENT_SHADER] = {0 ,fragmentSrc};
+
 
 		CompileOrGetVulkanBinaries(sources);
 		CompileOrGetOpenGLBinaries(sources);
@@ -174,10 +175,8 @@ namespace Graphics {
 		glDeleteProgram(m_RendererID);
 	}
 
-	std::string OpenGLShader::ReadFile(const std::string& filepath)
+	std::string OpenGLShader::ReadFile(const std::string& filepath, uint32_t* num_lines)
 	{
-
-
 		std::string result;
 		std::ifstream in(filepath, std::ios::in | std::ios::binary); // ifstream closes itself due to RAII
 		if (in)
@@ -189,6 +188,18 @@ namespace Graphics {
 				result.resize(size);
 				in.seekg(0, std::ios::beg);
 				in.read(&result[0], size);
+
+				in.seekg(0, std::ios::beg);
+				// new lines will be skipped unless we stop it from happening:    
+				in.unsetf(std::ios_base::skipws);
+				// count the newlines with an algorithm specialized for counting:
+				size_t newlines = std::count(
+					std::istream_iterator<char>(in),
+					std::istream_iterator<char>(),
+					'\n');
+				LOG_TRACE_STREAM << "Read " << newlines << " lines from file " << filepath;
+				if (num_lines)
+					*num_lines = newlines;
 			}
 			else
 			{
@@ -203,32 +214,39 @@ namespace Graphics {
 		return result;
 	}
 
-	void OpenGLShader::PreProcessIncludes(std::string& source)
+	void OpenGLShader::PreProcessIncludes(ShaderSources& shaderSources)
 	{
-		while (source.find("#include ") != source.npos)
+		for (auto&& [stage, program] : shaderSources)
 		{
-			const auto pos = source.find("#include ");
-			const auto p1 = source.find('<', pos);
-			const auto p2 = source.find('>', pos);
-			if (p1 == source.npos || p2 == source.npos || p2 <= p1)
-			{
-				LOG_FATALF("Error while loading shader program: %s\n", source.c_str());
-				return;
-			}
-			const std::string name = source.substr(p1 + 1, p2 - p1 - 1);
-			const std::string include = ReadFile(name.c_str());
-			source.replace(pos, p2 - pos + 1, include.c_str());
+			auto& source = program.Source;
+			while (source.find("#include ") != source.npos)
+				{
+					const auto pos = source.find("#include ");
+					const auto p1 = source.find('<', pos);
+					const auto p2 = source.find('>', pos);
+					if (p1 == source.npos || p2 == source.npos || p2 <= p1)
+					{
+						LOG_FATALF("Error while loading shader program: %s\n", source.c_str());
+						return;
+					}
+					const std::string name = source.substr(p1 + 1, p2 - p1 - 1);
+					uint32_t num_lines;
+					const std::string include = ReadFile(name.c_str(), &num_lines);
+					source.replace(pos, p2 - pos + 1, include.c_str());
+					program.lineOffset += num_lines;
+				}
 		}
 	}
 
-	std::unordered_map<GLenum, std::string> OpenGLShader::PreProcess(const std::string& source)
+	OpenGLShader::ShaderSources OpenGLShader::PreProcess(const std::string& source)
 	{
 
-		std::unordered_map<GLenum, std::string> shaderSources;
+		std::unordered_map<GLenum, ShaderProgramSource> shaderSources;
 
 		const char* typeToken = "#type";
 		size_t typeTokenLength = strlen(typeToken);
 		size_t pos = source.find(typeToken, 0); //Start of shader type declaration line
+		uint32_t lineOffsetFromPreviousStage = 0;
 		while (pos != std::string::npos)
 		{
 			size_t eol = source.find_first_of("\r\n", pos); //End of shader type declaration line
@@ -241,7 +259,15 @@ namespace Graphics {
 			GRAPHICS_CORE_ASSERT(nextLinePos != std::string::npos, "Syntax error");
 			pos = source.find(typeToken, nextLinePos); //Start of next shader type declaration line
 
-			shaderSources[Utils::ShaderTypeFromString(type)] = (pos == std::string::npos) ? source.substr(nextLinePos) : source.substr(nextLinePos, pos - nextLinePos);
+			shaderSources[Utils::ShaderTypeFromString(type)].lineOffset -= lineOffsetFromPreviousStage;
+			shaderSources[Utils::ShaderTypeFromString(type)].Source = (pos == std::string::npos) ? source.substr(nextLinePos) : source.substr(nextLinePos, pos - nextLinePos);
+			std::istringstream iss(shaderSources[Utils::ShaderTypeFromString(type)].Source);
+			iss.unsetf(std::ios_base::skipws);
+			
+			lineOffsetFromPreviousStage = std::count(
+					std::istream_iterator<char>(iss),
+					std::istream_iterator<char>(),
+					'\n') + 1; //Last newlines are not counted
 		}
 
 		//LOG_DEBUG_STREAM << "Vertex Shader ###### \n" << shaderSources[GL_VERTEX_SHADER];
@@ -251,7 +277,41 @@ namespace Graphics {
 		return shaderSources;
 	}
 
-	void OpenGLShader::CompileOrGetVulkanBinaries(const std::unordered_map<GLenum, std::string>& shaderSources)
+	std::string OpenGLShader::ResetLineOffset(const std::string& source, const std::string& filename, int lineOffset)
+	{
+		//Sample error
+		//./Resources/Shaders/MeshNormals.glsl:96: error: 'pixelFac' : undeclared identifier
+
+		std::string result;
+		std::istringstream stream(source);
+		
+		//Find the line number in error message
+		std::string line;
+
+		while (std::getline(stream, line))
+		{
+			if (line.find(filename) != std::string::npos)
+			{
+				std::string::size_type pos = line.find(":");
+				if (pos != std::string::npos)
+				{
+					std::string::size_type pos2 = line.find(":", pos + 1);
+					if (pos2 != std::string::npos)
+					{
+						std::string lineNumber = line.substr(pos + 1, pos2 - pos - 1);
+						int errorLine = std::stoi(lineNumber);
+						errorLine -= lineOffset;
+						line.replace(pos + 1, pos2 - pos - 1, std::to_string(errorLine));
+					}
+				}
+			}
+			result += line + "\n";
+		}
+
+		return result;
+	}
+
+	void OpenGLShader::CompileOrGetVulkanBinaries(const OpenGLShader::ShaderSources& shaderSources)
 	{
 		GLuint program = glCreateProgram();
 
@@ -266,7 +326,7 @@ namespace Graphics {
 
 		auto& shaderData = m_VulkanSPIRV;
 		shaderData.clear();
-		for (auto&& [stage, source] : shaderSources)
+		for (auto&& [stage, program] : shaderSources)
 		{
 			std::filesystem::path shaderFilePath = m_FilePath;
 			std::filesystem::path cachedPath = cacheDirectory / (shaderFilePath.filename().string() + Utils::GLShaderStageCachedVulkanFileExtension(stage));
@@ -284,10 +344,10 @@ namespace Graphics {
 			}
 			else
 			{
-				shaderc::SpvCompilationResult module = compiler.CompileGlslToSpv(source, Utils::GLShaderStageToShaderC(stage), m_FilePath.c_str(), options);
+				shaderc::SpvCompilationResult module = compiler.CompileGlslToSpv(program.Source, Utils::GLShaderStageToShaderC(stage), m_FilePath.c_str(), options);
 				if (module.GetCompilationStatus() != shaderc_compilation_status_success)
 				{
-					LOG_FATAL_STREAM << module.GetErrorMessage();
+					LOG_FATAL_STREAM << "\n" << ResetLineOffset(module.GetErrorMessage(), m_FilePath, program.lineOffset);;
 					throw(std::runtime_error("Error in compiling shader for Vulkan"));
 					GRAPHICS_CORE_ASSERT(false);
 				}
@@ -370,7 +430,7 @@ namespace Graphics {
 		}
 	}
 
-	void OpenGLShader::CompileOrGetOpenGLBinaries(const std::unordered_map<GLenum, std::string>& shaderSources)
+	void OpenGLShader::CompileOrGetOpenGLBinaries(const ShaderSources& shaderSources)
 	{
 		auto& shaderData = m_OpenGLSPIRV;
 
@@ -385,7 +445,7 @@ namespace Graphics {
 
 		shaderData.clear();
 		m_OpenGLSourceCode.clear();
-		for (auto&& [stage, source] : shaderSources)
+		for (auto&& [stage, program] : shaderSources)
 		{
 			std::filesystem::path shaderFilePath = m_FilePath;
 			std::filesystem::path cachedPath = cacheDirectory / (shaderFilePath.filename().string() + Utils::GLShaderStageCachedOpenGLFileExtension(stage));
@@ -403,10 +463,10 @@ namespace Graphics {
 			}
 			else
 			{
-				shaderc::SpvCompilationResult module = compiler.CompileGlslToSpv(source, Utils::GLShaderStageToShaderC(stage), m_FilePath.c_str(), options);
+				shaderc::SpvCompilationResult module = compiler.CompileGlslToSpv(program.Source, Utils::GLShaderStageToShaderC(stage), m_FilePath.c_str(), options);
 				if (module.GetCompilationStatus() != shaderc_compilation_status_success)
 				{
-					LOG_FATAL_STREAM << module.GetErrorMessage();
+					LOG_FATAL_STREAM << "\n" << ResetLineOffset(module.GetErrorMessage(), m_FilePath, program.lineOffset);
 					LOG_FATAL_STREAM << "Stage :" << Utils::GLShaderStageToString(stage);
 					throw(std::runtime_error("Error in compiling shader for OPENGL"));
 

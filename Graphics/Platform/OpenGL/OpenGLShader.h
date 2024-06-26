@@ -40,13 +40,25 @@ namespace Graphics {
 		void UploadUniformMat3(const std::string& name, const glm::mat3& matrix);
 		void UploadUniformMat4(const std::string& name, const glm::mat4& matrix);
 	private:
-		std::string ReadFile(const std::string& filepath);
-		void PreProcessIncludes(std::string& source);
-		std::unordered_map<GLenum, std::string> PreProcess(const std::string& source);
 
-		void CompileOrGetVulkanBinaries(const std::unordered_map<GLenum, std::string>& shaderSources);
+		//-1 coz of #type in shader
+		struct ShaderProgramSource
+		{
+			int lineOffset = -1;
+			std::string Source;
+		};
+
+		using ShaderSources = std::unordered_map<GLenum, ShaderProgramSource>;
+
+		std::string ReadFile(const std::string& filepath, uint32_t* num_lines = nullptr);
+		void PreProcessIncludes(ShaderSources& source);
+		ShaderSources PreProcess(const std::string& source);
+
+		std::string ResetLineOffset(const std::string& source, const std::string& filename, int lineOffset);
+
+		void CompileOrGetVulkanBinaries(const ShaderSources& shaderSources);
 		void CompileOrGetOpenGLBinaries();
-		void CompileOrGetOpenGLBinaries(const std::unordered_map<GLenum, std::string>& shaderSources);
+		void CompileOrGetOpenGLBinaries(const ShaderSources& shaderSources);
 		void CreateProgram();
 		void Reflect(GLenum stage, const std::vector<uint32_t>& shaderData);
 	private:
@@ -54,7 +66,7 @@ namespace Graphics {
 		std::string m_FilePath;
 		std::string m_Name;
 		bool m_EnableCache;
-
+		
 		std::unordered_map<GLenum, std::vector<uint32_t>> m_VulkanSPIRV;
 		std::unordered_map<GLenum, std::vector<uint32_t>> m_OpenGLSPIRV;
 

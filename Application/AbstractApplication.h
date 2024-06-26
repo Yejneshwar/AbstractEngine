@@ -21,8 +21,10 @@ namespace GUI {
 			// Vectors are multiplied on the right.
 			glm::mat4 projViewMatrix;
 			glm::mat4 viewMatrix;
-			glm::mat4 projectionMatrix;
+			glm::mat4 viewMatrixInverse;
 			glm::mat4 viewMatrixInverseTranspose;
+			glm::mat4 projectionMatrix;
+			glm::mat4 projectionMatrixInverse;
 			glm::vec4 cameraPos;
 			glm::vec4 viewDirection;
 			glm::vec4 gridMinMax; //xmin, xmax, ymin, ymax
@@ -90,7 +92,6 @@ namespace GUI {
 			 
 			//uboDataScene.alphaMin = 0.0f;
 			//uboDataScene.alphaWidth = 1.0f;
-			uboDataScene.viewMatrixInverseTranspose = glm::inverseTranspose(uboDataScene.viewMatrix);
 			//uboDataScene.viewport = { 1280,720,1280 * 720 };
 			//uboDataScene.linkedListAllocatedPerElement = 8;
 
@@ -108,7 +109,10 @@ namespace GUI {
 
 		void update() {
 			uboDataScene.viewMatrix = ViewPortCamera->GetViewMatrix();  // Set your view matrix here
+			uboDataScene.viewMatrixInverse = glm::inverse(uboDataScene.viewMatrix);
+			uboDataScene.viewMatrixInverseTranspose = glm::inverseTranspose(uboDataScene.viewMatrix);
 			uboDataScene.projectionMatrix = ViewPortCamera->GetProjection();  // Set your projection matrix here
+			uboDataScene.projectionMatrixInverse = glm::inverse(uboDataScene.projectionMatrix);
 			uboDataScene.projViewMatrix = ViewPortCamera->GetViewProjection();
 			uboDataScene.cameraPos = glm::vec4(ViewPortCamera->GetPosition(), 1.0f);
 			uboDataScene.viewDirection = glm::vec4(ViewPortCamera->GetViewDirection(),1.0);

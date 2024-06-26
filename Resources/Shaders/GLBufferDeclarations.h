@@ -3,8 +3,10 @@
 layout(std140, binding = UBO_SCENE) uniform SceneDataUBO {
 	mat4 projViewMatrix;
 	mat4 viewMatrix;
-	mat4 projectionMatrix;
+	mat4 viewMatrixInverse;
 	mat4 viewMatrixInverseTranspose;
+	mat4 projectionMatrix;
+	mat4 projectionMatrixInverse;
 	vec4 cameraPos;
 	vec4 viewDirection;
 	vec4 gridMinMax;
