@@ -15,6 +15,7 @@ namespace Graphics {
 		virtual void Unbind() const override;
 
 		virtual void AddVertexBuffer(const Ref<VertexBuffer>& vertexBuffer) override;
+		virtual void AddVertexBuffer(const Ref<VertexBuffer>& vertexBuffer, const Ref<Shader>& shaderInput) override;
 		virtual void SetIndexBuffer(const Ref<IndexBuffer>& indexBuffer) override;
 
 		virtual const std::vector<Ref<VertexBuffer>>& GetVertexBuffers() const { return m_VertexBuffers; }
@@ -24,6 +25,7 @@ namespace Graphics {
 		uint32_t m_VertexBufferIndex = 0;
 		std::vector<Ref<VertexBuffer>> m_VertexBuffers;
 		Ref<IndexBuffer> m_IndexBuffer = nullptr;
+		bool previousVertexBufferGetsLocations = false;
 	};
 
 }

@@ -44,3 +44,31 @@ void ImGuiHandler::Update(const ImGuiUpdateFn& updateFn) {
 
     this->Render();
 }
+
+void ImGuiHandler::OnAttach()
+{
+}
+
+void ImGuiHandler::OnDetach()
+{
+}
+
+void ImGuiHandler::OnUpdateLayer()
+{
+}
+
+void ImGuiHandler::OnDrawUpdate()
+{
+}
+
+void ImGuiHandler::OnEvent(Application::Event& event)
+{
+}
+
+void ImGuiHandler::OnSelection(int objectId, bool state)
+{
+}
+
+void ImGuiHandler::OnImGuiRender()
+{
+}

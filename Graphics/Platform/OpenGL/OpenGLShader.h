@@ -29,6 +29,8 @@ namespace Graphics {
 		virtual const std::string& GetName() const override { return m_Name; }
 		virtual const uint32_t& GetId() const override { return m_RendererID; }
 
+		virtual const uint32_t& GetVertexAttributeLocation(const std::string& name) const override;
+
 		void UploadUniformInt(const std::string& name, int value);
 		void UploadUniformIntArray(const std::string& name, int* values, uint32_t count);
 
@@ -60,12 +62,15 @@ namespace Graphics {
 		void CompileOrGetOpenGLBinaries();
 		void CompileOrGetOpenGLBinaries(const ShaderSources& shaderSources);
 		void CreateProgram();
+		void FillVertexAttributeLocations(const ShaderSources& shaderSources);
 		void Reflect(GLenum stage, const std::vector<uint32_t>& shaderData);
 	private:
 		uint32_t m_RendererID;
 		std::string m_FilePath;
 		std::string m_Name;
 		bool m_EnableCache;
+
+		std::unordered_map<std::string, int> m_VertexAttributeLocationCache;
 		
 		std::unordered_map<GLenum, std::vector<uint32_t>> m_VulkanSPIRV;
 		std::unordered_map<GLenum, std::vector<uint32_t>> m_OpenGLSPIRV;

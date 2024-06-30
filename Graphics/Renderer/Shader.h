@@ -27,6 +27,8 @@ namespace Graphics {
 		virtual const std::string& GetName() const = 0;
 		virtual const uint32_t& GetId() const = 0;
 
+		virtual const uint32_t& GetVertexAttributeLocation(const std::string& name) const = 0;
+
 		static Ref<Shader> Create(const std::string& filepath, bool cache = true);
 		static Ref<Shader> Create(const std::string& name, const std::string& vertexSrc, const std::string& fragmentSrc);
 	};

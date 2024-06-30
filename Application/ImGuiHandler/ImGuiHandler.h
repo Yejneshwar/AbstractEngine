@@ -29,6 +29,20 @@ public:
         ImGui::DestroyContext();
     }
 
+    void OnAttach() override;
+
+    void OnDetach() override;
+
+    void OnUpdateLayer() override;
+
+    void OnDrawUpdate() override;
+
+    void OnEvent(Application::Event& event) override;
+
+    void OnSelection(int objectId, bool state) override;
+
+    void OnImGuiRender() override;
+
 };
 
 #endif

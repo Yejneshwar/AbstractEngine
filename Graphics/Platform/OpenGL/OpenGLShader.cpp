@@ -13,6 +13,7 @@
 #include <GLFW/glfw3.h>
 
 #include "Logger.h"
+#include "OpenGLShader.h"
 //Note: Keep bindings and locations explicit even in opengl?
 
 
@@ -130,6 +131,7 @@ namespace Graphics {
 						Reflect(stage, data);
 #endif
 				CreateProgram();
+				FillVertexAttributeLocations(shaderSources);
 
 			}
 			catch (std::runtime_error e) {
@@ -541,6 +543,26 @@ namespace Graphics {
 		m_RendererID = program;
 	}
 
+
+    void OpenGLShader::FillVertexAttributeLocations(const ShaderSources& shaderSources){
+		for (auto&& [stage, program] : shaderSources)
+		{
+			if(stage != GL_VERTEX_SHADER)
+				continue;
+			
+			spirv_cross::Compiler compiler(m_OpenGLSPIRV[stage]);
+			spirv_cross::ShaderResources resources = compiler.get_shader_resources();
+
+			for (const auto& resource : resources.stage_inputs)
+			{
+				const auto& bufferType = compiler.get_type(resource.base_type_id);
+				uint32_t location = compiler.get_decoration(resource.id, spv::DecorationLocation);
+				assert(!resource.name.empty(), "Resource name is empty");
+				m_VertexAttributeLocationCache[resource.name] = location;
+			}
+		}
+	}
+
 	void OpenGLShader::Reflect(GLenum stage, const std::vector<uint32_t>& shaderData)
 	{
 		spirv_cross::Compiler compiler(shaderData);
@@ -602,6 +624,13 @@ namespace Graphics {
 		glUseProgram(0);
 	}
 
+	const uint32_t& OpenGLShader::GetVertexAttributeLocation(const std::string& name) const
+    {
+		auto it = m_VertexAttributeLocationCache.find(name);
+		assert(it != m_VertexAttributeLocationCache.end(), "Vertex attribute not found");
+		return it->second;
+    }
+
 	void OpenGLShader::SetInt(const std::string& name, int value)
 	{
 
@@ -649,7 +678,7 @@ namespace Graphics {
 		UploadUniformMat4(name, value);
 	}
 
-	void OpenGLShader::UploadUniformInt(const std::string& name, int value)
+void OpenGLShader::UploadUniformInt(const std::string& name, int value)
 	{
 		GLint location = glGetUniformLocation(m_RendererID, name.c_str());
 		glUniform1i(location, value);

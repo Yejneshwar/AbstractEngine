@@ -11,13 +11,13 @@ namespace GUI {
 		Layer(const std::string& name = "Layer") : m_DebugName(name) {}
 		virtual ~Layer() = default;
 
-		virtual void OnAttach() {}
-		virtual void OnDetach() {}
-		virtual void OnUpdateLayer() {}
-		virtual void OnDrawUpdate() {}
-		virtual void OnEvent(Application::Event& event) {}
-		virtual void OnSelection(int objectId, bool state) {}
-		virtual void OnImGuiRender() {}
+		virtual void OnAttach() = 0;
+		virtual void OnDetach() = 0;
+		virtual void OnUpdateLayer() = 0;
+		virtual void OnDrawUpdate() = 0;
+		virtual void OnEvent(Application::Event& event) = 0;
+		virtual void OnSelection(int objectId, bool state) = 0;
+		virtual void OnImGuiRender() = 0;
 
 		static inline void UpdateLayer(bool update = true) { m_updateLayers = update; }
 

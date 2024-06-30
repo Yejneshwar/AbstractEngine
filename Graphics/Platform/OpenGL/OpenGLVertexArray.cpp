@@ -61,6 +61,13 @@ namespace Graphics {
 
 		GRAPHICS_CORE_ASSERT(vertexBuffer->GetLayout().GetElements().size(), "Vertex Buffer has no layout!");
 
+		if(m_VertexBuffers.empty()){
+			previousVertexBufferGetsLocations = false;
+		}
+		else{
+			assert(previousVertexBufferGetsLocations == false, "Previous Vertex Buffer gets locations. This Vertex Buffer must also get locations");
+		}
+
 		glBindVertexArray(m_RendererID);
 		vertexBuffer->Bind();
 
@@ -118,8 +125,89 @@ namespace Graphics {
 							element.Normalized ? GL_TRUE : GL_FALSE,
 							layout.GetStride(),
 							(const void*)(element.Offset + sizeof(float) * count * i));
-						glVertexAttribDivisor(m_VertexBufferIndex, 1);
+						glVertexAttribDivisor(m_VertexBufferIndex, element.Divisor);
 						m_VertexBufferIndex++;
+					}
+					break;
+				}
+				default:
+					GRAPHICS_CORE_ASSERT(false, "Unknown ShaderDataType!");
+			}
+		}
+
+		m_VertexBuffers.push_back(vertexBuffer);
+	}
+
+	void OpenGLVertexArray::AddVertexBuffer(const Ref<VertexBuffer>& vertexBuffer, const Ref<Shader>& shaderInput) {
+
+		GRAPHICS_CORE_ASSERT(vertexBuffer->GetLayout().GetElements().size(), "Vertex Buffer has no layout!");
+
+		if(m_VertexBuffers.empty()){
+			previousVertexBufferGetsLocations = true;
+		}
+		else{
+			assert(previousVertexBufferGetsLocations, "Previous Vertex Buffer does not get locations. This Vertex Buffer must also not get locations");
+		}
+
+		glBindVertexArray(m_RendererID);
+		vertexBuffer->Bind();
+
+		const auto& layout = vertexBuffer->GetLayout();
+		for (const auto& element : layout)
+		{
+			switch (element.Type)
+			{
+				case ShaderDataType::Float:
+				case ShaderDataType::Float2:
+				case ShaderDataType::Float3:
+				case ShaderDataType::Float4:
+				{
+					int location = shaderInput->GetVertexAttributeLocation(element.Name);
+					glEnableVertexAttribArray(location);
+					glVertexAttribPointer(location,
+						element.GetComponentCount(),
+						ShaderDataTypeToOpenGLBaseType(element.Type),
+						element.Normalized ? GL_TRUE : GL_FALSE,
+						layout.GetStride(),
+						(const void*)element.Offset);
+					if(element.Instanced){
+						glVertexAttribDivisor(location, element.Divisor);
+					}
+					break;
+				}
+				case ShaderDataType::Int:
+				case ShaderDataType::Int2:
+				case ShaderDataType::Int3:
+				case ShaderDataType::Int4:
+				case ShaderDataType::Bool:
+				{
+					int location = shaderInput->GetVertexAttributeLocation(element.Name);
+					glEnableVertexAttribArray(location);
+					glVertexAttribIPointer(location,
+						element.GetComponentCount(),
+						ShaderDataTypeToOpenGLBaseType(element.Type),
+						layout.GetStride(),
+						(const void*)element.Offset);
+					if(element.Instanced){
+						glVertexAttribDivisor(location, element.Divisor);
+					}
+					break;
+				}
+				case ShaderDataType::Mat3:
+				case ShaderDataType::Mat4:
+				{
+					uint8_t count = element.GetComponentCount();
+					for (uint8_t i = 0; i < count; i++)
+					{
+						int location = shaderInput->GetVertexAttributeLocation(element.Name);
+						glEnableVertexAttribArray(location);
+						glVertexAttribPointer(location,
+							count,
+							ShaderDataTypeToOpenGLBaseType(element.Type),
+							element.Normalized ? GL_TRUE : GL_FALSE,
+							layout.GetStride(),
+							(const void*)(element.Offset + sizeof(float) * count * i));
+						glVertexAttribDivisor(location, element.Divisor);
 					}
 					break;
 				}

@@ -49,6 +49,13 @@ namespace Graphics {
 		glBindBuffer(GL_ARRAY_BUFFER, 0);
 	}
 
+	void OpenGLVertexBuffer::ResizeBuffer(uint32_t size)
+	{
+		assert(!isStatic, "This Vertex Buffer is Static");
+		glBindBuffer(GL_ARRAY_BUFFER, m_RendererID);
+		glBufferData(GL_ARRAY_BUFFER, size, nullptr, GL_DYNAMIC_DRAW);
+	}
+
 	void OpenGLVertexBuffer::SetData(const void* data, uint32_t size, uint32_t offset)
 	{
 		assert(!isStatic, "This Vertex Buffer is Static");
