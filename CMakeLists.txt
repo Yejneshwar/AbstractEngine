@@ -207,6 +207,7 @@ set(GRAPHICS_SRC "Graphics/GraphicsCore.h"
 "Graphics/Platform/OpenGL/OpenGLVertexArray.h"
 "Graphics/Platform/OpenGL/OpenGLVertexArray.cpp"
 "Graphics/stb_image.h"
+"Graphics/stb_image_impl.cpp"
 )
 
 set(APPLICATION_SRC "Application/AbstractApplication.h"
@@ -259,6 +260,14 @@ target_link_libraries(${PROJECT_NAME} LoggingLibrary)
 
 if(IMGUI_DOCKING_BRANCH)
     target_compile_definitions(${PROJECT_NAME} PRIVATE IMGUI_DOCKING_BRANCH_ENABLED)
+endif()
+
+message(STATUS "${PROJECT_NAME} uses STB_IMAGE_IMPLEMENTATION : ${USE_STB_IMAGE_IMPLEMENTATION}")
+if(USE_STB_IMAGE_IMPLEMENTATION)
+    message("You can turn this off by setting USE_STB_IMAGE_IMPLEMENTATION to OFF")
+    target_compile_definitions(${PROJECT_NAME} PRIVATE USE_STB_IMAGE_IMPLEMENTATION)
+else()
+    message("You can turn this on by setting USE_STB_IMAGE_IMPLEMENTATION to ON")
 endif()
 
 message("Final CXX_STANDARD ${CMAKE_CXX_STANDARD}")

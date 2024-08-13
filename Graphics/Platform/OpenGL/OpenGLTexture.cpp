@@ -5,11 +5,10 @@
 #include <cstdint>
 #include <string>
 #include <cassert>
-#define STB_IMAGE_IMPLEMENTATION
-#include "stb_image.h"
 #include <iostream>
 
 #include "Logger.h"
+#include "stb_image.h"
 
 
 namespace Graphics {
