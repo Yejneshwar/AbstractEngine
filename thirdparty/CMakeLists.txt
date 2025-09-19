@@ -147,6 +147,7 @@ message("ShaderC tag : ${SHADERC_TAG}")
 
 message("BUILD type : ${CMAKE_BUILD_TYPE}")
 
+if(NOT APPLE)
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     message("Debug build for shaderc and glslang")
     target_compile_options(glslang PRIVATE /MDd)
@@ -158,6 +159,7 @@ else()
     target_compile_options(glslang PRIVATE /MD)
     target_compile_options(shaderc_util PRIVATE /MD)
     target_compile_options(shaderc PRIVATE /MD)
+endif()
 endif()
 
 

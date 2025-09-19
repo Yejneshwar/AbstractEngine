@@ -7,8 +7,6 @@ namespace Graphics {
 
 	void Renderer::Init()
 	{
-		
-
 		RenderCommand::Init();
 		//Renderer2D::Init();
 	}
@@ -31,6 +29,16 @@ namespace Graphics {
 	void Renderer::EndScene()
 	{
 	}
+
+    void Renderer::BeginLoop()
+    {
+        RenderCommand::BeginLoop();
+    }
+    
+    void Renderer::EndLoop()
+    {
+        RenderCommand::EndLoop();
+    }
 
 	void Renderer::Submit(const Ref<Shader>& shader, const Ref<VertexArray>& vertexArray, const glm::mat4& transform)
 	{

@@ -4,53 +4,51 @@
 #include <Renderer/VertexArray.h>
 #include <Renderer/UniformBuffer.h>
 #include <Renderer/Texture.h>
-#include <glm/gtc/type_ptr.hpp>
-#define GLM_ENABLE_EXPERIMENTAL
-#include <glm/gtx/rotate_vector.hpp>
+
 #include <Logger.h>
 
 namespace Graphics {
 		struct UBODataFragment {
-			glm::vec4 triangleColor;
+            GUI::DataType::vec4 triangleColor;
 		};
 		
 		struct StaticTriangleVertex
 		{
-			int aID;
-			glm::vec3 Position;
-			glm::vec3 Normal;
-			glm::vec4 Color;
+			GUI::DataType::int1 aID;
+            GUI::DataType::vec3 Position;
+            GUI::DataType::vec3 Normal;
+            GUI::DataType::vec4 Color;
 		};
 
 		struct TriangleVertex
 		{
-			int aID;
-			glm::vec3 Position;
-			glm::vec4 Color;
+            GUI::DataType::int1 aID;
+            GUI::DataType::vec3 Position;
+            GUI::DataType::vec4 Color;
 		};
 		
 		struct QuadVertex
 		{
-			int aID;
-			glm::vec3 Position;
-			glm::vec4 Color;
+            GUI::DataType::int1 aID;
+            GUI::DataType::vec3 Position;
+            GUI::DataType::vec4 Color;
 		};
 		
 		struct CircleVertex
 		{
-			int aID;
-			glm::vec3 Position;
-			glm::vec3 CirclePosition;
-			glm::vec3 Normal;
-			glm::vec4 Color;
-			float Radius;
+            GUI::DataType::int1 aID;
+            GUI::DataType::vec3 Position;
+            GUI::DataType::vec3 CirclePosition;
+            GUI::DataType::vec3 Normal;
+            GUI::DataType::vec4 Color;
+            GUI::DataType::float1 Radius;
 		};
 		
 		struct LineVertex
 		{
-			int aID;
-			glm::vec3 Position;
-			glm::vec4 Color;
+            GUI::DataType::int1 aID;
+            GUI::DataType::vec3 Position;
+            GUI::DataType::vec4 Color;
 		};
 
 		struct DrawList {
@@ -64,7 +62,7 @@ namespace Graphics {
 		struct Renderer2DData
 		{
 			bool inScene = false;
-			static const uint32_t MaxQuads = 800000;
+			static const uint32_t MaxQuads = 8000;
 			static const uint32_t MaxVertices = MaxQuads * 4;
 			static const uint32_t MaxIndices = MaxQuads * 6;
 			static const uint32_t MaxTextureSlots = 32; // TODO: RenderCaps
@@ -140,14 +138,14 @@ namespace Graphics {
 			//std::array<Graphics::Ref<Graphics::Texture2D>, MaxTextureSlots> TextureSlots;
 			//uint32_t TextureSlotIndex = 1; // 0 = white texture
 		
-			glm::vec4 QuadVertexPositions[4];
-			glm::vec3 TriangleVertexPositions[3];
+            GUI::DataType::vec4 QuadVertexPositions[4];
+            GUI::DataType::vec3 TriangleVertexPositions[3];
 
 			Statistics Stats;
 		
 			Graphics::Ref<Graphics::UniformBuffer> FragmentBuffer;
 
-			std::array<glm::vec3,4> quadVertices;
+			std::array<GUI::DataType::vec3,4> quadVertices;
 
 			DrawList storage;
 		};
@@ -155,21 +153,21 @@ namespace Graphics {
 		static Renderer2DData s_Data;
 
 		//Get quad vertices with position at center
-		void BatchRenderer::QuadVertices(glm::vec3 position, float size)
+		void BatchRenderer::QuadVertices(GUI::DataType::vec3 position, float size)
 		{
-			s_Data.quadVertices[0] = glm::vec3(position.x - size/2, position.y - size/2, position.z);
-			s_Data.quadVertices[1] = glm::vec3(position.x + size/2, position.y - size/2, position.z);
-			s_Data.quadVertices[2] = glm::vec3(position.x + size/2, position.y + size/2, position.z);
-			s_Data.quadVertices[3] = glm::vec3(position.x - size/2, position.y + size/2, position.z);
+            s_Data.quadVertices[0] = { position.x() - size/2, position.y() - size/2, position.z() };
+            s_Data.quadVertices[1] = { position.x() + size/2, position.y() - size/2, position.z() };
+            s_Data.quadVertices[2] = { position.x() + size/2, position.y() + size/2, position.z() };
+            s_Data.quadVertices[3] = { position.x() - size/2, position.y() + size/2, position.z() };
 		}
 
 		//Get quad vertices with position at center
-		void BatchRenderer::QuadVertices(glm::vec3 position, const glm::vec2& size)
+		void BatchRenderer::QuadVertices(GUI::DataType::vec3 position, const GUI::DataType::vec2& size)
 		{
-			s_Data.quadVertices[0] = glm::vec3(position.x - size.x/2, position.y - size.y/2, position.z);
-			s_Data.quadVertices[1] = glm::vec3(position.x + size.x/2, position.y - size.y/2, position.z);
-			s_Data.quadVertices[2] = glm::vec3(position.x + size.x/2, position.y + size.y/2, position.z);
-			s_Data.quadVertices[3] = glm::vec3(position.x - size.x/2, position.y + size.y/2, position.z);
+            s_Data.quadVertices[0] = { position.x() - size.x()/2, position.y() - size.y()/2, position.z() };
+            s_Data.quadVertices[1] = { position.x() + size.x()/2, position.y() - size.y()/2, position.z() };
+            s_Data.quadVertices[2] = { position.x() + size.x()/2, position.y() + size.y()/2, position.z() };
+            s_Data.quadVertices[3] = { position.x() - size.x()/2, position.y() + size.y()/2, position.z() };
 		}
 
 		Statistics BatchRenderer::GetStats() {
@@ -177,11 +175,11 @@ namespace Graphics {
 		}
 
 		inline void CreateShaders() {
-			s_Data.StaticTriangleShader = Graphics::Shader::Create("./Resources/Shaders/BasicShader.glsl", false);
-			s_Data.TriangleShader = Graphics::Shader::Create("./Resources/Shaders/TriangleShader.glsl", false);
-			s_Data.CircleShader = Graphics::Shader::Create("./Resources/Shaders/CircleShader.glsl", false);
-			s_Data.LineShader = Graphics::Shader::Create("./Resources/Shaders/LineShader.glsl", false);
-			s_Data.SelectedObjectShader = Graphics::Shader::Create("./Resources/Shaders/SelectedObject.glsl", false);
+			s_Data.StaticTriangleShader = Graphics::Shader::Create("./Resource/Shaders/BasicShader.glsl", false);
+			s_Data.TriangleShader = Graphics::Shader::Create("./Resource/Shaders/TriangleShader.glsl", false);
+			s_Data.CircleShader = Graphics::Shader::Create("./Resource/Shaders/CircleShader.glsl", false);
+			s_Data.LineShader = Graphics::Shader::Create("./Resource/Shaders/LineShader.glsl", false);
+			s_Data.SelectedObjectShader = Graphics::Shader::Create("./Resource/Shaders/SelectedObject.glsl", false);
 		}
 
 		void BatchRenderer::Init()
@@ -284,7 +282,7 @@ namespace Graphics {
 
 			CreateShaders();
 
-			glm::vec4 triangleColor = glm::vec4(1.0f, 0.5f, 0.2f, 1.0f);
+			GUI::DataType::vec4 triangleColor = GUI::DataType::vec4(1.0f, 0.5f, 0.2f, 1.0f);
 			UBODataFragment uboDataFragment = UBODataFragment(triangleColor);
 
 			s_Data.FragmentBuffer = Graphics::UniformBuffer::Create(sizeof(UBODataFragment), 1);
@@ -330,7 +328,7 @@ namespace Graphics {
 			s_Data.SelectedObjectShader->Bind();
 			if (s_Data.StaticTriangleIndexCount)
 			{
-				Graphics::RenderCommand::DrawIndexed(s_Data.StaticTriangleVertexArray, s_Data.storage.indices.size());
+				Graphics::RenderCommand::DrawIndexed(s_Data.StaticTriangleVertexArray, (uint32_t)s_Data.storage.indices.size());
 			}
 
 			if (s_Data.TriangleIndexCount) {
@@ -372,12 +370,12 @@ namespace Graphics {
 					for (size_t i = 0; i < s_Data.storage.indices.size(); i++) {
 						triangleIndices[i] = s_Data.storage.indices.at(i);
 					}
-					s_Data.StaticTriangleIndexBuffer->SetData(triangleIndices, s_Data.storage.indices.size(), 0);
+					s_Data.StaticTriangleIndexBuffer->SetData(triangleIndices, (uint32_t)s_Data.storage.indices.size(), 0);
 					delete[] triangleIndices;
 				}
 
 				s_Data.StaticTriangleShader->Bind();
-				Graphics::RenderCommand::DrawIndexed(s_Data.StaticTriangleVertexArray, s_Data.storage.indices.size());
+				Graphics::RenderCommand::DrawIndexed(s_Data.StaticTriangleVertexArray, (uint32_t)s_Data.storage.indices.size());
 				s_Data.StaticTriangleShader->Unbind();
 				//s_Data.Stats.DrawCalls++;
 				//s_Data.TriangleIndices.clear();
@@ -456,13 +454,13 @@ namespace Graphics {
 			if (s_Data.storage.updateBatch) {
 				for (size_t i = 0; i < s_Data.storage.vertices.size(); i += 3) {
 					s_Data.StaticTriangleVertexBufferPtr->aID = -1;
-					s_Data.StaticTriangleVertexBufferPtr->Position = glm::vec3(static_cast<float>(s_Data.storage.vertices.at(i)), static_cast<float>(s_Data.storage.vertices.at(i + 1)), static_cast<float>(s_Data.storage.vertices.at(i + 2)));
-					s_Data.StaticTriangleVertexBufferPtr->Normal = glm::vec3(1.0f,0.0f,0.0f);
-					s_Data.StaticTriangleVertexBufferPtr->Color = glm::vec4(1.0f);
+                    s_Data.StaticTriangleVertexBufferPtr->Position = { static_cast<float>(s_Data.storage.vertices.at(i)), static_cast<float>(s_Data.storage.vertices.at(i + 1)), static_cast<float>(s_Data.storage.vertices.at(i + 2)) };
+                    s_Data.StaticTriangleVertexBufferPtr->Normal = { 1.0f,0.0f,0.0f };
+                    s_Data.StaticTriangleVertexBufferPtr->Color = { 1.0f, 1.0f, 1.0f, 1.0f };
 					s_Data.StaticTriangleVertexBufferPtr++;
 				}
 
-				s_Data.StaticTriangleIndexCount = s_Data.storage.indices.size();
+				s_Data.StaticTriangleIndexCount = (uint32_t)s_Data.storage.indices.size();
 				s_Data.storage.updateBatch = false;
 			}
 		}
@@ -501,12 +499,12 @@ namespace Graphics {
 			s_Data.storage.updateBatch = true;
 		}
 
-		void BatchRenderer::DrawMesh(const std::vector<double>& vertices, const std::vector<uint32_t>& indices, const glm::vec4& color, const int id) {
+		void BatchRenderer::DrawMesh(const std::vector<double>& vertices, const std::vector<uint32_t>& indices, const GUI::DataType::vec4& color, const int id) {
 			assert((s_Data.inScene) && (vertices.size() % 3 == 0));
 
 			for (size_t i = 0; i < vertices.size(); i += 3) {
 				s_Data.TriangleVertexBufferPtr->aID = id;
-				s_Data.TriangleVertexBufferPtr->Position = glm::vec3(static_cast<float>(vertices.at(i)), static_cast<float>(vertices.at(i + 1)), static_cast<float>(vertices.at(i + 2)));
+                s_Data.TriangleVertexBufferPtr->Position = { static_cast<float>(vertices.at(i)), static_cast<float>(vertices.at(i + 1)), static_cast<float>(vertices.at(i + 2)) };
 				s_Data.TriangleVertexBufferPtr->Color = color;
 				s_Data.TriangleVertexBufferPtr++;
 			}
@@ -520,7 +518,7 @@ namespace Graphics {
 			s_Data.TriangleVertexBufferOffset += (vertices.size() / 3);
 		}
 
-		void BatchRenderer::DrawCircle(const glm::vec3& position, float radius ,const glm::vec4& color, const int id) {
+		void BatchRenderer::DrawCircle(const GUI::DataType::vec3& position, float radius ,const GUI::DataType::vec4& color, const int id) {
 			assert(s_Data.inScene);
 
 			QuadVertices(position, radius*2);
@@ -528,8 +526,8 @@ namespace Graphics {
 			for (unsigned int i = 0; i < 4; i++) {
 				s_Data.CircleVertexBufferPtr->aID = id;
 				s_Data.CircleVertexBufferPtr->Position = s_Data.quadVertices[i];
-				s_Data.CircleVertexBufferPtr->CirclePosition = glm::vec3(static_cast<float>(position.x), static_cast<float>(position.y), static_cast<float>(position.z));
-				s_Data.CircleVertexBufferPtr->Normal = glm::vec3(static_cast <float>(0.0));
+				s_Data.CircleVertexBufferPtr->CirclePosition = GUI::DataType::vec3(static_cast<float>(position.x()), static_cast<float>(position.y()), static_cast<float>(position.z()));
+				s_Data.CircleVertexBufferPtr->Normal = GUI::DataType::vec3(static_cast <float>(0.0));
 				s_Data.CircleVertexBufferPtr->Color = color;
 				s_Data.CircleVertexBufferPtr->Radius = radius;
 				s_Data.CircleVertexBufferPtr++;
@@ -540,23 +538,23 @@ namespace Graphics {
 			//s_Data.Stats.QuadCount++;
 		}
 
-		void BatchRenderer::DrawCircle(const glm::vec2& position, float radius, const glm::vec4& color, const int id) {
+		void BatchRenderer::DrawCircle(const GUI::DataType::vec2& position, float radius, const GUI::DataType::vec4& color, const int id) {
 			assert(s_Data.inScene);
 
-			DrawCircle(glm::vec3(position,0.0), radius, color, id);
+			DrawCircle(GUI::DataType::vec3(position.x(), position.y() ,0.0), radius, color, id);
 		}
 
 
-		void BatchRenderer::DrawLine(const glm::vec3& from, const glm::vec3& to, const glm::vec4& color, const int id) {
+		void BatchRenderer::DrawLine(const GUI::DataType::vec3& from, const GUI::DataType::vec3& to, const GUI::DataType::vec4& color, const int id) {
 			assert(s_Data.inScene);
 
 			s_Data.LineVertexBufferPtr->aID = id;
-			s_Data.LineVertexBufferPtr->Position = glm::vec3(from);
+			s_Data.LineVertexBufferPtr->Position = GUI::DataType::vec3(from);
 			s_Data.LineVertexBufferPtr->Color = color;
 			s_Data.LineVertexBufferPtr++;
 
 			s_Data.LineVertexBufferPtr->aID = id;
-			s_Data.LineVertexBufferPtr->Position = glm::vec3(to);
+			s_Data.LineVertexBufferPtr->Position = GUI::DataType::vec3(to);
 			s_Data.LineVertexBufferPtr->Color = color;
 			s_Data.LineVertexBufferPtr++;
 
@@ -564,34 +562,34 @@ namespace Graphics {
 
 		}
 
-		void BatchRenderer::DrawLine(const glm::vec2& from, const glm::vec2& to, const glm::vec4& color, const int id)
+		void BatchRenderer::DrawLine(const GUI::DataType::vec2& from, const GUI::DataType::vec2& to, const GUI::DataType::vec4& color, const int id)
 		{
-			DrawLine(glm::vec3(from, 0.0), glm::vec3(to, 0.0), color, id);
+			DrawLine(GUI::DataType::vec3(from.x(), from.y(), 0.0), GUI::DataType::vec3(to.x(), to.y(), 0.0), color, id);
 		}
 
-		void BatchRenderer::DrawLine(const glm::vec3& from, const glm::vec3& to, const glm::vec4& color, float thickness, const int id)
+		void BatchRenderer::DrawLine(const GUI::DataType::vec3& from, const GUI::DataType::vec3& to, const GUI::DataType::vec4& color, float thickness, const int id)
 		{
 			assert(s_Data.inScene);
-			glm::vec3 dir = glm::normalize(to - from);
-			glm::vec3 normal = glm::vec3(-dir.y, dir.x, dir.z);
-			glm::vec3 p1 = from + normal * thickness / 2.0f;
-			glm::vec3 p2 = to + normal * thickness / 2.0f;
-			glm::vec3 p3 = to - normal * thickness / 2.0f;
-			glm::vec3 p4 = from - normal * thickness / 2.0f;
+			GUI::DataType::vec3 dir = GUI::DataOp::normalize(to - from);
+			GUI::DataType::vec3 normal = GUI::DataType::vec3(-dir.y(), dir.x(), dir.z());
+			GUI::DataType::vec3 p1 = from + normal * thickness / 2.0f;
+			GUI::DataType::vec3 p2 = to + normal * thickness / 2.0f;
+			GUI::DataType::vec3 p3 = to - normal * thickness / 2.0f;
+			GUI::DataType::vec3 p4 = from - normal * thickness / 2.0f;
 			DrawQuad(p1, p2, p3, p4, color, id);
 		}
 
-		void BatchRenderer::DrawLine(const glm::vec2& from, const glm::vec2& to, const glm::vec4& color, float thickness, const int id)
+		void BatchRenderer::DrawLine(const GUI::DataType::vec2& from, const GUI::DataType::vec2& to, const GUI::DataType::vec4& color, float thickness, const int id)
 		{
-			DrawLine(glm::vec3(from, 0.0), glm::vec3(to, 0.0), color, thickness, id);
+			DrawLine(GUI::DataType::vec3(from.x(), from.y(), 0.0), GUI::DataType::vec3(to.x(), to.y(), 0.0), color, thickness, id);
 		}
 
-		void BatchRenderer::DrawLines(const std::vector<glm::vec3>& points, const std::vector<uint32_t>& indices, const glm::vec4& color, const int id, bool withArrows) {
+		void BatchRenderer::DrawLines(const std::vector<GUI::DataType::vec3>& points, const std::vector<uint32_t>& indices, const GUI::DataType::vec4& color, const int id, bool withArrows) {
 			assert((s_Data.inScene));
 			int count = 0;
 			float arrowSize = 0.5f;
 			for (size_t i = 0; i < points.size(); i ++) {
-				s_Data.IndexedLineVertexBufferPtr->aID = i;
+				s_Data.IndexedLineVertexBufferPtr->aID = (uint32_t)i;
 				s_Data.IndexedLineVertexBufferPtr->Position = points.at(i);
 				s_Data.IndexedLineVertexBufferPtr->Color = color;
 				s_Data.IndexedLineVertexBufferPtr++;
@@ -605,9 +603,9 @@ namespace Graphics {
 			if (withArrows) {
 				for (int i = 1; i < indices.size(); i += 2, count+=2) {
 
-					glm::vec3 direction = glm::normalize(points.at(indices[i]) - points.at(indices[i-1]));
-					glm::vec3 perpendicular(-direction.y, direction.x, 0.0f);
-					glm::vec3 arrowBase = points.at(indices[i]) - (direction * 0.15f);
+					GUI::DataType::vec3 direction = GUI::DataOp::normalize(points.at(indices[i]) - points.at(indices[i-1]));
+					GUI::DataType::vec3 perpendicular(-direction.y(), direction.x(), 0.0f);
+					GUI::DataType::vec3 arrowBase = points.at(indices[i]) - (direction * 0.15f);
 
 					s_Data.IndexedLineVertexBufferPtr->aID = id;
 					s_Data.IndexedLineVertexBufferPtr->Position = arrowBase + (perpendicular * (0.15f/2.0f));
@@ -617,7 +615,7 @@ namespace Graphics {
 					*s_Data.IndexedLineIndexBufferPtr = indices[i] + s_Data.IndexedLineVertexBufferOffset;
 					s_Data.IndexedLineIndexBufferPtr++;
 
-					*s_Data.IndexedLineIndexBufferPtr = (count) + s_Data.IndexedLineVertexBufferOffset + points.size();
+					*s_Data.IndexedLineIndexBufferPtr = (count) + s_Data.IndexedLineVertexBufferOffset + (uint32_t)points.size();
 					s_Data.IndexedLineIndexBufferPtr++;
 
 					s_Data.IndexedLineVertexBufferPtr->aID = id;
@@ -628,7 +626,7 @@ namespace Graphics {
 					*s_Data.IndexedLineIndexBufferPtr = indices[i] + s_Data.IndexedLineVertexBufferOffset;
 					s_Data.IndexedLineIndexBufferPtr++;
 
-					*s_Data.IndexedLineIndexBufferPtr = (count + 1) + s_Data.IndexedLineVertexBufferOffset + points.size();
+					*s_Data.IndexedLineIndexBufferPtr = (count + 1) + s_Data.IndexedLineVertexBufferOffset + (uint32_t)points.size();
 					s_Data.IndexedLineIndexBufferPtr++;
 				}
 
@@ -638,25 +636,25 @@ namespace Graphics {
 			s_Data.IndexedLineVertexBufferOffset += (points.size() + count);
 		}
 
-		void BatchRenderer::DrawQuad(const glm::vec3& p1, const glm::vec3& p2, const glm::vec3& p3, const glm::vec3& p4, const glm::vec4& color, const int id) {
+		void BatchRenderer::DrawQuad(const GUI::DataType::vec3& p1, const GUI::DataType::vec3& p2, const GUI::DataType::vec3& p3, const GUI::DataType::vec3& p4, const GUI::DataType::vec4& color, const int id) {
 			assert(s_Data.inScene);
 			s_Data.TriangleVertexBufferPtr->aID = id;
-			s_Data.TriangleVertexBufferPtr->Position = glm::vec3(p1.x, p1.y, p1.z);
+			s_Data.TriangleVertexBufferPtr->Position = GUI::DataType::vec3(p1.x(), p1.y(), p1.z());
 			s_Data.TriangleVertexBufferPtr->Color = color;
 			s_Data.TriangleVertexBufferPtr++;
 
 			s_Data.TriangleVertexBufferPtr->aID = id;
-			s_Data.TriangleVertexBufferPtr->Position = glm::vec3(p2.x, p2.y, p2.z);
+			s_Data.TriangleVertexBufferPtr->Position = GUI::DataType::vec3(p2.x(), p2.y(), p2.z());
 			s_Data.TriangleVertexBufferPtr->Color = color;
 			s_Data.TriangleVertexBufferPtr++;
 
 			s_Data.TriangleVertexBufferPtr->aID = id;
-			s_Data.TriangleVertexBufferPtr->Position = glm::vec3(p3.x, p3.y, p3.z);
+			s_Data.TriangleVertexBufferPtr->Position = GUI::DataType::vec3(p3.x(), p3.y(), p3.z());
 			s_Data.TriangleVertexBufferPtr->Color = color;
 			s_Data.TriangleVertexBufferPtr++;
 
 			s_Data.TriangleVertexBufferPtr->aID = id;
-			s_Data.TriangleVertexBufferPtr->Position = glm::vec3(p4.x, p4.y, p4.z);
+			s_Data.TriangleVertexBufferPtr->Position = GUI::DataType::vec3(p4.x(), p4.y(), p4.z());
 			s_Data.TriangleVertexBufferPtr->Color = color;
 			s_Data.TriangleVertexBufferPtr++;
 
@@ -679,60 +677,60 @@ namespace Graphics {
 			s_Data.TriangleVertexBufferOffset += 4;
 		}
 
-		void BatchRenderer::DrawQuad(const glm::vec2& p1, const glm::vec2& p2, const glm::vec2& p3, const glm::vec2& p4, const glm::vec4& color, const int id) {
-			DrawQuad(glm::vec3(p1,0.0), glm::vec3(p2, 0.0), glm::vec3(p3, 0.0), glm::vec3(p4, 0.0),color,id);
+		void BatchRenderer::DrawQuad(const GUI::DataType::vec2& p1, const GUI::DataType::vec2& p2, const GUI::DataType::vec2& p3, const GUI::DataType::vec2& p4, const GUI::DataType::vec4& color, const int id) {
+			DrawQuad(GUI::DataType::vec3(p1.x(), p1.y(),0.0), GUI::DataType::vec3(p2.x(), p2.y(), 0.0), GUI::DataType::vec3(p3.x(), p3.y(), 0.0), GUI::DataType::vec3(p4.x(), p4.y(), 0.0),color,id);
 		}
 
-		void BatchRenderer::DrawQuad(const glm::vec2& position, float size, const glm::vec4& color, const int id) {
+		void BatchRenderer::DrawQuad(const GUI::DataType::vec2& position, float size, const GUI::DataType::vec4& color, const int id) {
 			assert(s_Data.inScene);
 
-			QuadVertices(glm::vec3(position.x, position.y, 0.0), size);
+			QuadVertices(GUI::DataType::vec3(position.x(), position.y(), 0.0), size);
 
 			DrawQuad(s_Data.quadVertices[0], s_Data.quadVertices[1], s_Data.quadVertices[2], s_Data.quadVertices[3], color);
 
 		}
 
-		void BatchRenderer::DrawQuad(const glm::vec2& position, const glm::vec2& size, const glm::vec4& color, const int id) {
+		void BatchRenderer::DrawQuad(const GUI::DataType::vec2& position, const GUI::DataType::vec2& size, const GUI::DataType::vec4& color, const int id) {
 			assert(s_Data.inScene);
 
-			QuadVertices(glm::vec3(position.x, position.y, 0.0), size);
+			QuadVertices(GUI::DataType::vec3(position.x(), position.y(), 0.0), size);
 
 			DrawQuad(s_Data.quadVertices[0], s_Data.quadVertices[1], s_Data.quadVertices[2], s_Data.quadVertices[3], color);
 
 		}
 
-		void BatchRenderer::DrawQuad(const glm::vec3& position, float size, const glm::vec4& color, const int id) {
+		void BatchRenderer::DrawQuad(const GUI::DataType::vec3& position, float size, const GUI::DataType::vec4& color, const int id) {
 			assert(s_Data.inScene);
 
-			QuadVertices(glm::vec3(position.x, position.y, position.z), size);
+			QuadVertices(GUI::DataType::vec3(position.x(), position.y(), position.z()), size);
 
 			DrawQuad(s_Data.quadVertices[0], s_Data.quadVertices[1], s_Data.quadVertices[2], s_Data.quadVertices[3], color, id);
 
 		}
 
-		void BatchRenderer::DrawQuad(const glm::vec3& position, const glm::vec2& size, const glm::vec4& color, const int id) {
+		void BatchRenderer::DrawQuad(const GUI::DataType::vec3& position, const GUI::DataType::vec2& size, const GUI::DataType::vec4& color, const int id) {
 			assert(s_Data.inScene);
 
-			QuadVertices(glm::vec3(position.x, position.y, position.z), size);
+			QuadVertices(GUI::DataType::vec3(position.x(), position.y(), position.z()), size);
 
 			DrawQuad(s_Data.quadVertices[0], s_Data.quadVertices[1], s_Data.quadVertices[2], s_Data.quadVertices[3], color, id);
 
 		}
 
 		//Draws Cap at start point
-		void BatchRenderer::DrawCap(const glm::vec3& start, const glm::vec3& end, float thickness, const glm::vec4& color, const int id) {
+		void BatchRenderer::DrawCap(const GUI::DataType::vec3& start, const GUI::DataType::vec3& end, float thickness, const GUI::DataType::vec4& color, const int id) {
 			//Line Caps - params: center point to draw at and two points to the side.
 			assert(s_Data.inScene);
 
-			glm::vec2 direction = glm::normalize(end - start);
-			glm::vec2 normal = glm::vec2(direction.y, -direction.x);
+			GUI::DataType::vec2 direction = GUI::DataOp::normalize(end - start);
+			GUI::DataType::vec2 normal = GUI::DataType::vec2(direction.y(), -direction.x());
 
 			int segments = 12; // Number of segments in the semicircle
 			float radius = thickness * 0.5f;
 			float angleIncrement = glm::pi<float>() / static_cast<float>(segments);
 
 			s_Data.TriangleVertexBufferPtr->aID = id;
-			s_Data.TriangleVertexBufferPtr->Position = glm::vec3(start.x, start.y, start.z);
+			s_Data.TriangleVertexBufferPtr->Position = GUI::DataType::vec3(start.x(), start.y(), start.z());
 			s_Data.TriangleVertexBufferPtr->Color = color;
 			s_Data.TriangleVertexBufferPtr++;
 
@@ -740,7 +738,8 @@ namespace Graphics {
 			for (int i = 0; i <= segments; i++) {
 				float angle = angleIncrement * 1 * i;
 				s_Data.TriangleVertexBufferPtr->aID = id;
-				s_Data.TriangleVertexBufferPtr->Position = glm::vec3(glm::vec2(start) - (glm::rotate(normal, angle) * radius),start.z);
+                GUI::DataType::vec2 sp = GUI::DataType::vec2(start) - (GUI::DataOp::rotate(normal, angle) * radius);
+				s_Data.TriangleVertexBufferPtr->Position = GUI::DataType::vec3(sp.x(), sp.y(),start.z());
 				s_Data.TriangleVertexBufferPtr->Color = color;
 				s_Data.TriangleVertexBufferPtr++;
 
@@ -760,59 +759,59 @@ namespace Graphics {
 		}
 
 
-		void BatchRenderer::DrawTrace(const glm::vec3& from, const glm::vec3& to, const glm::vec4& color, float thickness, const int id)
+		void BatchRenderer::DrawTrace(const GUI::DataType::vec3& from, const GUI::DataType::vec3& to, const GUI::DataType::vec4& color, float thickness, const int id)
 		{
 			assert(s_Data.inScene);
-			glm::vec3 dir = glm::normalize(to - from);
-			glm::vec3 normal = glm::vec3(-dir.y, dir.x, dir.z);
-			glm::vec3 p1 = from + normal * thickness / 2.0f;
-			glm::vec3 p2 = to + normal * thickness / 2.0f;
-			glm::vec3 p3 = to - normal * thickness / 2.0f;
-			glm::vec3 p4 = from - normal * thickness / 2.0f;
+			GUI::DataType::vec3 dir = GUI::DataOp::normalize(to - from);
+			GUI::DataType::vec3 normal = GUI::DataType::vec3(-dir.y(), dir.x(), dir.z());
+			GUI::DataType::vec3 p1 = from + normal * thickness / 2.0f;
+			GUI::DataType::vec3 p2 = to + normal * thickness / 2.0f;
+			GUI::DataType::vec3 p3 = to - normal * thickness / 2.0f;
+			GUI::DataType::vec3 p4 = from - normal * thickness / 2.0f;
 			DrawCap(from, to, thickness, color, id);
 			DrawQuad(p1, p2, p3, p4, color, id);
 			DrawCap(to, from, thickness, color, id);
 		}
 
-		void BatchRenderer::DrawTrace(const glm::vec2& from, const glm::vec2& to, const glm::vec4& color, float thickness, const int id)
+		void BatchRenderer::DrawTrace(const GUI::DataType::vec2& from, const GUI::DataType::vec2& to, const GUI::DataType::vec4& color, float thickness, const int id)
 		{
-			DrawTrace(glm::vec3(from, 0.0), glm::vec3(to, 0.0), color, thickness, id);
+			DrawTrace(GUI::DataType::vec3(from.x(), from.y(), 0.0), GUI::DataType::vec3(to.x(), to.y(), 0.0), color, thickness, id);
 		}
 
-		void BatchRenderer::DrawObround(const glm::vec3& position, const glm::vec2& size, const glm::vec4& color, const int id)
+		void BatchRenderer::DrawObround(const GUI::DataType::vec3& position, const GUI::DataType::vec2& size, const GUI::DataType::vec4& color, const int id)
 		{
 			//If the obround is a circle
-			if (size.x == size.y) {
-				DrawCircle(position, size.x / 2, color, id);
+			if (size.x() == size.y()) {
+				DrawCircle(position, size.x() / 2, color, id);
 				return;
 			}
 			//Position is the center of the obround
 			//size is the width and height of the obround
-			double obroundRadius;
-			double halfHeightWithoutCap;
-			glm::vec3 start;
-			glm::vec3 end;
-			float thickness = size.x < size.y ? size.x : size.y;
+			float obroundRadius;
+			float halfHeightWithoutCap;
+			GUI::DataType::vec3 start;
+			GUI::DataType::vec3 end;
+			float thickness = size.x() < size.y() ? size.x() : size.y();
 
-			if (size.x < size.y) {
-				obroundRadius = size.x / 2;
-				halfHeightWithoutCap = (size.y - (obroundRadius * 2)) / 2;
-				start = { position.x, position.y + halfHeightWithoutCap, position.z };
-				end = { position.x, position.y - halfHeightWithoutCap, position.z };
+			if (size.x() < size.y()) {
+				obroundRadius = size.x() / 2;
+				halfHeightWithoutCap = (size.y() - (obroundRadius * 2)) / 2;
+				start = { position.x(), position.y() + halfHeightWithoutCap, position.z() };
+				end = { position.x(), position.y() - halfHeightWithoutCap, position.z() };
 			}
 			else {
-				obroundRadius = size.y / 2;
-				halfHeightWithoutCap = (size.x - (obroundRadius * 2)) / 2;
-				start = { position.x - halfHeightWithoutCap, position.y, position.z };
-				end = { position.x + halfHeightWithoutCap, position.y, position.z };
+				obroundRadius = size.y() / 2;
+				halfHeightWithoutCap = (size.x() - (obroundRadius * 2)) / 2;
+				start = { position.x() - halfHeightWithoutCap, position.y(), position.z() };
+				end = { position.x() + halfHeightWithoutCap, position.y(), position.z() };
 			}
 
 			DrawTrace(start, end, color, thickness, id);
 		}
 
-		void BatchRenderer::DrawObround(const glm::vec2& position, const glm::vec2& size, const glm::vec4& color, const int id)
+		void BatchRenderer::DrawObround(const GUI::DataType::vec2& position, const GUI::DataType::vec2& size, const GUI::DataType::vec4& color, const int id)
 		{
-			DrawObround(glm::vec3(position, 0.0f), size, color, id);
+			DrawObround(GUI::DataType::vec3(position.x(), position.y(), 0.0f), size, color, id);
 		}
 
 }

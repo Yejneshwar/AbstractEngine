@@ -15,6 +15,9 @@ namespace Graphics {
 
 		// Depth/stencil
 		DEPTH24STENCIL8,
+        DEPTH32FLOAT,
+        DEPTH16UNORM,
+        DEPTH32STENCIL8,
 
 		// Defaults
 		Depth = DEPTH24STENCIL8
@@ -67,11 +70,11 @@ namespace Graphics {
 
 		virtual void BindColorAttachmentAsTexture(uint32_t index, uint32_t slot) = 0;
 
-		virtual uint32_t GetColorAttachmentRendererID(uint32_t index = 0) const = 0;
+		virtual uintptr_t GetColorAttachmentRendererID(uint32_t index = 0) const = 0;
 
-		virtual uint32_t GetDepthAttachmentRendererID() const = 0;
+		virtual uintptr_t GetDepthAttachmentRendererID() const = 0;
 
-		virtual uint32_t GetStencilAttachmentRendererID() const = 0;
+		virtual uintptr_t GetStencilAttachmentRendererID() const = 0;
 
 		virtual const FramebufferSpecification& GetSpecification() const = 0;
 
@@ -82,6 +85,8 @@ namespace Graphics {
 		virtual const uint32_t getID() const = 0;
 
 		virtual void BlitBuffers(uint32_t src, uint32_t srcX0, uint32_t srcY0, uint32_t srcX1, uint32_t srcY1, uint32_t dstX0, uint32_t dstY0, uint32_t dstX1, uint32_t dstY1, uint32_t mask, uint16_t filter) = 0;
+        
+        virtual void BlitToColorAttachment(int index, uintptr_t srcTexture) = 0;
 	};
 
 

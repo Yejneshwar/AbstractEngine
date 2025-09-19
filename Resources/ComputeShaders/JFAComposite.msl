@@ -1,0 +1,48 @@
+#include <metal_stdlib>
+using namespace metal;
+
+kernel void outline_and_composite_compute(
+    texture2d<float, access::read>  jfaDistanceTexture [[texture(0)]],
+    texture2d<float, access::read>  sceneTexture       [[texture(1)]],
+    texture2d<float, access::write> outputTexture      [[texture(2)]],
+    uint2                           gid                [[thread_position_in_grid]])
+{
+    // --- Configuration for a true outline ---
+    // The distance from the object's edge where the center of the outline will be.
+    constexpr float outline_distance = 2.5;
+    // The total width of the outline band.
+    constexpr float outline_width    = 5.0;
+    // The softness/feathering of the outline's edges. Should be <= half of the width.
+    constexpr float outline_softness = 2.5;
+    // The color of the outline.
+    constexpr float4 outline_color   = float4(0.9, 0.1, 0.3, 1.0);
+
+    // Bounds check
+    if (gid.x >= outputTexture.get_width() || gid.y >= outputTexture.get_height()) {
+        return;
+    }
+
+    // --- Corrected Outline Logic ---
+    float2 current_pos = float2(gid);
+    float2 nearest_seed_pos = jfaDistanceTexture.read(gid).xy;
+    float dist = distance(current_pos, nearest_seed_pos);
+
+    // 1. Calculate how far the current pixel's distance is from the ideal outline distance.
+    // This value is 0.0 right on the outline and gets larger as you move away.
+    float dist_from_outline = abs(dist - outline_distance);
+    
+    // 2. Use an inverted smoothstep to create a smooth band.
+    // The alpha will be 1.0 when dist_from_outline is 0, and 0.0 when it's
+    // greater than half the outline's width.
+    float half_width = outline_width / 2.0;
+    float outline_alpha = 1.0 - smoothstep(
+        half_width - outline_softness,
+        half_width + outline_softness,
+        dist_from_outline
+    );
+
+    // --- Compositing Logic (Unchanged) ---
+    float4 scene_color = sceneTexture.read(gid);
+    float4 final_color = mix(scene_color, outline_color, outline_alpha);
+    outputTexture.write(final_color, gid);
+}

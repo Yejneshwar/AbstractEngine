@@ -2,11 +2,7 @@
 #ifndef IMGUIHANDLER_H
 #define IMGUIHANDLER_H
 
-//#include <glad/gl.h>
-#include <GLFW/glfw3.h>
 #include <imgui.h>
-#include <imgui_impl_glfw.h>
-#include <imgui_impl_opengl3.h>
 #include <functional>
 #include "Core/Layer.h"
 
@@ -19,15 +15,11 @@ private:
 public:
     using ImGuiUpdateFn = std::function<void()>;
 
-    ImGuiHandler(GLFWwindow* window, const char* glsl_version);
+    ImGuiHandler(void* window, const char* glsl_version);
 
     void Update(const ImGuiUpdateFn& updateFn);
 
-    ~ImGuiHandler() {
-        ImGui_ImplOpenGL3_Shutdown();
-        ImGui_ImplGlfw_Shutdown();
-        ImGui::DestroyContext();
-    }
+    ~ImGuiHandler();
 
     void OnAttach() override;
 

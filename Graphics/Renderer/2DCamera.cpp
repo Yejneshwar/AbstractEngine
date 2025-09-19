@@ -1,6 +1,5 @@
 #include "2DCamera.h"
 #include <iostream>
-#include <GLFW/glfw3.h>
 #include <Events/Input.h>
 #include <array>
 #include <Logger.h>
@@ -54,7 +53,7 @@ void GetSpacing(double viewPortWidth, double xMin, double xMax, float& gridMajor
 	n(sVal, GridCalc(), gridMajor, gridMinor);
 }
 
-Graphics::TwoDCamera::TwoDCamera(float nearClip = -100.0f, float farClip = 100.0f)
+Graphics::TwoDCamera::TwoDCamera(float nearClip, float farClip)
 	: m_NearClip(nearClip), m_FarClip(farClip), Camera(glm::ortho(-5.0f, 5.0f, -5.0f, 5.0f, nearClip, farClip))
 {
 	UpdateView();
@@ -65,6 +64,7 @@ void Graphics::TwoDCamera::OnEvent(Application::Event& event)
 	Application::EventDispatcher dispatcher(event);
 	dispatcher.Dispatch<Application::MouseScrolledEvent>(APP_BIND_EVENT_FN(Graphics::TwoDCamera::OnMouseScroll));
 	dispatcher.Dispatch<Application::MouseMovedEvent>(APP_BIND_EVENT_FN(Graphics::TwoDCamera::OnMouseMove));
+    dispatcher.Dispatch<Application::MouseButtonPressedEvent>(APP_BIND_EVENT_FN(Graphics::TwoDCamera::OnMousePressed));
 }
 
 glm::vec3 Graphics::TwoDCamera::GetUpDirection() const
@@ -107,6 +107,11 @@ void Graphics::TwoDCamera::UpdateProjection()
 	this->worldYmax = up;
 
 	m_Projection = glm::ortho(left, right, down, up, m_NearClip, m_FarClip);
+    
+#ifdef BUILDING_METAL
+//    Flip Y-axis to match coordinate system
+    m_Projection[1][1] *= -1.0f;
+#endif
 
 }
 
@@ -147,13 +152,19 @@ bool Graphics::TwoDCamera::OnMouseMove(Application::MouseMovedEvent& e)
 
 	if (!mLeft && !mRight) return false;
 
-
 	if (mLeft)
 		MousePan(delta);
 
 	UpdateProjection();
 	UpdateView();
 	return false;
+}
+
+bool Graphics::TwoDCamera::OnMousePressed(Application::MouseButtonPressedEvent& e) {
+    const glm::vec2& mouse{ Application::Input::GetMouseX(), Application::Input::GetMouseY() };
+    m_InitialMousePosition = mouse;
+    std::cout << "Initial Mouse Set" << std::endl;
+    return false;
 }
 
 void Graphics::TwoDCamera::MousePan(const glm::vec2& delta)

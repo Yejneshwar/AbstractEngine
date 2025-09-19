@@ -1,6 +1,5 @@
 #include "3DCamera.h"
 #include <iostream>
-#include <GLFW/glfw3.h>
 #include <Events/Input.h>
 #include <Logger.h>
 
@@ -51,6 +50,10 @@ void Graphics::ThreeDCamera::UpdateProjection()
 {
 	m_AspectRatio = m_ViewportWidth / m_ViewportHeight;
 	m_Projection = glm::perspective(glm::radians(m_FOV), m_AspectRatio, m_NearClip, m_FarClip);
+#ifdef BUILDING_METAL
+//    Flip Y-axis to match coordinate system
+    m_Projection[1][1] *= -1.0f;
+#endif
 }
 
 void Graphics::ThreeDCamera::UpdateView()
@@ -78,6 +81,14 @@ bool Graphics::ThreeDCamera::OnMouseMove(Application::MouseMovedEvent& e)
 
 	glm::vec2 delta = (mouse - m_InitialMousePosition) * 0.003f;
 	m_InitialMousePosition = mouse;
+    
+#if TARGET_OS_IOS
+    //ios does not recieve continous mouse movements, one hack is to cancle deltas outside of a certain range e.g. -0.01 <-> 0.01
+    // We check the squared length of the delta vector to efficiently handle movements in any direction.
+    const float threshold = 0.1f;
+    if (glm::length2(delta) > (threshold * threshold))
+        delta = { 0.0f, 0.0f };
+#endif
 
 	if (Application::Input::IsMouseButtonPressed(Application::Mouse::ButtonLeft))
 		MouseRotate(delta);

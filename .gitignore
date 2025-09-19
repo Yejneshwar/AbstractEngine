@@ -2,3 +2,5 @@
 /.vs
 CMakeSettings.json
 *.bak
+.DS_Store
+/build.ios

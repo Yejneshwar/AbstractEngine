@@ -1,4 +1,4 @@
-float log10(float x)
+float log10Calc(float x)
 {
 	return log(x) / log(10);
 }
@@ -25,7 +25,7 @@ vec4 gridColor(vec2 uv, vec2 camPos)
 		length(vec2(dFdx(uv.y), dFdy(uv.y)))
 	);
 
-	float lodLevel = max(0.0, log10((length(dudv) * gridMinPixelsBetweenCells) / gridMajorSize) + 1.0);
+	float lodLevel = max(0.0, log10Calc((length(dudv) * gridMinPixelsBetweenCells) / gridMajorSize) + 1.0);
 	float lodFade = fract(lodLevel);
 
 	// cell sizes for lod0, lod1 and lod2

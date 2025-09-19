@@ -1,0 +1,31 @@
+#include <metal_stdlib>
+using namespace metal;
+
+// A new kernel to initialize the JFA data from a mask texture.
+kernel void seed_jfa_from_mask(
+    // Input: Your RGBA8 "mask" where seeds are marked.
+    texture2d<float, access::read>  maskTexture      [[texture(0)]],
+    // Output: The RGBA32Float texture that will store seed coordinates.
+    texture2d<float, access::write> seedDataTexture  [[texture(1)]],
+    // The thread's unique position in the 2D grid.
+    uint2                           gid              [[thread_position_in_grid]])
+{
+    // Bounds check
+    if (gid.x >= maskTexture.get_width() || gid.y >= maskTexture.get_height()) {
+        return;
+    }
+
+    // Read the color from the source mask.
+    float4 maskColor = maskTexture.read(gid);
+
+    // This is your seeding logic. Here, we assume any pixel with an
+    // alpha greater than 0 is a seed. You can change this to check
+    // for a specific color, like red.
+    if (maskColor.r > 0.0f) {
+        // This is a seed. Write this pixel's coordinate to the data texture.
+        seedDataTexture.write(float4(float(gid.x), float(gid.y), 0.0, 1.0), gid);
+    } else {
+        // This is not a seed. Write the "null" value.
+        seedDataTexture.write(float4(-1.0, -1.0, 0.0, 1.0), gid);
+    }
+}

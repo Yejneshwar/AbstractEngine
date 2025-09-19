@@ -45,6 +45,12 @@ void ImGuiHandler::Update(const ImGuiUpdateFn& updateFn) {
     this->Render();
 }
 
+ImGuiHandler::~ImGuiHandler() {
+    ImGui_ImplOpenGL3_Shutdown();
+    ImGui_ImplGlfw_Shutdown();
+    ImGui::DestroyContext();
+}
+
 void ImGuiHandler::OnAttach()
 {
 }

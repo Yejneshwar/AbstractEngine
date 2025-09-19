@@ -5,7 +5,7 @@ layout(location = 1) in vec3 aPos;
 
 layout(location = 0) out flat int  FragID;
 
-#include <Resources/Shaders/GLBufferDeclarations.h>
+#include <Resource/Shaders/GLBufferDeclarations.h>
 
 void main()
 {
@@ -18,7 +18,7 @@ void main()
 
 layout(location = 0) in flat int  FragID;
 
-#include <Resources/Shaders/GLBufferDeclarations.h>
+#include <Resource/Shaders/GLBufferDeclarations.h>
 
 //layout(location = 1) out int FID;
 layout(location = 2) out vec4 FragColor2;

@@ -59,6 +59,7 @@ namespace Graphics {
 		void UpdateView();
 
 
+        bool OnMousePressed(Application::MouseButtonPressedEvent& e);
 		bool OnMouseScroll(Application::MouseScrolledEvent& e);
 		bool OnMouseMove(Application::MouseMovedEvent& e);
 

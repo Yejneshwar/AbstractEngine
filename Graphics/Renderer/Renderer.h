@@ -1,5 +1,6 @@
 #pragma once
 
+#include "AbstractApplication.h"
 #include "Renderer/RenderCommand.h"
 
 #include "Renderer/OrthographicCamera.h"
@@ -17,6 +18,9 @@ namespace Graphics {
 
 		static void BeginScene(OrthographicCamera& camera);
 		static void EndScene();
+        
+        static void BeginLoop();
+        static void EndLoop();
 
 		static void Submit(const Ref<Shader>& shader, const Ref<VertexArray>& vertexArray, const glm::mat4& transform = glm::mat4(1.0f));
 
@@ -37,6 +41,7 @@ namespace Graphics {
 		static void SetStencilOp(unsigned int sfail, unsigned int dpfail, unsigned int dppass);
 
 		static RendererAPI::API GetAPI() { return RendererAPI::GetAPI(); }
+        static Ref<GraphicsContext> GetContext() { return GUI::AbstractApplication::Get().GetWindow().GetRenderContext(); }
 	private:
 		struct SceneData
 		{

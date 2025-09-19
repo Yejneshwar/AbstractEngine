@@ -7,7 +7,7 @@ layout(location = 3) in vec3 aNormal;
 layout(location = 4) in vec4 aColor;
 layout(location = 5) in float aRadius;
 
-#include <Resources/Shaders/GLBufferDeclarations.h>
+#include <Resource/Shaders/GLBufferDeclarations.h>
 
 layout(location = 0) out vec3 FragNormal;
 layout(location = 1) out vec3 FragPosition;

@@ -10,11 +10,37 @@ namespace Graphics {
 		None = 0, Float, Float2, Float3, Float4, Mat3, Mat4, Int, Int2, Int3, Int4, Bool
 	};
 
+#ifdef BUILDING_METAL
+    static uint32_t ShaderDataTypeSize(ShaderDataType type)
+    {
+        switch (type)
+        {
+            case ShaderDataType::None:     throw("Whta?");
+            case ShaderDataType::Float:    return 16;
+            case ShaderDataType::Float2:   return 16;
+            case ShaderDataType::Float3:   return 16; // padded
+            case ShaderDataType::Float4:   return 16;
+            case ShaderDataType::Mat3:     return 16 * 3; // 3 padded float3 rows = 48 bytes
+            case ShaderDataType::Mat4:     return 16 * 4; // 4 float4 rows = 64 bytes
+                
+            case ShaderDataType::Int:      return 16;
+            case ShaderDataType::Int2:     return 16;
+            case ShaderDataType::Int3:     return 16; // padded
+            case ShaderDataType::Int4:     return 16;
+                
+            case ShaderDataType::Bool:     return 4; // Metal doesn't allow 1-byte bools in buffers
+        }
+        
+        GRAPHICS_CORE_ASSERT(false, "Unknown ShaderDataType!");
+        return 0;
+    }
+#else
 	static uint32_t ShaderDataTypeSize(ShaderDataType type)
 	{
 		switch (type)
 		{
-			case ShaderDataType::Float:    return 4;
+            case ShaderDataType::None:     throw("Whta?");
+            case ShaderDataType::Float:    return 4;
 			case ShaderDataType::Float2:   return 4 * 2;
 			case ShaderDataType::Float3:   return 4 * 3;
 			case ShaderDataType::Float4:   return 4 * 4;
@@ -30,6 +56,7 @@ namespace Graphics {
 		GRAPHICS_CORE_ASSERT(false, "Unknown ShaderDataType!");
 		return 0;
 	}
+#endif
 
 	struct BufferElement
 	{
@@ -79,6 +106,7 @@ namespace Graphics {
 			: m_Elements(elements)
 		{
 			CalculateOffsetsAndStride();
+//            std::cout << "Stride : " << m_Stride << std::endl;
 		}
 
 		uint32_t GetStride() const { return m_Stride; }
@@ -120,8 +148,8 @@ namespace Graphics {
 		virtual const BufferLayout& GetLayout() const = 0;
 		virtual void SetLayout(const BufferLayout& layout) = 0;
 
-		static Ref<VertexBuffer> Create(uint32_t size);
-		static Ref<VertexBuffer> Create(float* vertices, uint32_t size);
+		static Ref<VertexBuffer> Create(uint32_t size, std::string label = "");
+		static Ref<VertexBuffer> Create(float* vertices, uint32_t size, std::string label = "");
 	};
 
 	// Currently Hazel only supports 32-bit index buffers
@@ -135,9 +163,9 @@ namespace Graphics {
 
 		virtual uint32_t GetCount() const = 0;
 
-		static Ref<IndexBuffer> Create(uint32_t* indices, uint32_t count);
+		static Ref<IndexBuffer> Create(uint32_t* indices, uint32_t count, std::string label= "");
 
-		static Ref<IndexBuffer> Create(uint32_t count);
+		static Ref<IndexBuffer> Create(uint32_t count, std::string label = "");
 
 		virtual void SetData(const uint32_t* data, uint32_t count, uint32_t offset = 0) = 0;
 	};

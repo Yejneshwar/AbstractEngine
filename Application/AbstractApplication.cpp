@@ -13,7 +13,7 @@ namespace GUI {
 
 	AbstractApplication* AbstractApplication::s_Instance = nullptr;
 
-	AbstractApplication::AbstractApplication(const ApplicationSpecification& specification)
+	AbstractApplication::AbstractApplication(const ApplicationSpecification& specification, void* nativeWindow)
 		: m_Specification(specification)
 	{
 		HZ_PROFILE_FUNCTION();
@@ -25,7 +25,7 @@ namespace GUI {
 		if (!m_Specification.WorkingDirectory.empty())
 			std::filesystem::current_path(m_Specification.WorkingDirectory);
 
-		m_Window = Application::Window::Create(Application::WindowProps(m_Specification.Name));
+		m_Window = Application::Window::Create(Application::WindowProps(m_Specification.Name), nativeWindow);
 		m_Window->SetEventCallback(APP_BIND_EVENT_FN(AbstractApplication::OnEvent));
 
 		Graphics::Renderer::Init();
@@ -34,7 +34,11 @@ namespace GUI {
 			Graphics::FramebufferTextureFormat::RGBA8,
 			Graphics::FramebufferTextureFormat::RED_INTEGER,
 			Graphics::FramebufferTextureFormat::RGBA8,
+#if TARGET_OS_IOS
+            Graphics::FramebufferTextureFormat::DEPTH32STENCIL8,
+#else
 			Graphics::FramebufferTextureFormat::Depth,
+#endif
 		};
 		m_fbSpec.Width = 1280;
 		m_fbSpec.Height = 720;
@@ -42,12 +46,16 @@ namespace GUI {
 		m_ViewPorts.push_back(ViewPort(m_fbSpec, CameraType::ThreeD ,m_viewPortCount)); // Default viewport
 		m_viewPortCount++;
 
-		m_CameraBuffer = Graphics::UniformBuffer::Create(sizeof(SceneDataUBO), 0);
-
+		m_CameraBuffer = Graphics::UniformBuffer::Create(sizeof(SceneDataUBO), 0, "Camera Buffer");
+        
 		this->CreateShaders();
 		Graphics::BatchRenderer::Init();
 
+#ifdef BUILDING_METAL
+        m_ImGuiHandler = new ImGuiHandler(m_Window->GetNativeWindow(), "");
+#else
 		m_ImGuiHandler = new ImGuiHandler((GLFWwindow*)m_Window->GetNativeWindow(), "#version 330");
+#endif
 	}
 
 	AbstractApplication::~AbstractApplication()
@@ -58,13 +66,17 @@ namespace GUI {
 	}
 
 	void AbstractApplication::CreateShaders() {
-		m_font = Graphics::Texture2D::Create("./Resources/Textures/FontAtlas.png");
-		m_gridShader = Graphics::Shader::Create("./Resources/Shaders/Grid.glsl", true);
-		m_gridShader2D = Graphics::Shader::Create("./Resources/Shaders/Grid2D.glsl", true);
-		m_JumpFlood_init = Graphics::Shader::Create("./Resources/Shaders/JumpFloodInit.glsl", true);
-		m_JumpFlood_init2 = Graphics::Shader::Create("./Resources/Shaders/JumpFloodInit2.glsl", true);
-		m_JumpFlood_pass = Graphics::Shader::Create("./Resources/Shaders/JumpFloodPass.glsl", true);
-		m_JumpFlood_composite = Graphics::Shader::Create("./Resources/Shaders/JumpFloodComposite.glsl", true);
+		m_font = Graphics::Texture2D::Create("Resource/Textures/FontAtlas.png");
+		m_gridShader = Graphics::Shader::Create("./Resource/Shaders/Grid.glsl", true);
+		m_gridShader2D = Graphics::Shader::Create("./Resource/Shaders/Grid2D.glsl", true);
+		m_JumpFlood_init = Graphics::Shader::Create("./Resource/Shaders/JumpFloodInit.glsl", true);
+		m_JumpFlood_init2 = Graphics::Shader::Create("./Resource/Shaders/JumpFloodInit2.glsl", true);
+		m_JumpFlood_pass = Graphics::Shader::Create("./Resource/Shaders/JumpFloodPass.glsl", true);
+		m_JumpFlood_composite = Graphics::Shader::Create("./Resource/Shaders/JumpFloodComposite.glsl", true);
+        m_JFAComputeSeed = Graphics::ComputeShader::Create(std::filesystem::path("./Resource/ComputeShaders/JFASeed.glsl"));
+        m_JFAComputeShader = Graphics::ComputeShader::Create(std::filesystem::path("./Resource/ComputeShaders/JFAPass.glsl"));
+        m_JFAComputeVisualize = Graphics::ComputeShader::Create(std::filesystem::path("./Resource/ComputeShaders/JFAVisualize.glsl"));
+        m_JFAComposite = Graphics::ComputeShader::Create(std::filesystem::path("./Resource/ComputeShaders/JFAComposite.glsl"));
 	}
 
 	void AbstractApplication::PushLayer(Layer* layer)
@@ -105,7 +117,12 @@ namespace GUI {
 		dispatcher.Dispatch<Application::WindowCloseEvent>(APP_BIND_EVENT_FN(AbstractApplication::OnWindowClose));
 		dispatcher.Dispatch<Application::WindowResizeEvent>(APP_BIND_EVENT_FN(AbstractApplication::OnWindowResize));
 
-
+#if __APPLE__
+        auto eventType = e.GetEventType();
+        // Manually dispatch events to ImGUI
+        if(eventType == Application::EventType::MouseButtonPressed || eventType == Application::EventType::MouseButtonReleased || eventType == Application::EventType::MouseMoved)
+            m_ImGuiHandler->OnEvent(e);
+#endif
 		if (ImGui::GetIO().WantCaptureMouse && std::all_of(m_ViewPorts.begin(), m_ViewPorts.end(), [](ViewPort v) { return v.ViewportHovered == false; })) return;
 
 		for (ViewPort& viewPort : m_ViewPorts) {
@@ -179,12 +196,18 @@ namespace GUI {
 		}
 	}
 
-	void AbstractApplication:: Run()
+    void AbstractApplication::Run()
 	{
-		HZ_PROFILE_FUNCTION();
+        HZ_PROFILE_FUNCTION();
 
-		while (m_Running)
-		{
+        while (m_Running)
+        {
+            this->RunLoop();
+        }
+    }
+
+	void AbstractApplication::RunLoop()
+	{
 			HZ_PROFILE_SCOPE("RunLoop");
 
 			ExecuteMainThreadQueue();
@@ -202,9 +225,9 @@ namespace GUI {
 							m_updateAllViewPorts = true;
 						}
 					}
-
+                    Graphics::Renderer::BeginLoop();
 					Graphics::Renderer::ClearBuffers();
-					m_font->Bind();
+					
 					LOG_TRACE_STREAM << "Begin Viewports";
 					for (ViewPort& v : m_ViewPorts) {
 						//On viewport resize
@@ -216,13 +239,19 @@ namespace GUI {
 							v.JumpFloodFramebuffer->Resize((uint32_t)xSize, (uint32_t)ySize);
 							v.Framebuffer->Resize((uint32_t)xSize, (uint32_t)ySize);
 							v.ViewPortCamera->SetViewportSize(xSize, ySize);
+                            v.JFATextureA->Resize((uint32_t)xSize, (uint32_t)ySize);
+                            v.JFATextureB->Resize((uint32_t)xSize, (uint32_t)ySize);
+                            v.JFAResultTexture->Resize((uint32_t)xSize, (uint32_t)ySize);
+                            v.JFACompositeTexture->Resize((uint32_t)xSize, (uint32_t)ySize);
 							v.update();
 						}
 						if (!v.ViewportHovered && !v.ViewportFocused && !m_updateAllViewPorts) continue;
 						LOG_TRACE_STREAM << "Viewport: " << v.id << " Hovered: " << v.ViewportHovered << " Focused: " << v.ViewportFocused << " UpdateAll : " << m_updateAllViewPorts;
-						m_CameraBuffer->SetData(&v.uboDataScene, sizeof(v.uboDataScene));
+
 
 						v.Framebuffer->Bind();
+                        m_font->Bind();
+                        m_CameraBuffer->SetData(&v.uboDataScene, sizeof(v.uboDataScene));
 						v.Framebuffer->ClearAttachment(1, -1); // Clear ID buffer
 						Graphics::Renderer::DepthTest(true);
 
@@ -240,55 +269,55 @@ namespace GUI {
 
 						v.Framebuffer->SetDrawBuffer(0); // prevent drawing to id buffer from here nothing should be drawn to the id buffer anyway...
 
-
+                        
 						/////////////////////////////////////////////////////////////JUMP FLOOD - FOR SELECTED OBJECT/////////////////////////////////////////////////////////////////////////
-						if (m_ObjectSelection.objectID > -1 && m_ObjectSelection.objectID < MAX_SELECTED_OBJECT_ID) {
-
-							v.Framebuffer->Unbind();
-
-							v.JumpFloodICFramebuffer->Bind();
-							Graphics::Renderer::Clear(0.0); // Clear the jumpflood init frameBuffer
-
-							v.Framebuffer->BindColorAttachmentAsTexture(2, 2);
-
-							m_JumpFlood_init2->Bind();
-							Graphics::Renderer::DrawGridTriangles();
-							m_JumpFlood_init2->Unbind();
-
-							v.JumpFloodICFramebuffer->Unbind();
-
-							v.JumpFloodFramebuffer->Bind();
-							Graphics::Renderer::Clear(0.0); // Clear the jumpflood frameBuffer
-
-							v.JumpFloodFramebuffer->BlitBuffers(v.JumpFloodICFramebuffer->getID(), 0, 0, v.JumpFloodICFramebuffer->GetSpecification().Width, v.JumpFloodICFramebuffer->GetSpecification().Height, 0, 0, v.JumpFloodFramebuffer->GetSpecification().Width, v.JumpFloodFramebuffer->GetSpecification().Height, GL_COLOR_BUFFER_BIT, GL_NEAREST);
-
-
-							v.JumpFloodFramebuffer->BindColorAttachmentAsTexture(0, 1);
-							int steps = 2;
-							int step = (int)glm::round(glm::pow<int>(steps - 1, 2));
-							int index = 0;
-							glm::vec2 texelSize = { 1.0f / v.Framebuffer->GetSpecification().Width, 1.0f / v.Framebuffer->GetSpecification().Height };
-							glm::float32 invTexelRatio = texelSize.y / texelSize.x;
-							while (step != 0) {
-
-								m_JumpFlood_pass->Bind();
-								m_JumpFlood_pass->SetFloat2("a_texelSize", texelSize);
-								m_JumpFlood_pass->SetFloat("a_invTexelRatio", invTexelRatio);
-								m_JumpFlood_pass->SetInt("a_step", step);
-								Graphics::Renderer::DrawGridTriangles();
-								m_JumpFlood_pass->Unbind();
-								index = (index + 1) % 2;
-								step /= 2;
-							}
-
-							v.JumpFloodFramebuffer->Unbind();
-							v.Framebuffer->Bind();
-
-							m_JumpFlood_composite->Bind();
-							Graphics::Renderer::DrawGridTriangles();
-							m_JumpFlood_composite->Unbind();
-
-						}
+//						if (m_ObjectSelection.objectID > -1 && m_ObjectSelection.objectID < MAX_SELECTED_OBJECT_ID) {
+//
+//							v.Framebuffer->Unbind();
+//
+//							v.JumpFloodICFramebuffer->Bind();
+//							Graphics::Renderer::Clear(0.0); // Clear the jumpflood init frameBuffer
+//
+//							v.Framebuffer->BindColorAttachmentAsTexture(2, 2);
+//
+//							m_JumpFlood_init2->Bind();
+//							Graphics::Renderer::DrawGridTriangles();
+//							m_JumpFlood_init2->Unbind();
+//
+//							v.JumpFloodICFramebuffer->Unbind();
+//
+//							v.JumpFloodFramebuffer->Bind();
+//							Graphics::Renderer::Clear(0.0); // Clear the jumpflood frameBuffer
+//
+////							v.JumpFloodFramebuffer->BlitBuffers(v.JumpFloodICFramebuffer->getID(), 0, 0, v.JumpFloodICFramebuffer->GetSpecification().Width, v.JumpFloodICFramebuffer->GetSpecification().Height, 0, 0, v.JumpFloodFramebuffer->GetSpecification().Width, v.JumpFloodFramebuffer->GetSpecification().Height, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+//
+//
+//							v.JumpFloodFramebuffer->BindColorAttachmentAsTexture(0, 1);
+////							int steps = 2;
+////							int step = (int)glm::round(glm::pow<int>(steps - 1, 2));
+////							int index = 0;
+////							glm::vec2 texelSize = { 1.0f / v.Framebuffer->GetSpecification().Width, 1.0f / v.Framebuffer->GetSpecification().Height };
+////							glm::float32 invTexelRatio = texelSize.y / texelSize.x;
+////							while (step != 0) {
+////
+////								m_JumpFlood_pass->Bind();
+////								m_JumpFlood_pass->SetFloat2("a_texelSize", texelSize);
+////								m_JumpFlood_pass->SetFloat("a_invTexelRatio", invTexelRatio);
+////								m_JumpFlood_pass->SetInt("a_step", step);
+////								Graphics::Renderer::DrawGridTriangles();
+////								m_JumpFlood_pass->Unbind();
+////								index = (index + 1) % 2;
+////								step /= 2;
+////							}
+//
+//							v.JumpFloodFramebuffer->Unbind();
+//							v.Framebuffer->Bind();
+//
+//							m_JumpFlood_composite->Bind();
+//							Graphics::Renderer::DrawGridTriangles();
+//							m_JumpFlood_composite->Unbind();
+//
+//						}
 						/////////////////////////////////////////////////////////////JUMP FLOOD - FOR SELECTED OBJECT/////////////////////////////////////////////////////////////////////////
 
 
@@ -318,8 +347,61 @@ namespace GUI {
 
 
 						v.Framebuffer->Unbind();
+                        if (m_ObjectSelection.objectID > -1 && m_ObjectSelection.objectID < MAX_SELECTED_OBJECT_ID) {
+                            
+                            m_JFAComputeSeed->Bind();
+                            m_JFAComputeSeed->BindTexture(v.Framebuffer->GetColorAttachmentRendererID(2), 0); // [[texture(0)]]
+                            m_JFAComputeSeed->BindTexture(v.JFATextureA->GetRendererID(), 1); // [[texture(1)]]
+                            m_JFAComputeSeed->Dispatch(v.ViewportSize.x, v.ViewportSize.y, 1);
+                            m_JFAComputeSeed->Unbind();
+                            
+                            m_JFAComputeShader->Bind();
+                            
+                            int step = std::max(v.ViewportSize.x, v.ViewportSize.y) / 2;
+                            int passCount = 0;
+                            
+                            while (step > 0) {
+                                // Determine which texture is the input and which is the output for this pass.
+                                auto inputTexture = (passCount % 2 == 0) ? v.JFATextureA.get() : v.JFATextureB.get();
+                                auto outputTexture = (passCount % 2 == 0) ? v.JFATextureB.get() : v.JFATextureA.get();
+                                
+                                // Set the textures and the step value for the GPU kernel.
+                                m_JFAComputeShader->BindTexture(inputTexture->GetRendererID(), 0); // [[texture(0)]]
+                                m_JFAComputeShader->BindTexture(outputTexture->GetRendererID(), 1); // [[texture(1)]]
+                                m_JFAComputeShader->SetInt(&step, 0); // [[buffer(0)]]
+                                
+                                // Dispatch the compute kernel. 🚀
+                                m_JFAComputeShader->Dispatch(v.ViewportSize.x, v.ViewportSize.y, 1);
+                                
+                                // Prepare for the next pass
+                                step /= 2;
+                                passCount += 1;
+                            }
+                            
+                            auto JFAResult = (passCount % 2 == 0) ? v.JFATextureA.get() : v.JFATextureB.get();
+                            
+                            m_JFAComputeShader->Unbind();
+                            
+                            m_JFAComputeVisualize->Bind();
+                            m_JFAComputeVisualize->BindTexture(v.JFAResultTexture->GetRendererID(), 0); // [[texture(0)]]
+                            m_JFAComputeVisualize->BindTexture(JFAResult->GetRendererID(), 1); // [[texture(1)]]
+                            m_JFAComputeVisualize->Dispatch(v.ViewportSize.x, v.ViewportSize.y, 1);
+                            m_JFAComputeVisualize->Unbind();
+                            
+                            m_JFAComposite->Bind();
+                            m_JFAComposite->BindTexture(v.JFACompositeTexture->GetRendererID(), 0); // [[texture(0)]]
+                            m_JFAComposite->BindTexture(JFAResult->GetRendererID(), 1); // [[texture(1)]]
+                            m_JFAComposite->BindTexture(v.Framebuffer->GetColorAttachmentRendererID(), 2); // [[texture(2)]]
+                            m_JFAComposite->Dispatch(v.ViewportSize.x, v.ViewportSize.y, 1);
+                            m_JFAComposite->Unbind();
+                            
+                            v.Framebuffer->BlitToColorAttachment(0, v.JFACompositeTexture->GetRendererID());
+                        }
+                        
 					}
 					LOG_TRACE_STREAM << "End Viewports";
+                    Graphics::Renderer::EndLoop();
+
 					if (m_updateAllViewPorts) m_updateAllViewPorts = false;
 
 					m_ImGuiHandler->Update([&]() {
@@ -332,7 +414,6 @@ namespace GUI {
 			}
 
 			m_Window->OnUpdate();
-		}
 	}
 
 	bool AbstractApplication::OnWindowClose(Application::WindowCloseEvent& e)
@@ -382,7 +463,7 @@ namespace GUI {
 		ImGui::PushMultiItemsWidths(3, ImGui::CalcItemWidth());
 		ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2{ 0, 0 });
 
-		float lineHeight = GImGui->Font->FontSize + GImGui->Style.FramePadding.y * 2.0f;
+		float lineHeight = 16 + GImGui->Style.FramePadding.y * 2.0f;
 		ImVec2 buttonSize = { lineHeight + 3.0f, lineHeight };
 
 		ImGui::PushStyleColor(ImGuiCol_Button, ImVec4{ 0.8f, 0.1f, 0.15f, 1.0f });
@@ -558,7 +639,7 @@ namespace GUI {
 				auto viewportMaxRegion = ImGui::GetWindowContentRegionMax();
 				auto viewportOffset = ImGui::GetWindowPos();
 
-				for (int i = 1; i < colorAttachmentCount; i++) {
+				for (int i = 2; i < colorAttachmentCount; i++) {
 					std::string string = std::format("ColorBuffer {}", i);
 					ImGui::Text(string.c_str());
 					textureID = viewPort.Framebuffer->GetColorAttachmentRendererID(i);
@@ -575,49 +656,38 @@ namespace GUI {
 				ImGui::EndColumns();
 				ImGui::EndChild();
 
+                
+                string = std::format("Viewport {} - JumpFlood Textures", viewPort.id);
+                ImGui::Text(string.c_str());
+                ImGui::BeginChild(std::format("v{}colsJumpTextures", viewPort.id).c_str(), ImVec2(0, 200));
+                ImGui::BeginColumns(string.c_str(), 4);
 
+                    string = std::format("JFA Texture A");
+                    ImGui::Text(string.c_str());
+                    textureID = viewPort.JFATextureA->GetRendererID();
+                    ImGui::Image(reinterpret_cast<void*>(textureID), ImGui::GetContentRegionAvail(), ImVec2{ 0, 1 }, ImVec2{ 1, 0 });
+                    ImGui::NextColumn();
+                
+                    string = std::format("JFA Texture B");
+                    ImGui::Text(string.c_str());
+                    textureID = viewPort.JFATextureB->GetRendererID();
+                    ImGui::Image(reinterpret_cast<void*>(textureID), ImGui::GetContentRegionAvail(), ImVec2{ 0, 1 }, ImVec2{ 1, 0 });
+                    ImGui::NextColumn();
+                
+                    string = std::format("JFA Result");
+                    ImGui::Text(string.c_str());
+                    textureID = viewPort.JFAResultTexture->GetRendererID();
+                    ImGui::Image(reinterpret_cast<void*>(textureID), ImGui::GetContentRegionAvail(), ImVec2{ 0, 1 }, ImVec2{ 1, 0 });
+                    ImGui::NextColumn();
+                
+                    string = std::format("JFA Composite");
+                    ImGui::Text(string.c_str());
+                    textureID = viewPort.JFACompositeTexture->GetRendererID();
+                    ImGui::Image(reinterpret_cast<void*>(textureID), ImGui::GetContentRegionAvail(), ImVec2{ 0, 1 }, ImVec2{ 1, 0 });
+                    ImGui::NextColumn();
 
-				colorAttachmentCount = viewPort.JumpFloodICFramebuffer->GetColorAttachmentCount() + 1; //for depth Buffer
-				string = std::format("Viewport {} - JumpFlood Init frameBuffer", viewPort.id);
-				ImGui::Text(string.c_str());
-				ImGui::BeginChild(std::format("v{}colsJumpInit", viewPort.id).c_str(), ImVec2(0, 200));
-				ImGui::BeginColumns(string.c_str(), colorAttachmentCount);
-
-				for (int i = 0; i < colorAttachmentCount - 1; i++) {
-					std::string string = std::format("ColorBuffer {}", i);
-					ImGui::Text(string.c_str());
-					textureID = viewPort.JumpFloodICFramebuffer->GetColorAttachmentRendererID(i);
-					ImGui::Image(reinterpret_cast<void*>(textureID), ImGui::GetContentRegionAvail(), ImVec2{ 0, 1 }, ImVec2{ 1, 0 });
-					ImGui::NextColumn();
-				}
-
-				string = std::format("DepthBuffer Jump {}", viewPort.id);
-				ImGui::Text(string.c_str());
-				textureID = viewPort.JumpFloodFramebuffer->GetDepthAttachmentRendererID();
-				ImGui::Image(reinterpret_cast<void*>(textureID), ImGui::GetContentRegionAvail(), ImVec2{ 0, 1 }, ImVec2{ 1, 0 });
-				ImGui::NextColumn();
-
-				ImGui::EndColumns();
-				ImGui::EndChild();
-
-
-
-				colorAttachmentCount = viewPort.JumpFloodFramebuffer->GetColorAttachmentCount(); //for depth Buffer
-				string = std::format("Viewport {} - JumpFlood frameBuffer", viewPort.id);
-				ImGui::Text(string.c_str());
-				ImGui::BeginChild(std::format("v{}colsJump", viewPort.id).c_str(), ImVec2(0, 200));
-				ImGui::BeginColumns(string.c_str(), colorAttachmentCount);
-
-				for (int i = 0; i < colorAttachmentCount; i++) {
-					std::string string = std::format("ColorBuffer {}", i);
-					ImGui::Text(string.c_str());
-					textureID = viewPort.JumpFloodFramebuffer->GetColorAttachmentRendererID(i);
-					ImGui::Image(reinterpret_cast<void*>(textureID), ImGui::GetContentRegionAvail(), ImVec2{ 0, 1 }, ImVec2{ 1, 0 });
-					ImGui::NextColumn();
-				}
-
-				ImGui::EndColumns();
-				ImGui::EndChild();
+                ImGui::EndColumns();
+                ImGui::EndChild();
 
 				ImGui::Separator();
 

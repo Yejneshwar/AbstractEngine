@@ -1,40 +1,49 @@
-﻿// OpenGL Starter.cpp : Defines the entry point for the application.
+// OpenGL Starter.cpp : Defines the entry point for the application.
 //
 
 #include <iostream> 
 #include <string>
 
-#include <AbstractApplication.h>
+#include "Starter.h"
 #include <Renderer/Renderer.h>
 #include <Renderer/Shader.h>
+#include <Renderer/ComputeShader.h>
 #include <Core/Layer.h>
 #include <glm/gtc/type_ptr.hpp>
 #include <Renderer/Texture.h>
 #include <Renderer/BatchRenderer.h>
+#include "MetalTestLayer.h"
+
+#include <simd/simd.h>
+
+#define NS_PRIVATE_IMPLEMENTATION
+#define CA_PRIVATE_IMPLEMENTATION
+#define MTL_PRIVATE_IMPLEMENTATION
+#include <Metal/Metal.hpp>
+#include <Foundation/Foundation.hpp>
+#include <QuartzCore/QuartzCore.hpp>
 
 namespace GUI {
 
 	class ObjectLayer : public Layer {
-
         static const uint32_t MaxQuads = 10;
         static const uint32_t MaxVertices = MaxQuads * 4;
         static const uint32_t MaxIndices = MaxQuads * 6;
-        glm::vec4 triangleColor = glm::vec4(1.0f, 0.5f, 0.2f, 0.1f);
+        simd_float4 triangleColor = simd_make_float4(1.0f, 0.5f, 0.2f, 0.1f);
 
         struct UBODataFragmentAttached {
-            glm::vec4 triangleColor;
-            int selectedObject;
+            simd_float4 triangleColor;
+            simd_int1 selectedObject;
         };
 
         struct TriangleVertex {
-            int aID;
-            glm::vec3 aPos;
-            glm::vec3 aNormal;
-            glm::vec3 aColor;
-
+            simd_int1 aID;
+            simd_float3 aPos;
+            simd_float3 aNormal;
+            simd_float3 aColor;
         };
 
-        UBODataFragmentAttached uboDataFragment = UBODataFragmentAttached(triangleColor, -1);
+        UBODataFragmentAttached uboDataFragment = UBODataFragmentAttached(triangleColor, 2);
 
 		Graphics::Ref<Graphics::Shader> m_BasicShader;
         Graphics::Ref<Graphics::Shader> m_SelectedObjectShader;
@@ -55,10 +64,10 @@ namespace GUI {
         /////OR/////
         ///////////////If using a vertex buffer/////////////////////////////////////////////////////////////////////////////////////////////
         ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-        Graphics::Ref<Graphics::VertexBuffer> TriangleVertexBuffer = Graphics::VertexBuffer::Create(MaxVertices * sizeof(TriangleVertex));
+        Graphics::Ref<Graphics::VertexBuffer> TriangleVertexBuffer = Graphics::VertexBuffer::Create(MaxVertices * sizeof(TriangleVertex), "Basic Shader Vertex Buffer");
         ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-        Graphics::Ref<Graphics::UniformBuffer> fragmentBuffer = Graphics::UniformBuffer::Create(sizeof(UBODataFragmentAttached), 1); // REMEBER TO SET BINDING TO 1 in the shader
+        Graphics::Ref<Graphics::UniformBuffer> fragmentBuffer = Graphics::UniformBuffer::Create(sizeof(UBODataFragmentAttached), 1, "UBO Data"); // REMEBER TO SET BINDING TO 1 in the shader
 
         Graphics::Ref<Graphics::IndexBuffer> triangleIB;
 
@@ -72,10 +81,9 @@ namespace GUI {
 		~ObjectLayer() {
 		}
 
-		void OnAttach() {
-
-            m_BasicShader = Graphics::Shader::Create("./Resources/Shaders/BasicShader.glsl", false);
-            m_SelectedObjectShader = Graphics::Shader::Create("./Resources/Shaders/SelectedObject.glsl", false);
+		void OnAttach() override {
+            m_BasicShader = Graphics::Shader::Create("./Resource/Shaders/BasicShader.glsl", false);
+            m_SelectedObjectShader = Graphics::Shader::Create("./Resource/Shaders/SelectedObject.glsl", false);
 
             ///////////////If using a vertex buffer/////////////////////////////////////////////////////////////////////////////////////////////
             ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -130,38 +138,38 @@ namespace GUI {
 
             // Uncomment if drawing indexed
             ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-            //for (uint32_t i = 0; i < MaxIndices; i += 3)
-            //{
-            //    triangleIndices[i + 0] = offset + 0;
-            //    triangleIndices[i + 1] = offset + 1;
-            //    triangleIndices[i + 2] = offset + 2;
-            //
-            //    offset += 3;
-            //}
-            //
-            //triangleIB = Graphics::IndexBuffer::Create(triangleIndices, MaxIndices);
-            //TriangleVertexArray->SetIndexBuffer(triangleIB);
+            for (uint32_t i = 0; i < MaxIndices; i += 3)
+            {
+                triangleIndices[i + 0] = offset + 0;
+                triangleIndices[i + 1] = offset + 1;
+                triangleIndices[i + 2] = offset + 2;
+            
+                offset += 3;
+            }
+            
+            triangleIB = Graphics::IndexBuffer::Create(triangleIndices, MaxIndices);
+            TriangleVertexArray->SetIndexBuffer(triangleIB);
             //delete[] triangleIndices;
             ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 		}
 
-		void OnDrawUpdate() {
+		void OnDrawUpdate() override {
 
             fragmentBuffer->SetData(&uboDataFragment, sizeof(UBODataFragmentAttached));
             m_BasicShader->Bind();
 
             //If drawing indexed//
-            //Graphics::RenderCommand::DrawIndexed(TriangleVertexArray);
+//            Graphics::RenderCommand::DrawIndexed(TriangleVertexArray);
             //      OR      //
             Graphics::RenderCommand::DrawNonIndexed(TriangleVertexArray, 6);
 
             m_BasicShader->Unbind();
-
             Graphics::Renderer::DepthTest(false);
             m_SelectedObjectShader->Bind();
-            Graphics::RenderCommand::DrawNonIndexed(TriangleVertexArray, 6);
+            Graphics::RenderCommand::DrawIndexed(TriangleVertexArray);
             m_SelectedObjectShader->Unbind();
             Graphics::Renderer::DepthTest(true);
+            
 
             Graphics::BatchRenderer::DrawQuad({ 0.0f, 0.0f, 1.5f }, 1.0f, { 0.0f, 1.0f, 0.0f, 1.0f }, 5);
 
@@ -176,7 +184,7 @@ namespace GUI {
             //Graphics::BatchRenderer::DrawLines(const std::vector<glm::vec3>&points, const std::vector<uint32_t>&indices, const glm::vec4 & color, const int id = -1, bool withArrows = false);
 		}
 
-        void OnSelection(int objectId, bool state) {
+        void OnSelection(int objectId, bool state) override {
             LOG_DEBUG_STREAM << "Object " << objectId << " selected / deselected: " << state;
             if (state) {
                 uboDataFragment.selectedObject = objectId;
@@ -187,49 +195,57 @@ namespace GUI {
         }
 
         void createShader() {
-            m_BasicShader = Graphics::Shader::Create("./Resources/Shaders/BasicShader.glsl", false);
-            m_SelectedObjectShader = Graphics::Shader::Create("./Resources/Shaders/SelectedObject.glsl", false);
+            m_BasicShader = Graphics::Shader::Create("./Resource/Shaders/BasicShader.glsl", false);
+            m_SelectedObjectShader = Graphics::Shader::Create("./Resource/Shaders/SelectedObject.glsl", false);
         }
 
-        void OnImGuiRender() {
+        void OnImGuiRender() override {
+            return;
             // ImGui window
             ImGui::Begin("Triangle Color");
-            ImGui::ColorEdit4("Color", glm::value_ptr(uboDataFragment.triangleColor));
+//            ImGui::ColorEdit4("Color", glm::value_ptr(uboDataFragment.triangleColor));
             ImGui::End();
         }
+        
+        void OnDetach() override {
+        }
+        
+        void OnUpdateLayer() override {
+        }
+        
+        void OnEvent(Application::Event &event) override { 
+        }
+        
 
 	};
 
+    TestGUI::TestGUI(const ApplicationSpecification& spec, void* nativeWindow)
+		:AbstractApplication(spec, nativeWindow)
+	{
+         PushLayer(new ObjectLayer());
+//        PushLayer(new MetalTestLayer());
+	}
 
-	class TestGUI : public AbstractApplication {
-	private:
-	public:
-		TestGUI(const ApplicationSpecification& spec)
-			:AbstractApplication(spec)
-		{ 
-            PushLayer(new ObjectLayer());
-		}
-
-		~TestGUI() {
-			std::cout << "TestGUI Destructor" << std::endl;
-		}
-	};
+    TestGUI::~TestGUI() {
+		std::cout << "TestGUI Destructor" << std::endl;
+	}
 
 	
-	TestGUI* CreateApplication(ApplicationCommandLineArgs args)
+	TestGUI* CreateApplication(ApplicationCommandLineArgs args, void* nativeWindow)
 	{
 		ApplicationSpecification spec;
 		spec.Name = "TestGUI";
 		spec.CommandLineArgs = args;
-		return new TestGUI(spec);
+		return new TestGUI(spec, nativeWindow);
 	}
 }
-int main(int argc, char** argv)
 
-{
-	auto app = GUI::CreateApplication({ argc, argv });
-
-	app->Run();
-
-	delete app;
-}
+//int main(int argc, char** argv)
+//
+//{
+//	auto app = GUI::CreateApplication({ argc, argv });
+//
+//	app->Run();
+//
+//	delete app;
+//}

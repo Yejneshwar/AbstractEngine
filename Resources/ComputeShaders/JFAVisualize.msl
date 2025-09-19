@@ -1,0 +1,40 @@
+#include <metal_stdlib>
+using namespace metal;
+
+// A new kernel that runs ONCE after the JFA loop is complete.
+// It reads the final coordinate data and writes a visual color.
+kernel void jfa_finalize_to_image(
+    // Input: The final data texture from the last 'jfa_pass'.
+    texture2d<float, access::read>  jfaDataTexture   [[texture(0)]],
+    // Output: The final image to be displayed on screen.
+    texture2d<float, access::write> finalOutputImage [[texture(1)]],
+    // The thread's position in the grid.
+    uint2                           gid              [[thread_position_in_grid]])
+{
+    // Bounds check to avoid writing outside the texture.
+    if (gid.x >= finalOutputImage.get_width() || gid.y >= finalOutputImage.get_height()) {
+        return;
+    }
+
+    // Read the coordinate of the nearest seed from the JFA data.
+    float2 nearest_seed_pos = jfaDataTexture.read(gid).xy;
+    float4 final_color;
+
+    // Check if a valid seed was found for this pixel.
+    if (nearest_seed_pos.x >= 0.0) {
+        // Calculate the distance from the current pixel to its nearest seed.
+        float dist = distance(float2(gid), nearest_seed_pos);
+        
+        // Normalize the distance to a [0, 1] range to create a grayscale value.
+        float max_dist = 256.0; // You can adjust this value.
+        float color_value = clamp(dist / max_dist, 0.0, 1.0);
+        
+        final_color = float4(color_value, color_value, color_value, 1.0);
+    } else {
+        // If no seed was found (e.g., empty input), output black.
+        final_color = float4(0.0, 0.0, 0.0, 1.0);
+    }
+    
+    // Write the final visual color to the output image texture.
+    finalOutputImage.write(final_color, gid);
+}

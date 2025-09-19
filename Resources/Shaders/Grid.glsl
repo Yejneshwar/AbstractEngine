@@ -1,8 +1,8 @@
 #type vertex
 #version 460 core
 
-#include <Resources/Shaders/GLBufferDeclarations.h>
-#include <Resources/Shaders/GridParameters.h>
+#include <Resource/Shaders/GLBufferDeclarations.h>
+#include <Resource/Shaders/GridParameters.h>
 
 layout (location=0) out vec2 uv;
 layout (location=1) out vec2 out_camPos;
@@ -24,8 +24,8 @@ void main()
 #type fragment
 #version 460 core
 
-#include <Resources/Shaders/GridParameters.h>
-#include <Resources/Shaders/GridCalculation.h>
+#include <Resource/Shaders/GridParameters.h>
+#include <Resource/Shaders/GridCalculation.h>
 
 layout (location=0) in vec2 uv;
 layout (location=1) in vec2 camPos;

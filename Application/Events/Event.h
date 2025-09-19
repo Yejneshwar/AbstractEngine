@@ -41,9 +41,11 @@ namespace Application {
 	class Event
 	{
 	public:
+        Event(void* nativeEvent = nullptr) : m_NativeEvent(nativeEvent) {}
 		virtual ~Event() = default;
 
 		bool Handled = false;
+        void* m_NativeEvent;
 
 		virtual EventType GetEventType() const = 0;
 		virtual const char* GetName() const = 0;

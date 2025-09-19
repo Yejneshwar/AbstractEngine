@@ -46,6 +46,16 @@ namespace Graphics {
 		{
 			s_RendererAPI->ClearBuffers();
 		}
+        
+        static void BeginLoop()
+        {
+            s_RendererAPI->BeginLoop();
+        }
+        
+        static void EndLoop()
+        {
+            s_RendererAPI->EndLoop();
+        }
 
 
 		static void EnableStencil(){

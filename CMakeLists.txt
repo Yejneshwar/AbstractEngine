@@ -4,14 +4,28 @@
 cmake_minimum_required (VERSION 3.20)
 
 if(NOT DEFINED GUI_PROJECT_NAME)
-   message( FATAL_ERROR "Set the project name with GUI_PROJECT_NAME." )
+   set(GUI_PROJECT_NAME "TestGui")
+   #message( FATAL_ERROR "Set the project name with GUI_PROJECT_NAME." )
 endif()
 if(NOT DEFINED GUI_BUILD_TESTING)
    set(GUI_BUILD_TESTING OFF CACHE BOOL "")
 endif()
 
 include(FetchContent)
-
+if(APPLE)
+    include("cmake/IOS-helpers.cmake")
+    if (NOT DEFINED CMAKE_TOOLCHAIN_FILE)
+	    set(CMAKE_TOOLCHAIN_FILE "cmake/ios.toolchain.cmake" CACHE STRING "")
+    endif()
+    if (NOT DEFINED PLATFORM)
+	    set(PLATFORM "OS64COMBINED" CACHE STRING "")
+    endif()
+    if (NOT DEFINED DEPLOYMENT_TARGET)
+	    set(DEPLOYMENT_TARGET "18.0" CACHE STRING "")
+    endif()
+    message(STATUS "PLATFORM: ${PLATFORM}")
+    message(STATUS "Deployment Target ${DEPLOYMENT_TARGET}")
+endif()
 
 # Chgange this to 20, see error below
 set(CMAKE_CXX_STANDARD 20)
@@ -24,6 +38,28 @@ if (POLICY CMP0141)
 endif()
 
 project (${GUI_PROJECT_NAME} VERSION 1.0)
+
+message("Cmake System Name ${CMAKE_SYSTEM_NAME} - ${CMAKE_SYSTEM_VERSION} - ${CMAKE_OSX_DEPLOYMENT_TARGET}")
+if(IOS)
+    message("IOS Build")
+    add_compile_definitions(BUILDING_METAL)
+elseif(ANDROID)
+	if(${ANDROID_ABI} STREQUAL "x86_64")
+		message("-- Android Build for x86_64")
+	elseif(${ANDROID_ABI} STREQUAL "x86")
+		message("-- Android Build for x86")
+	elseif(${ANDROID_ABI} STREQUAL "armeabi-v7a")
+		message("-- Android Build for armeabi-v7a")
+	elseif(${ANDROID_ABI} STREQUAL "arm64-v8a")
+		message("-- Android Build for arm64-v8a")
+	else()
+		message(FATAL_ERROR "-- Android undefined build")
+	endif()
+elseif(APPLE)
+   message("Apple Build")
+else()
+	message(FATAL_ERROR "-- Undefined build")
+endif()
 
 message("Project Name : ${GUI_PROJECT_NAME}")
 message("Building Testing : ${GUI_BUILD_TESTING}")
@@ -64,7 +100,7 @@ message(STATUS "GLAD_GL_PROFILE : ${GLAD_GL_PROFILE}")
 message(STATUS "glad_SOURCE_DIR : ${glad_SOURCE_DIR}")
 message(STATUS "glad_INSTALLED_VERSION : ${glad_INSTALLED_VERSION}")
 
-
+if(NOT APPLE)
  if ("${glad_INSTALLED_VERSION}" STREQUAL "${GLAD_GL_VERSION}-${GLAD_GL_PROFILE}")
      message(STATUS "Avoiding repeated download of glad gl ${GLAD_GL_VERSION}/${GLAD_GL_PROFILE}")
      message(STATUS "GLAD Source directory at ${glad_SOURCE_DIR}")
@@ -101,6 +137,7 @@ add_library(
        ${glad_SOURCE_DIR}/include/KHR/khrplatform.h
 )
 target_include_directories(glad PUBLIC ${glad_SOURCE_DIR}/include)
+endif() #if APPLE
 
 
 FetchContent_Declare(
@@ -109,7 +146,6 @@ FetchContent_Declare(
         GIT_TAG ${GLFW_TAG}
 )
 list(APPEND components glfw)
-
 
 
 FetchContent_Declare(
@@ -136,26 +172,111 @@ list(APPEND components imgui)
 
 FetchContent_MakeAvailable(${components})
 
-file(GLOB imgui_SRC ${imgui_SOURCE_DIR}/*.cpp ${imgui_SOURCE_DIR}/*.h)
-add_library(
-        imgui
-        ${imgui_SRC}
-        ${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp
-        ${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.h
-        ${imgui_SOURCE_DIR}/backends/imgui_impl_glfw.cpp
-        ${imgui_SOURCE_DIR}/backends/imgui_impl_glfw.h
-)
-target_link_libraries(imgui PUBLIC glfw glad)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DIMGUI_IMPL_OPENGL_LOADER_GLAD2")
-target_include_directories(
-        imgui
-        PUBLIC
-        ${imgui_SOURCE_DIR}
-        ${imgui_SOURCE_DIR}/backends
-)
 
+if(IOS)
+    file(GLOB imgui_SRC ${imgui_SOURCE_DIR}/*.cpp ${imgui_SOURCE_DIR}/*.h)
+    add_library(
+            imgui
+            ${imgui_SRC}
+            ${imgui_SOURCE_DIR}/backends/imgui_impl_metal.mm
+            ${imgui_SOURCE_DIR}/backends/imgui_impl_metal.h
+    )
+    target_link_libraries(imgui PUBLIC "-framework Foundation")
+    target_link_libraries(imgui PUBLIC "-framework UIKit")
+    target_link_libraries(imgui PUBLIC "-framework GameController")
+    target_link_libraries(imgui PUBLIC "-framework QuartzCore")
+    target_link_libraries(imgui PUBLIC "-framework Metal")
+    target_link_libraries(imgui PUBLIC "-framework MetalKit")
+    target_include_directories(
+            imgui
+            PUBLIC
+            ${imgui_SOURCE_DIR}
+            ${imgui_SOURCE_DIR}/backends
+    )
+elseif(APPLE)
+    file(GLOB imgui_SRC ${imgui_SOURCE_DIR}/*.cpp ${imgui_SOURCE_DIR}/*.h)
+    add_library(
+            imgui
+            ${imgui_SRC}
+            ${imgui_SOURCE_DIR}/backends/imgui_impl_metal.mm
+            ${imgui_SOURCE_DIR}/backends/imgui_impl_metal.h
+            ${imgui_SOURCE_DIR}/backends/imgui_impl_glfw.cpp
+            ${imgui_SOURCE_DIR}/backends/imgui_impl_glfw.h
+    )
+    target_link_libraries(imgui PUBLIC "-framework Foundation")
+    target_link_libraries(imgui PUBLIC "-framework UIKit")
+    target_link_libraries(imgui PUBLIC "-framework QuartzCore")
+    target_link_libraries(imgui PUBLIC "-framework Metal")
+    target_link_libraries(imgui PUBLIC "-framework MetalKit")
+    target_link_libraries(imgui PUBLIC glfw)
+    #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DIMGUI_IMPL_OPENGL_LOADER_GLAD2")
+    target_include_directories(
+            imgui
+            PUBLIC
+            ${imgui_SOURCE_DIR}
+            ${imgui_SOURCE_DIR}/backends
+    )
+else()
+    file(GLOB imgui_SRC ${imgui_SOURCE_DIR}/*.cpp ${imgui_SOURCE_DIR}/*.h)
+    add_library(
+            imgui
+            ${imgui_SRC}
+            ${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp
+            ${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.h
+            ${imgui_SOURCE_DIR}/backends/imgui_impl_glfw.cpp
+            ${imgui_SOURCE_DIR}/backends/imgui_impl_glfw.h
+    )
+    target_link_libraries(imgui PUBLIC glfw glad)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DIMGUI_IMPL_OPENGL_LOADER_GLAD2")
+    target_include_directories(
+            imgui
+            PUBLIC
+            ${imgui_SOURCE_DIR}
+            ${imgui_SOURCE_DIR}/backends
+    )
+endif()
 
+SET(SPIRV_SKIP_EXECUTABLES 1)
+SET(ENABLE_GLSLANG_BINARIES 0)
 add_subdirectory(thirdparty)
+
+set(PLATFORM_OPENGL "Graphics/Platform/OpenGL/OpenGLBuffer.h"
+"Graphics/Platform/OpenGL/OpenGLBuffer.cpp"
+"Graphics/Platform/OpenGL/OpenGLContext.h"
+"Graphics/Platform/OpenGL/OpenGLContext.cpp"
+"Graphics/Platform/OpenGL/OpenGLFrameBuffer.h"
+"Graphics/Platform/OpenGL/OpenGLFrameBuffer.cpp"
+"Graphics/Platform/OpenGL/OpenGLRendererAPI.h"
+"Graphics/Platform/OpenGL/OpenGLRendererAPI.cpp"
+"Graphics/Platform/OpenGL/OpenGLShader.h"
+"Graphics/Platform/OpenGL/OpenGLShader.cpp"
+"Graphics/Platform/OpenGL/OpenGLTexture.h"
+"Graphics/Platform/OpenGL/OpenGLTexture.cpp"
+"Graphics/Platform/OpenGL/OpenGLUniformBuffer.h"
+"Graphics/Platform/OpenGL/OpenGLUniformBuffer.cpp"
+"Graphics/Platform/OpenGL/OpenGLVertexArray.h"
+"Graphics/Platform/OpenGL/OpenGLVertexArray.cpp")
+
+set(PLATFORM_METAL
+"Graphics/Platform/Metal/MetalBuffer.h"
+"Graphics/Platform/Metal/MetalBuffer.cpp"
+"Graphics/Platform/Metal/MetalContext.h"
+"Graphics/Platform/Metal/MetalContext.mm"
+"Graphics/Platform/Metal/MetalFrameBuffer.h"
+"Graphics/Platform/Metal/MetalFrameBuffer.cpp"
+"Graphics/Platform/Metal/MetalRendererAPI.h"
+"Graphics/Platform/Metal/MetalRendererAPI.cpp"
+"Graphics/Platform/Metal/MetalShader.h"
+"Graphics/Platform/Metal/MetalShader.cpp"
+"Graphics/Platform/Metal/MetalComputeShader.h"
+"Graphics/Platform/Metal/MetalComputeShader.cpp"
+"Graphics/Platform/Metal/MetalTexture.h"
+"Graphics/Platform/Metal/MetalTexture.cpp"
+"Graphics/Platform/Metal/MetalUniformBuffer.h"
+"Graphics/Platform/Metal/MetalUniformBuffer.cpp"
+"Graphics/Platform/Metal/MetalVertexArray.h"
+"Graphics/Platform/Metal/MetalVertexArray.cpp"
+)
 
 set(GRAPHICS_SRC "Graphics/GraphicsCore.h"
 "Graphics/GraphicsBase.h"
@@ -184,32 +305,38 @@ set(GRAPHICS_SRC "Graphics/GraphicsCore.h"
 "Graphics/Renderer/RendererAPI.cpp"
 "Graphics/Renderer/Shader.h"
 "Graphics/Renderer/Shader.cpp"
+"Graphics/Renderer/ComputeShader.h"
+"Graphics/Renderer/ComputeShader.cpp"
 "Graphics/Renderer/Texture.h"
 "Graphics/Renderer/Texture.cpp"
 "Graphics/Renderer/UniformBuffer.h"
 "Graphics/Renderer/UniformBuffer.cpp"
 "Graphics/Renderer/VertexArray.h"
 "Graphics/Renderer/VertexArray.cpp"
-"Graphics/Platform/OpenGL/OpenGLBuffer.h"
-"Graphics/Platform/OpenGL/OpenGLBuffer.cpp"
-"Graphics/Platform/OpenGL/OpenGLContext.h"
-"Graphics/Platform/OpenGL/OpenGLContext.cpp"
-"Graphics/Platform/OpenGL/OpenGLFrameBuffer.h"
-"Graphics/Platform/OpenGL/OpenGLFrameBuffer.cpp"
-"Graphics/Platform/OpenGL/OpenGLRendererAPI.h"
-"Graphics/Platform/OpenGL/OpenGLRendererAPI.cpp"
-"Graphics/Platform/OpenGL/OpenGLShader.h"
-"Graphics/Platform/OpenGL/OpenGLShader.cpp"
-"Graphics/Platform/OpenGL/OpenGLTexture.h"
-"Graphics/Platform/OpenGL/OpenGLTexture.cpp"
-"Graphics/Platform/OpenGL/OpenGLUniformBuffer.h"
-"Graphics/Platform/OpenGL/OpenGLUniformBuffer.cpp"
-"Graphics/Platform/OpenGL/OpenGLVertexArray.h"
-"Graphics/Platform/OpenGL/OpenGLVertexArray.cpp"
 "Graphics/stb_image.h"
 )
 
-set(APPLICATION_SRC "Application/AbstractApplication.h"
+if(APPLE)
+list(APPEND GRAPHICS_SRC ${PLATFORM_METAL})
+else()
+list(APPEND GRAPHICS_SRC ${PLATFORM_OPENGL})
+endif()
+
+set(PLATFORM_WINDOW_SRC
+#"Application/Window/Platform/WindowsWindow.cpp"
+#"Application/Window/Platform/WindowsWindow.h"
+"Application/Window/Platform/MacOSWindow.mm"
+"Application/Window/Platform/MacOSWindow.h"
+"Application/Window/Platform/IOSWindow.mm"
+"Application/Window/Platform/IOSWindow.h"
+"Application/Window/Window.cpp"
+"Application/Window/Window.h"
+"Application/Window/Platform/InputManager/InputManager.cpp"
+"Application/Window/Platform/InputManager/InputManager.h"
+)
+
+set(APPLICATION_SRC 
+"Application/AbstractApplication.h"
 "Application/AbstractApplication.cpp"
 "Application/Core/Base.h"
 "Application/Core/Layer.h"
@@ -223,15 +350,36 @@ set(APPLICATION_SRC "Application/AbstractApplication.h"
 "Application/Events/Input.cpp"
 "Application/Events/Input.h"
 "Application/Events/Event.h"
-"Application/ImGuiHandler/ImGuiHandler.cpp"
-"Application/ImGuiHandler/ImGuiHandler.h"
-"Application/Window/Window.cpp"
-"Application/Window/Window.h"
+${PLATFORM_WINDOW_SRC}
 )
 
-set(SRC 
+set(IMGUI_HANDLER_SRC
+"Application/ImGuiHandler/ImGuiHandler.h"
+)
+
+set(UTILS_SRC
+"Utils/DataTypes.h"
+)
+
+if(APPLE)
+list(APPEND IMGUI_HANDLER_SRC
+"Application/ImGuiHandler/ImGuiHandlerMetal.mm"
+)
+list(APPEND UTILS_SRC
+"Utils/IOS/FileUtils.h"
+"Utils/IOS/FileUtils.mm"
+)
+else()
+list(APPEND IMGUI_HANDLER_SRC
+"Application/ImGuiHandler/ImGuiHandlerOpenGL.cpp"
+)
+endif()
+
+set(SRC
+    ${IMGUI_HANDLER_SRC}
     ${GRAPHICS_SRC}
     ${APPLICATION_SRC}
+    ${UTILS_SRC}
 )
 
 FetchContent_Declare(LoggingLibrary                   #name of repository
@@ -242,18 +390,59 @@ FetchContent_MakeAvailable(LoggingLibrary)
 
 include_directories(Graphics)
 include_directories(Application)
+include_directories(Utils)
 
 # Add source to this project's executable.
 add_executable (${PROJECT_NAME} ${SRC})
 if(GUI_BUILD_TESTING)
-    target_sources(${PROJECT_NAME} PRIVATE "OpenGL Starter.cpp" "OpenGL Starter.h")
+    if(APPLE)
+        target_sources(${PROJECT_NAME} PRIVATE "MainIOS.mm" "Starter.cpp" "Starter.h" "MetalTestLayer.mm" "MetalTestLayer.h")
+    else()
+        target_sources(${PROJECT_NAME} PRIVATE "MainWindows.cpp" "Starter.cpp" "Starter.h")
+    endif()
 endif()
+if(APPLE)
+
+SET(RESOURCES_PATH "${CMAKE_CURRENT_SOURCE_DIR}/Resources")
+message(STATUS "Resources path for APPLE ${RESOURCES_PATH}")
+
+resource(RESOURCE_FILES ${RESOURCES_PATH} "Resources/Resource" *)
+
+target_sources(${PROJECT_NAME} PRIVATE ${RESOURCE_FILES})
+
+set_xcode_property(${PROJECT_NAME} PRODUCT_BUNDLE_IDENTIFIER "com.abstract.testgui" All)
+set_target_properties(${PROJECT_NAME} PROPERTIES
+    MACOSX_BUNDLE_BUNDLE_NAME ${PROJECT_NAME}
+    MACOSX_BUNDLE_BUNDLE_VERSION "1"
+    MACOSX_BUNDLE_LONG_VERSION_STRING "1.0"
+    XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY "Apple Development"
+    XCODE_ATTRIBUTE_CODE_SIGNING_REQUIRED "YES"
+    XCODE_ATTRIBUTE_TARGETED_DEVICE_FAMILY "1,2"
+    MACOSX_BUNDLE_GUI_IDENTIFIER "\$\{PRODUCT_BUNDLE_IDENTIFIER\}"
+)
+target_link_libraries(${PROJECT_NAME} "-framework Foundation")
+target_link_libraries(${PROJECT_NAME} "-framework QuartzCore")
+target_link_libraries(${PROJECT_NAME} "-framework Metal")
+target_link_libraries(${PROJECT_NAME} "-framework MetalKit")
+target_include_directories(${PROJECT_NAME} PRIVATE
+        "Graphics/lib"
+        )
+find_package(Threads REQUIRED)
+target_link_libraries(${PROJECT_NAME} Threads::Threads)
+
+target_link_libraries(${PROJECT_NAME} spirv-cross-msl)
+
+codesign(${PROJECT_NAME})
+
+else()
+file(COPY Resources DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 target_link_libraries(${PROJECT_NAME} glad)
 target_link_libraries(${PROJECT_NAME} glfw)
-target_link_libraries(${PROJECT_NAME} glm)
-target_link_libraries(${PROJECT_NAME} imgui)
+endif()
 target_link_libraries(${PROJECT_NAME} spirv-cross-core spirv-cross-glsl spirv-cross-cpp)
 target_link_libraries(${PROJECT_NAME} shaderc)
+target_link_libraries(${PROJECT_NAME} glm)
+target_link_libraries(${PROJECT_NAME} imgui)
 target_link_libraries(${PROJECT_NAME} LoggingLibrary)
 
 
@@ -261,11 +450,39 @@ if(IMGUI_DOCKING_BRANCH)
     target_compile_definitions(${PROJECT_NAME} PRIVATE IMGUI_DOCKING_BRANCH_ENABLED)
 endif()
 
+if(APPLE)
+add_executable(AppleMetalTest "AppleMetalTest.mm" "AppleMetalTest.h")
+target_link_libraries(AppleMetalTest imgui)
+endif()
+
+if(IOS)
+add_executable(AppleMetalTest-IOS "AppleMetalTest.mm" "AppleMetalTest.h")
+
+SET(RESOURCES_PATH "${CMAKE_CURRENT_SOURCE_DIR}/Resources")
+message(STATUS "Resources path for APPLE ${RESOURCES_PATH}")
+
+resource(RESOURCE_FILES ${RESOURCES_PATH} "Resources/Resource" *)
+
+target_sources(AppleMetalTest-IOS PRIVATE ${RESOURCE_FILES})
+
+set_xcode_property(AppleMetalTest-IOS PRODUCT_BUNDLE_IDENTIFIER "com.abstract.applemetaltest" All)
+set_target_properties(AppleMetalTest-IOS PROPERTIES
+    MACOSX_BUNDLE_BUNDLE_NAME "AppleMetalTest-IOS"
+    MACOSX_BUNDLE_BUNDLE_VERSION "1"
+    MACOSX_BUNDLE_LONG_VERSION_STRING "1.0"
+    XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY "Apple Development"
+    XCODE_ATTRIBUTE_CODE_SIGNING_REQUIRED "YES"
+    XCODE_ATTRIBUTE_TARGETED_DEVICE_FAMILY "1,2"
+    MACOSX_BUNDLE_GUI_IDENTIFIER "\$\{PRODUCT_BUNDLE_IDENTIFIER\}"
+)
+target_link_libraries(AppleMetalTest-IOS imgui)
+codesign(AppleMetalTest-IOS)
+endif()
+
 message("Final CXX_STANDARD ${CMAKE_CXX_STANDARD}")
-file(COPY Resources DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)
   set_property(TARGET ${PROJECT_NAME} PROPERTY CXX_STANDARD 20)
 endif()
 
-# TODO: Add tests and install targets if needed.
+# TODO: Add tests and install targets if needed. 

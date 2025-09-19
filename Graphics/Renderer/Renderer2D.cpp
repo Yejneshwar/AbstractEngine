@@ -232,10 +232,10 @@ namespace Graphics {
 
 		//s_Data.QuadShader = Shader::Create("Resources/Shaders/BasicShader.glsl");
 
-		s_Data.QuadShader = Shader::Create("Resources/Shaders/Renderer2D_Quad.glsl");
-		s_Data.TriangleShader = Shader::Create("resources/Shaders/Renderer2D_Line.glsl");
-		s_Data.CircleShader = Shader::Create("resources/Shaders/Renderer2D_Circle.glsl");
-		s_Data.LineShader = Shader::Create("resources/Shaders/Renderer2D_Line.glsl");
+		s_Data.QuadShader = Shader::Create("Resource/Shaders/Renderer2D_Quad.glsl");
+		s_Data.TriangleShader = Shader::Create("resource/Shaders/Renderer2D_Line.glsl");
+		s_Data.CircleShader = Shader::Create("resource/Shaders/Renderer2D_Circle.glsl");
+		s_Data.LineShader = Shader::Create("resource/Shaders/Renderer2D_Line.glsl");
 
 		// Set first texture slot to 0
 		s_Data.TextureSlots[0] = s_Data.WhiteTexture;

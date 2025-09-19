@@ -1,7 +1,7 @@
 #type vertex
 #version 450 core
 
-#include <Resources/Shaders/GridParameters.h>
+#include <Resource/Shaders/GridParameters.h>
 
 layout(location = 0) out vec2 UV;
 

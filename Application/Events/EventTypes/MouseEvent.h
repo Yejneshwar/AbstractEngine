@@ -10,8 +10,8 @@ namespace Application {
 	class MouseMovedEvent : public Event
 	{
 	public:
-		MouseMovedEvent(const float x, const float y)
-			: m_MouseX(x), m_MouseY(y) {}
+		MouseMovedEvent(const float x, const float y, void* nativeEvent = nullptr)
+			: m_MouseX(x), m_MouseY(y), Event(nativeEvent) {}
 
 		float GetX() const { return m_MouseX; }
 		float GetY() const { return m_MouseY; }
@@ -59,8 +59,8 @@ namespace Application {
 		EVENT_CLASS_TYPE(MouseButtonPressedOrReleased)
 			EVENT_CLASS_CATEGORY(EventCategoryMouse | EventCategoryInput | EventCategoryMouseButton)
 	protected:
-		MouseButtonEvent(const MouseCode button)
-			: m_Button(button) {}
+		MouseButtonEvent(const MouseCode button, void* nativeEvent)
+			: m_Button(button), Event(nativeEvent)  {}
 
 		MouseCode m_Button;
 	};
@@ -68,8 +68,8 @@ namespace Application {
 	class MouseButtonPressedEvent : public MouseButtonEvent
 	{
 	public:
-		MouseButtonPressedEvent(const MouseCode button)
-			: MouseButtonEvent(button) {}
+		MouseButtonPressedEvent(const MouseCode button, void* nativeEvent = nullptr)
+			: MouseButtonEvent(button, nativeEvent) {}
 
 		std::string ToString() const override
 		{
@@ -90,9 +90,9 @@ namespace Application {
 	public:
 
 
-		MouseButtonReleasedEvent(const MouseCode button, std::chrono::milliseconds _pressDuration = std::chrono::milliseconds(0))
-			: MouseButtonEvent(button), m_PressDuration(_pressDuration) {}
-
+		MouseButtonReleasedEvent(const MouseCode button, std::chrono::milliseconds _pressDuration = std::chrono::milliseconds(0), void* nativeEvent = nullptr)
+			: MouseButtonEvent(button, nativeEvent), m_PressDuration(_pressDuration) {}
+        
 		std::chrono::milliseconds GetPressDuration() const { return m_PressDuration; }
 
 		std::string ToString() const override

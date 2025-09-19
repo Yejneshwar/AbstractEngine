@@ -1,7 +1,7 @@
 #type vertex
 #version 450 core
 
-#include <Resources/Shaders/GridParameters.h>
+#include <Resource/Shaders/GridParameters.h>
 
 layout(location = 2) uniform vec2 a_texelSize;
 layout(location = 3) uniform float a_invTexelRatio;

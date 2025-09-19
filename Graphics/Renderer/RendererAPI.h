@@ -11,7 +11,7 @@ namespace Graphics {
 	public:
 		enum class API
 		{
-			None = 0, OpenGL = 1
+			None = 0, OpenGL = 1, Metal = 2
 		};
 	public:
 		virtual ~RendererAPI() = default;
@@ -24,6 +24,9 @@ namespace Graphics {
 		virtual void DepthTest(bool enable) = 0;
 		virtual void PolygonSmooth(bool enable) = 0;
 		virtual void ClearBuffers() = 0;
+        
+        virtual void BeginLoop() = 0;
+        virtual void EndLoop() = 0;
 
 		virtual void EnableStencil() = 0;
 		virtual void DisableStencil() = 0;

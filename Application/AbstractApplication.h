@@ -1,3 +1,4 @@
+#pragma once
 
 #include <string>
 #include "Core/Base.h"
@@ -11,6 +12,7 @@
 #include <Renderer/3DCamera.h>
 #include <Renderer/UniformBuffer.h>
 #include <Renderer/FrameBuffer.h>
+#include <Renderer/ComputeShader.h>
 #include "glm/gtc/matrix_inverse.hpp"
 #include <Logger.h>
 #include <Renderer/Shader.h>
@@ -34,6 +36,10 @@ namespace GUI {
 			glm::f32 gridMinor;
 			glm::f32 gridZoom;
 			int selectedObject;
+#if BUILDING_METAL
+			// Padding for Metal API
+            int _padding[3];
+#endif
 
 
 			//glm::ivec3 viewport;  // (width, height, width*height)
@@ -63,6 +69,7 @@ namespace GUI {
 		//Composite the init due to rendering artifacts
 		Graphics::Ref<Graphics::Framebuffer> JumpFloodICFramebuffer;
 		Graphics::Ref<Graphics::Framebuffer> JumpFloodFramebuffer;
+        Graphics::Ref<Graphics::Texture> JFATextureA, JFATextureB, JFAResultTexture, JFACompositeTexture;
 		Graphics::Ref<Graphics::Camera> ViewPortCamera;
 		SceneDataUBO uboDataScene;
 		bool ViewportFocused = true, ViewportHovered = false;
@@ -78,11 +85,16 @@ namespace GUI {
 			Graphics::FramebufferSpecification jumpFooldInitFbSpec = fbSpec;
 			Graphics::FramebufferSpecification jumpFooldFbSpec = fbSpec;
 
-			jumpFooldInitFbSpec.Attachments = { Graphics::FramebufferTextureFormat::RGBA8,Graphics::FramebufferTextureFormat::Depth };
+			jumpFooldInitFbSpec.Attachments = { Graphics::FramebufferTextureFormat::RGBA8,Graphics::FramebufferTextureFormat::DEPTH32STENCIL8 };
 
 			jumpFooldFbSpec.Attachments = { Graphics::FramebufferTextureFormat::RGBA8 };
 			JumpFloodICFramebuffer = Graphics::Framebuffer::Create(jumpFooldInitFbSpec);
 			JumpFloodFramebuffer = Graphics::Framebuffer::Create(jumpFooldFbSpec);
+            
+            JFATextureA = Graphics::Texture2D::Create(fbSpec.Width, fbSpec.Height, Graphics::TextureFormat::RGBA32FLOAT);
+            JFATextureB = Graphics::Texture2D::Create(fbSpec.Width, fbSpec.Height, Graphics::TextureFormat::RGBA32FLOAT);
+            JFAResultTexture = Graphics::Texture2D::Create(fbSpec.Width, fbSpec.Height, Graphics::TextureFormat::RGBA8);
+            JFACompositeTexture = Graphics::Texture2D::Create(fbSpec.Width, fbSpec.Height, Graphics::TextureFormat::RGBA8);
 
 			//Note: It gets weird when near plane is set to 0.0f
 			if(camera == CameraType::ThreeD)
@@ -145,7 +157,7 @@ namespace GUI {
 	class AbstractApplication {
 	public:
 
-		AbstractApplication(const ApplicationSpecification& specification);
+		AbstractApplication(const ApplicationSpecification& specification, void* nativeWindow);
 		virtual ~AbstractApplication();
 
 		void CreateShaders();
@@ -167,6 +179,9 @@ namespace GUI {
 
 		void SubmitToMainThread(const std::function<void()>& function);
 		void Run();
+        
+        // Used for IOS
+        void RunLoop();
 	private:
 		bool OnWindowClose(Application::WindowCloseEvent& e);
 		bool OnWindowResize(Application::WindowResizeEvent& e);
@@ -192,6 +207,7 @@ namespace GUI {
 		Graphics::Ref<Graphics::Shader> m_gridShader2D;
 
 		Graphics::Ref<Graphics::Shader> m_JumpFlood_init, m_JumpFlood_init2, m_JumpFlood_pass, m_JumpFlood_composite;
+        Graphics::Ref<Graphics::ComputeShader> m_JFAComputeSeed, m_JFAComputeShader, m_JFAComputeVisualize, m_JFAComposite;
 
 		Graphics::Ref<Graphics::Texture> m_font;
 
