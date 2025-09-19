@@ -98,7 +98,7 @@ namespace GUI {
 
 			//Note: It gets weird when near plane is set to 0.0f
 			if(camera == CameraType::ThreeD)
-				ViewPortCamera = Graphics::CreateRef<Graphics::ThreeDCamera>(45.0f, 800.0f / 600.0f, 0.01f, 5000.0f);
+				ViewPortCamera = Graphics::CreateRef<Graphics::ThreeDCamera>(45.0f, 800.0f / 600.0f, 1.0f, 5000.0f);
 			else
 				ViewPortCamera = Graphics::CreateRef<Graphics::TwoDCamera>( -100.0f, 100.0f);
 			 
