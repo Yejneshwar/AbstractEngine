@@ -9,6 +9,9 @@ endif()
 if(NOT DEFINED GUI_BUILD_TESTING)
    set(GUI_BUILD_TESTING OFF CACHE BOOL "")
 endif()
+if(GUI_BUILD_TESTING)
+    set(USE_STB_IMAGE_IMPLEMENTATION ON CACHE BOOL "")
+endif()
 
 include(FetchContent)
 

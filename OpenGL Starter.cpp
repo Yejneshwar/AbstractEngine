@@ -72,7 +72,7 @@ namespace GUI {
 		~ObjectLayer() {
 		}
 
-		void OnAttach() {
+		virtual void OnAttach() override {
 
             m_BasicShader = Graphics::Shader::Create("./Resources/Shaders/BasicShader.glsl", false);
             m_SelectedObjectShader = Graphics::Shader::Create("./Resources/Shaders/SelectedObject.glsl", false);
@@ -145,7 +145,13 @@ namespace GUI {
             ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 		}
 
-		void OnDrawUpdate() {
+        virtual void OnDetach() override {}
+
+        virtual void OnUpdateLayer() override {}
+
+        virtual void OnEvent(Application::Event& event) override {}
+
+		virtual void OnDrawUpdate() override {
 
             fragmentBuffer->SetData(&uboDataFragment, sizeof(UBODataFragmentAttached));
             m_BasicShader->Bind();
@@ -176,7 +182,7 @@ namespace GUI {
             //Graphics::BatchRenderer::DrawLines(const std::vector<glm::vec3>&points, const std::vector<uint32_t>&indices, const glm::vec4 & color, const int id = -1, bool withArrows = false);
 		}
 
-        void OnSelection(int objectId, bool state) {
+        virtual void OnSelection(int objectId, bool state) override {
             LOG_DEBUG_STREAM << "Object " << objectId << " selected / deselected: " << state;
             if (state) {
                 uboDataFragment.selectedObject = objectId;
@@ -191,7 +197,7 @@ namespace GUI {
             m_SelectedObjectShader = Graphics::Shader::Create("./Resources/Shaders/SelectedObject.glsl", false);
         }
 
-        void OnImGuiRender() {
+        virtual void OnImGuiRender() override {
             // ImGui window
             ImGui::Begin("Triangle Color");
             ImGui::ColorEdit4("Color", glm::value_ptr(uboDataFragment.triangleColor));
