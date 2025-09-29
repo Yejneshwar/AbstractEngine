@@ -150,11 +150,15 @@ namespace GUI {
 					m_ObjectSelection.objectID = selectedObject;
 					m_ObjectSelection.state = true;
 					m_emitSelectionEvent = true;
+
+					m_updateAllViewPorts = true;
 				}
 
 				else if (m_ObjectSelection.objectID != -1) {
 					m_ObjectSelection.state = false;
 					m_emitSelectionEvent = true;
+
+					m_updateAllViewPorts = true;
 				}
 
 			}
@@ -240,7 +244,7 @@ namespace GUI {
                             v.JFACompositeTexture->Resize(xSize, ySize);
 							v.update();
 						}
-						if (!v.ViewportHovered && !v.ViewportFocused && !m_updateAllViewPorts) continue;
+						if (!v.ViewportHovered && !v.ViewportFocused && !v.updateViewport && !m_updateAllViewPorts) continue;
 						LOG_TRACE_STREAM << "Viewport: " << v.id << " Hovered: " << v.ViewportHovered << " Focused: " << v.ViewportFocused << " UpdateAll : " << m_updateAllViewPorts;
 
 
@@ -293,10 +297,23 @@ namespace GUI {
 						v.Framebuffer->Unbind();
                         if (m_ObjectSelection.objectID > -1 && m_ObjectSelection.objectID < MAX_SELECTED_OBJECT_ID) {
                             
+							// Texture dimensions
+							int textureWidth = v.ViewportSize.x;
+							int textureHeight = v.ViewportSize.y;
+
+							// Local size from the shader
+							int localSizeX = 8;
+							int localSizeY = 8;
+
+							// Calculate the number of workgroups needed
+							// This is a common way to do integer ceiling division
+							int numGroupsX = (textureWidth + localSizeX - 1) / localSizeX;
+							int numGroupsY = (textureHeight + localSizeY - 1) / localSizeY;
+
                             m_JFAComputeSeed->Bind();
                             m_JFAComputeSeed->BindTexture(v.Framebuffer->GetColorAttachmentRendererID(2), 0); // [[texture(0)]]
                             m_JFAComputeSeed->BindTexture(v.JFATextureA->GetRendererID(), 1); // [[texture(1)]]
-                            m_JFAComputeSeed->Dispatch(v.ViewportSize.x, v.ViewportSize.y, 1);
+                            m_JFAComputeSeed->Dispatch(numGroupsX, numGroupsY, 1);
                             m_JFAComputeSeed->Unbind();
                             
                             m_JFAComputeShader->Bind();
@@ -315,7 +332,7 @@ namespace GUI {
                                 m_JFAComputeShader->SetInt(&step, 0); // [[buffer(0)]]
                                 
                                 // Dispatch the compute kernel. 🚀
-                                m_JFAComputeShader->Dispatch(v.ViewportSize.x, v.ViewportSize.y, 1);
+                                m_JFAComputeShader->Dispatch(numGroupsX, numGroupsY, 1);
 
 								// Prepare for the next pass
 								step /= 2;
@@ -326,17 +343,19 @@ namespace GUI {
 
 							m_JFAComputeShader->Unbind();
 
-							m_JFAComputeVisualize->Bind();
-							m_JFAComputeVisualize->BindTexture(v.JFAResultTexture->GetRendererID(), 0); // [[texture(0)]]
-							m_JFAComputeVisualize->BindTexture(JFAResult->GetRendererID(), 1); // [[texture(1)]]
-                            m_JFAComputeVisualize->Dispatch(v.ViewportSize.x, v.ViewportSize.y, 1);
-							m_JFAComputeVisualize->Unbind();
+							if (showBuffers) {
+								m_JFAComputeVisualize->Bind();
+								m_JFAComputeVisualize->BindTexture(v.JFAResultTexture->GetRendererID(), 0); // [[texture(0)]]
+								m_JFAComputeVisualize->BindTexture(JFAResult->GetRendererID(), 1); // [[texture(1)]]
+								m_JFAComputeVisualize->Dispatch(numGroupsX, numGroupsY, 1);
+								m_JFAComputeVisualize->Unbind();
+							}
 
 							m_JFAComposite->Bind();
 							m_JFAComposite->BindTexture(v.JFACompositeTexture->GetRendererID(), 0); // [[texture(0)]]
 							m_JFAComposite->BindTexture(JFAResult->GetRendererID(), 1); // [[texture(1)]]
 							m_JFAComposite->BindTexture(v.Framebuffer->GetColorAttachmentRendererID(), 2); // [[texture(2)]]
-                            m_JFAComposite->Dispatch(v.ViewportSize.x, v.ViewportSize.y, 1);
+                            m_JFAComposite->Dispatch(numGroupsX, numGroupsY, 1);
                             m_JFAComposite->Unbind();
                             
                             v.Framebuffer->BlitToColorAttachment(0, v.JFACompositeTexture->GetRendererID());
@@ -669,7 +688,7 @@ namespace GUI {
 				auto viewDirection = v.ViewPortCamera->GetViewDirection();
 				ImGui::Text("Camera View Direction : %.3f %.3f %.3f", viewDirection.x, viewDirection.y, viewDirection.z);
 				//auto fragNormal = glm::inverseTranspose(m_ApplicationCamera.GetViewMatrix()) * glm::vec3(0.0,0.0,1.0);
-				if (ImGui::Button(std::format("Reset Camera {}", v.id).c_str())) { v.ViewPortCamera->ResetFocalPoint(); v.update(); };
+				if (ImGui::Button(std::format("Reset Camera {}", v.id).c_str())) { v.ViewPortCamera->ResetFocalPoint(); v.update(); v.updateViewport = true; };
 				auto zoom = v.ViewPortCamera->getZoom();
 				ImGui::Text("Camera Zoom : %.20f", zoom);
 			}

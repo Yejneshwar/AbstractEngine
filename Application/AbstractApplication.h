@@ -73,6 +73,7 @@ namespace GUI {
 		glm::u32vec2 ViewportSize = { 1.0f, 1.0f };
 		glm::vec2 ViewportBounds[2];
 		bool isOpen = true;
+		bool updateViewport = false;
 
 		static int s_selectedObject;
 
