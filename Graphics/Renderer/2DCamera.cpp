@@ -108,7 +108,7 @@ void Graphics::TwoDCamera::UpdateProjection()
 
 	m_Projection = glm::ortho(left, right, down, up, m_NearClip, m_FarClip);
     
-#ifdef BUILDING_METAL
+#if BUILDING_METAL
 //    Flip Y-axis to match coordinate system
     m_Projection[1][1] *= -1.0f;
 #endif

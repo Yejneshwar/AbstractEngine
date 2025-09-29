@@ -10,6 +10,9 @@ endif()
 if(NOT DEFINED GUI_BUILD_TESTING)
    set(GUI_BUILD_TESTING OFF CACHE BOOL "")
 endif()
+if(GUI_BUILD_TESTING)
+    set(USE_STB_IMAGE_IMPLEMENTATION ON CACHE BOOL "")
+endif()
 
 include(FetchContent)
 if(APPLE)
@@ -57,6 +60,8 @@ elseif(ANDROID)
 	endif()
 elseif(APPLE)
    message("Apple Build")
+elseif(WIN32)
+    message("Windows Build")
 else()
 	message(FATAL_ERROR "-- Undefined build")
 endif()
@@ -250,6 +255,8 @@ set(PLATFORM_OPENGL "Graphics/Platform/OpenGL/OpenGLBuffer.h"
 "Graphics/Platform/OpenGL/OpenGLRendererAPI.cpp"
 "Graphics/Platform/OpenGL/OpenGLShader.h"
 "Graphics/Platform/OpenGL/OpenGLShader.cpp"
+"Graphics/Platform/OpenGL/OpenGLComputeShader.h"
+"Graphics/Platform/OpenGL/OpenGLComputeShader.cpp"
 "Graphics/Platform/OpenGL/OpenGLTexture.h"
 "Graphics/Platform/OpenGL/OpenGLTexture.cpp"
 "Graphics/Platform/OpenGL/OpenGLUniformBuffer.h"
@@ -323,18 +330,30 @@ else()
 list(APPEND GRAPHICS_SRC ${PLATFORM_OPENGL})
 endif()
 
-set(PLATFORM_WINDOW_SRC
-#"Application/Window/Platform/WindowsWindow.cpp"
-#"Application/Window/Platform/WindowsWindow.h"
+set(PLATFORM_OPENGL_WINDOW
+"Application/Window/Platform/WindowsWindow.cpp"
+"Application/Window/Platform/WindowsWindow.h"
+)
+
+set(PLATFROM_METAL_WINDOW
 "Application/Window/Platform/MacOSWindow.mm"
 "Application/Window/Platform/MacOSWindow.h"
 "Application/Window/Platform/IOSWindow.mm"
 "Application/Window/Platform/IOSWindow.h"
+)
+
+set(PLATFORM_WINDOW_SRC
 "Application/Window/Window.cpp"
 "Application/Window/Window.h"
 "Application/Window/Platform/InputManager/InputManager.cpp"
 "Application/Window/Platform/InputManager/InputManager.h"
 )
+
+if(APPLE)
+list(APPEND PLATFORM_WINDOW_SRC ${PLATFROM_METAL_WINDOW})
+else()
+list(APPEND PLATFORM_WINDOW_SRC ${PLATFORM_OPENGL_WINDOW})
+endif()
 
 set(APPLICATION_SRC 
 "Application/AbstractApplication.h"
@@ -436,7 +455,7 @@ target_link_libraries(${PROJECT_NAME} spirv-cross-msl)
 codesign(${PROJECT_NAME})
 
 else()
-file(COPY Resources DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+file(COPY "Resources/" DESTINATION "${CMAKE_CURRENT_BINARY_DIR}/Resource")
 target_link_libraries(${PROJECT_NAME} glad)
 target_link_libraries(${PROJECT_NAME} glfw)
 endif()

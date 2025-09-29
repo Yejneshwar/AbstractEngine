@@ -45,8 +45,13 @@ namespace Graphics {
 	class Texture2D : public Texture
 	{
 	public:
+		Texture2D() = delete;
 		static Ref<Texture2D> Create(uint32_t width, uint32_t height, TextureFormat format);
 		static Ref<Texture2D> Create(const std::string& path);
+
+	protected:
+		Texture2D(TextureFormat format) : m_Format(format) {};
+		TextureFormat m_Format;
 	};
 
 }

@@ -12,7 +12,7 @@ namespace Graphics {
 	{
 	public:
 		OpenGLShader(const std::string& filepath, bool cache);
-		OpenGLShader(const std::string& name, const std::string& vertexSrc, const std::string& fragmentSrc);
+		OpenGLShader(const std::string& name, const ShaderSources& shaderSources);
 		virtual ~OpenGLShader();
 
 		virtual void Bind() const override;
@@ -43,27 +43,11 @@ namespace Graphics {
 		void UploadUniformMat4(const std::string& name, const glm::mat4& matrix);
 	private:
 
-		//-1 coz of #type in shader
-		struct ShaderProgramSource
-		{
-			int lineOffset = -1;
-			std::string Source;
-		};
-
-		using ShaderSources = std::unordered_map<GLenum, ShaderProgramSource>;
-
-		std::string ReadFile(const std::string& filepath, uint32_t* num_lines = nullptr);
-		void PreProcessIncludes(ShaderSources& source);
-		ShaderSources PreProcess(const std::string& source);
-
-		std::string ResetLineOffset(const std::string& source, const std::string& filename, int lineOffset);
-
-		void CompileOrGetVulkanBinaries(const ShaderSources& shaderSources);
+		void CompileOrGetVulkanBinaries(const ShaderProgramSources& shaderProgramSources);
 		void CompileOrGetOpenGLBinaries();
-		void CompileOrGetOpenGLBinaries(const ShaderSources& shaderSources);
+		void CompileOrGetOpenGLBinaries(const ShaderProgramSources& shaderProgramSources);
 		void CreateProgram();
-		void FillVertexAttributeLocations(const ShaderSources& shaderSources);
-		void Reflect(GLenum stage, const std::vector<uint32_t>& shaderData);
+		void FillVertexAttributeLocations(const ShaderProgramSources& shaderProgramSources);
 	private:
 		uint32_t m_RendererID;
 		std::string m_FilePath;
@@ -72,10 +56,10 @@ namespace Graphics {
 
 		std::unordered_map<std::string, int> m_VertexAttributeLocationCache;
 		
-		std::unordered_map<GLenum, std::vector<uint32_t>> m_VulkanSPIRV;
-		std::unordered_map<GLenum, std::vector<uint32_t>> m_OpenGLSPIRV;
+		std::unordered_map<ShaderStage, std::vector<uint32_t>> m_VulkanSPIRV;
+		std::unordered_map<ShaderStage, std::vector<uint32_t>> m_OpenGLSPIRV;
 
-		std::unordered_map<GLenum, std::string> m_OpenGLSourceCode;
+		std::unordered_map<ShaderStage, std::string> m_OpenGLSourceCode;
 	};
 
 }

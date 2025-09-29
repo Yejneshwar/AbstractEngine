@@ -28,11 +28,11 @@ namespace Graphics {
 
 		virtual void BindColorAttachmentAsTexture(uint32_t index, uint32_t slot) override;
 
-		virtual uint32_t GetColorAttachmentRendererID(uint32_t index = 0) const override { assert(index < m_ColorAttachments.size()); return m_ColorAttachments[index]; }
+		virtual uintptr_t GetColorAttachmentRendererID(uint32_t index = 0) const override { assert(index < m_ColorAttachments.size()); return m_ColorAttachments[index]; }
 
-		virtual uint32_t GetDepthAttachmentRendererID() const override { return m_DepthAttachment; }
+		virtual uintptr_t GetDepthAttachmentRendererID() const override { return m_DepthAttachment; }
 
-		virtual uint32_t GetStencilAttachmentRendererID() const override { return m_StencilAttachment; }
+		virtual uintptr_t GetStencilAttachmentRendererID() const override { return m_StencilAttachment; }
 
 		virtual const FramebufferSpecification& GetSpecification() const override { return m_Specification; }
 
@@ -43,6 +43,8 @@ namespace Graphics {
 		virtual const uint32_t getID() const override { return m_RendererID; }
 
 		virtual void BlitBuffers(uint32_t src, uint32_t srcX0, uint32_t srcY0, uint32_t srcX1, uint32_t srcY1, uint32_t dstX0, uint32_t dstY0, uint32_t dstX1, uint32_t dstY1, uint32_t mask, uint16_t filter) override;
+
+		virtual void BlitToColorAttachment(int index, uintptr_t srcTexture) override;
 	private:
 		uint32_t m_RendererID = 0;
 		FramebufferSpecification m_Specification;

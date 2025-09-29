@@ -45,7 +45,7 @@ namespace Application {
 		virtual int GetMonitorCount() const = 0;
 		virtual const char* GetPrimaryMonitorName() const = 0;
         
-        virtual Graphics::Ref<Graphics::GraphicsContext> GetRenderContext() const = 0;
+        virtual Graphics::GraphicsContext* GetRenderContext() const = 0;
 
 		static Graphics::Scope<Window> Create(const WindowProps& props = WindowProps(), void* nativeWindow = nullptr);
 	};

@@ -13,25 +13,36 @@
 
 namespace Graphics {
 
-	OpenGLTexture2D::OpenGLTexture2D(uint32_t width, uint32_t height)
-		: m_Width(width), m_Height(height)
-	{
+	namespace Utils {
+		GLenum TextureFormatToGLFormat(TextureFormat format) {
+			switch (format) {
+			case TextureFormat::RGBA8:
+				return GL_RGBA8;
+			case TextureFormat::RGBA32FLOAT:
+				return GL_RGBA32F;
+			}
 
-		m_InternalFormat = GL_RGBA8;
+			throw;
+		}
+	}
+
+	OpenGLTexture2D::OpenGLTexture2D(uint32_t width, uint32_t height, TextureFormat format)
+		: Texture2D(format), m_Width(width), m_Height(height), m_InternalFormat(Utils::TextureFormatToGLFormat(format))
+	{
 		m_DataFormat = GL_RGBA;
 
 		glCreateTextures(GL_TEXTURE_2D, 1, &m_RendererID);	
 		glTextureStorage2D(m_RendererID, 1, m_InternalFormat, m_Width, m_Height);
 		
-		glTexParameteri(m_RendererID, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-		glTexParameteri(m_RendererID, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-		
-		glTexParameteri(m_RendererID, GL_TEXTURE_WRAP_S, GL_REPEAT);
-		glTexParameteri(m_RendererID, GL_TEXTURE_WRAP_T, GL_REPEAT);
+		glTextureParameteri(m_RendererID, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTextureParameteri(m_RendererID, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+		glTextureParameteri(m_RendererID, GL_TEXTURE_WRAP_S, GL_REPEAT);
+		glTextureParameteri(m_RendererID, GL_TEXTURE_WRAP_T, GL_REPEAT);
 	}
 
 	OpenGLTexture2D::OpenGLTexture2D(const std::string& path)
-		: m_Path(path)
+		: Texture2D(TextureFormat::RGBA32FLOAT), m_Path(path)
 	{
 		LOG_DEBUG_STREAM << "Loading texture";
 		int width, height, channels;
@@ -99,14 +110,35 @@ namespace Graphics {
 
 	void OpenGLTexture2D::Resize(uint32_t width, uint32_t height)
 	{
+		// If the dimensions are the same, do nothing.
+		if (m_Width == width && m_Height == height)
+			return;
+
 		m_Width = width;
 		m_Height = height;
+
+		// First, delete the old texture from the GPU
+		glDeleteTextures(1, &m_RendererID);
+
+		// Create a new texture with the same target
+		glCreateTextures(GL_TEXTURE_2D, 1, &m_RendererID);
+
+		// Now, allocate the immutable storage for the NEW texture object
 		glTextureStorage2D(m_RendererID, 1, m_InternalFormat, m_Width, m_Height);
+
+		// IMPORTANT: Re-apply any texture parameters
+		glTextureParameteri(m_RendererID, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTextureParameteri(m_RendererID, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		glTextureParameteri(m_RendererID, GL_TEXTURE_WRAP_S, GL_REPEAT);
+		glTextureParameteri(m_RendererID, GL_TEXTURE_WRAP_T, GL_REPEAT);
 	}
 
 	void OpenGLTexture2D::Bind(uint32_t slot) const
 	{
 
 		glBindTextureUnit(slot, m_RendererID);
+	}
+	void OpenGLTexture2D::Blit(uintptr_t srcTexture)
+	{
 	}
 }

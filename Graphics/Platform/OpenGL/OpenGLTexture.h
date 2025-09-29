@@ -17,13 +17,13 @@ namespace Graphics {
 	class OpenGLTexture2D : public Texture2D
 	{
 	public:
-		OpenGLTexture2D(uint32_t width, uint32_t height);
+		OpenGLTexture2D(uint32_t width, uint32_t height, TextureFormat format);
 		OpenGLTexture2D(const std::string& path);
 		virtual ~OpenGLTexture2D();
 
 		virtual uint32_t GetWidth() const override { return m_Width; }
 		virtual uint32_t GetHeight() const override { return m_Height; }
-		virtual uint32_t GetRendererID() const override { return m_RendererID; }
+		virtual uintptr_t GetRendererID() const override { return m_RendererID; }
 
 		virtual const std::string& GetPath() const override { return m_Path; }
 
@@ -34,6 +34,8 @@ namespace Graphics {
 		virtual void Bind(uint32_t slot = 0) const override;
 
 		virtual bool IsLoaded() const override { return m_IsLoaded; }
+
+		virtual void Blit(uintptr_t srcTexture) override;
 
 		virtual bool operator==(const Texture& other) const override
 		{

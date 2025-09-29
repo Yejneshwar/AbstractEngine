@@ -1,4 +1,12 @@
+#pragma once
+
 #include <string>
+
+#ifdef __APPLE__
+#define _X_ x()
+#define _Y_ y()
+#define _Z_ z()
+
 #include <simd/simd.h>
 
 inline simd_float4x4 operator*(const simd_float4x4& lhs, const simd_float4x4& rhs) {
@@ -14,10 +22,16 @@ inline simd_float3 operator*(const simd_float4x4& lhs, const simd_float4& rhs) {
     // For affine transformations (like translate, rotate, scale), result.w will be 1, so this does nothing.
     return result.xyz / result.w;
 }
+#else
+#include <glm/glm.hpp>
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/rotate_vector.hpp>
+#define _X_ x
+#define _Y_ y
+#define _Z_ z
+#endif
 
 namespace GUI {
-
-
 #ifdef __APPLE__
 
 

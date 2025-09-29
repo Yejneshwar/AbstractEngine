@@ -1,7 +1,7 @@
 #include "GraphicsCore.h"
 #include "Renderer/RendererAPI.h"
 
-#ifdef BUILDING_METAL
+#if BUILDING_METAL
 #include "Platform/Metal/MetalRendererAPI.h"
 #else
 #include "Platform/OpenGL/OpenGLRendererAPI.h"

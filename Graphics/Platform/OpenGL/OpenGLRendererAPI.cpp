@@ -63,12 +63,14 @@ namespace Graphics {
 	void OpenGLRendererAPI::Clear(float alpha)
 	{
 		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-		glClearColor(0.2f, 0.3f, 0.3f, alpha);
+		//glClearColor(0.2f, 0.3f, 0.3f, alpha);
+		glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 	}
 
 	void OpenGLRendererAPI::ClearStencil()
 	{
+		//glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
 		glClear(GL_STENCIL_BUFFER_BIT);
 	}
 
@@ -88,6 +90,7 @@ namespace Graphics {
 
 	void OpenGLRendererAPI::ClearBuffers()
 	{
+		//glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 	}
 
@@ -190,6 +193,14 @@ namespace Graphics {
 	void OpenGLRendererAPI::SetRendererModeToDefault()
 	{
 		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+	}
+
+	void OpenGLRendererAPI::BeginLoop()
+	{
+	}
+
+	void OpenGLRendererAPI::EndLoop()
+	{
 	}
 
 }

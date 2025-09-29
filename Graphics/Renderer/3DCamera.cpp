@@ -50,7 +50,7 @@ void Graphics::ThreeDCamera::UpdateProjection()
 {
 	m_AspectRatio = m_ViewportWidth / m_ViewportHeight;
 	m_Projection = glm::perspective(glm::radians(m_FOV), m_AspectRatio, m_NearClip, m_FarClip);
-#ifdef BUILDING_METAL
+#if BUILDING_METAL
 //    Flip Y-axis to match coordinate system
     m_Projection[1][1] *= -1.0f;
 #endif

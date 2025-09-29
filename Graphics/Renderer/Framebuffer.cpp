@@ -2,7 +2,7 @@
 
 #include "Renderer/Renderer.h"
 
-#ifdef BUILDING_METAL
+#if BUILDING_METAL
 #include "Platform/Metal/MetalFrameBuffer.h"
 #else
 #include "Platform/OpenGL/OpenGLFrameBuffer.h"
@@ -12,7 +12,7 @@ namespace Graphics {
 	
 	Ref<Framebuffer> Framebuffer::Create(const FramebufferSpecification& spec)
 	{
-#ifdef BUILDING_METAL
+#if BUILDING_METAL
         return CreateRef<MetalFramebuffer>(spec);
 #else
 		switch (Renderer::GetAPI())

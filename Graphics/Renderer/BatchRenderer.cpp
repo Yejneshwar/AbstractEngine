@@ -155,19 +155,19 @@ namespace Graphics {
 		//Get quad vertices with position at center
 		void BatchRenderer::QuadVertices(GUI::DataType::vec3 position, float size)
 		{
-            s_Data.quadVertices[0] = { position.x() - size/2, position.y() - size/2, position.z() };
-            s_Data.quadVertices[1] = { position.x() + size/2, position.y() - size/2, position.z() };
-            s_Data.quadVertices[2] = { position.x() + size/2, position.y() + size/2, position.z() };
-            s_Data.quadVertices[3] = { position.x() - size/2, position.y() + size/2, position.z() };
+            s_Data.quadVertices[0] = { position._X_ - size/2, position._Y_ - size/2, position._Z_ };
+            s_Data.quadVertices[1] = { position._X_ + size/2, position._Y_ - size/2, position._Z_ };
+            s_Data.quadVertices[2] = { position._X_ + size/2, position._Y_ + size/2, position._Z_ };
+            s_Data.quadVertices[3] = { position._X_ - size/2, position._Y_ + size/2, position._Z_ };
 		}
 
 		//Get quad vertices with position at center
 		void BatchRenderer::QuadVertices(GUI::DataType::vec3 position, const GUI::DataType::vec2& size)
 		{
-            s_Data.quadVertices[0] = { position.x() - size.x()/2, position.y() - size.y()/2, position.z() };
-            s_Data.quadVertices[1] = { position.x() + size.x()/2, position.y() - size.y()/2, position.z() };
-            s_Data.quadVertices[2] = { position.x() + size.x()/2, position.y() + size.y()/2, position.z() };
-            s_Data.quadVertices[3] = { position.x() - size.x()/2, position.y() + size.y()/2, position.z() };
+            s_Data.quadVertices[0] = { position._X_ - size._X_/2, position._Y_ - size._Y_/2, position._Z_ };
+            s_Data.quadVertices[1] = { position._X_ + size._X_/2, position._Y_ - size._Y_/2, position._Z_ };
+            s_Data.quadVertices[2] = { position._X_ + size._X_/2, position._Y_ + size._Y_/2, position._Z_ };
+            s_Data.quadVertices[3] = { position._X_ - size._X_/2, position._Y_ + size._Y_/2, position._Z_ };
 		}
 
 		Statistics BatchRenderer::GetStats() {
@@ -526,7 +526,7 @@ namespace Graphics {
 			for (unsigned int i = 0; i < 4; i++) {
 				s_Data.CircleVertexBufferPtr->aID = id;
 				s_Data.CircleVertexBufferPtr->Position = s_Data.quadVertices[i];
-				s_Data.CircleVertexBufferPtr->CirclePosition = GUI::DataType::vec3(static_cast<float>(position.x()), static_cast<float>(position.y()), static_cast<float>(position.z()));
+				s_Data.CircleVertexBufferPtr->CirclePosition = GUI::DataType::vec3(static_cast<float>(position._X_), static_cast<float>(position._Y_), static_cast<float>(position._Z_));
 				s_Data.CircleVertexBufferPtr->Normal = GUI::DataType::vec3(static_cast <float>(0.0));
 				s_Data.CircleVertexBufferPtr->Color = color;
 				s_Data.CircleVertexBufferPtr->Radius = radius;
@@ -541,7 +541,7 @@ namespace Graphics {
 		void BatchRenderer::DrawCircle(const GUI::DataType::vec2& position, float radius, const GUI::DataType::vec4& color, const int id) {
 			assert(s_Data.inScene);
 
-			DrawCircle(GUI::DataType::vec3(position.x(), position.y() ,0.0), radius, color, id);
+			DrawCircle(GUI::DataType::vec3(position._X_, position._Y_ ,0.0), radius, color, id);
 		}
 
 
@@ -564,14 +564,14 @@ namespace Graphics {
 
 		void BatchRenderer::DrawLine(const GUI::DataType::vec2& from, const GUI::DataType::vec2& to, const GUI::DataType::vec4& color, const int id)
 		{
-			DrawLine(GUI::DataType::vec3(from.x(), from.y(), 0.0), GUI::DataType::vec3(to.x(), to.y(), 0.0), color, id);
+			DrawLine(GUI::DataType::vec3(from._X_, from._Y_, 0.0), GUI::DataType::vec3(to._X_, to._Y_, 0.0), color, id);
 		}
 
 		void BatchRenderer::DrawLine(const GUI::DataType::vec3& from, const GUI::DataType::vec3& to, const GUI::DataType::vec4& color, float thickness, const int id)
 		{
 			assert(s_Data.inScene);
 			GUI::DataType::vec3 dir = GUI::DataOp::normalize(to - from);
-			GUI::DataType::vec3 normal = GUI::DataType::vec3(-dir.y(), dir.x(), dir.z());
+			GUI::DataType::vec3 normal = GUI::DataType::vec3(-dir._Y_, dir._X_, dir._Z_);
 			GUI::DataType::vec3 p1 = from + normal * thickness / 2.0f;
 			GUI::DataType::vec3 p2 = to + normal * thickness / 2.0f;
 			GUI::DataType::vec3 p3 = to - normal * thickness / 2.0f;
@@ -581,7 +581,7 @@ namespace Graphics {
 
 		void BatchRenderer::DrawLine(const GUI::DataType::vec2& from, const GUI::DataType::vec2& to, const GUI::DataType::vec4& color, float thickness, const int id)
 		{
-			DrawLine(GUI::DataType::vec3(from.x(), from.y(), 0.0), GUI::DataType::vec3(to.x(), to.y(), 0.0), color, thickness, id);
+			DrawLine(GUI::DataType::vec3(from._X_, from._Y_, 0.0), GUI::DataType::vec3(to._X_, to._Y_, 0.0), color, thickness, id);
 		}
 
 		void BatchRenderer::DrawLines(const std::vector<GUI::DataType::vec3>& points, const std::vector<uint32_t>& indices, const GUI::DataType::vec4& color, const int id, bool withArrows) {
@@ -604,7 +604,7 @@ namespace Graphics {
 				for (int i = 1; i < indices.size(); i += 2, count+=2) {
 
 					GUI::DataType::vec3 direction = GUI::DataOp::normalize(points.at(indices[i]) - points.at(indices[i-1]));
-					GUI::DataType::vec3 perpendicular(-direction.y(), direction.x(), 0.0f);
+					GUI::DataType::vec3 perpendicular(-direction._Y_, direction._X_, 0.0f);
 					GUI::DataType::vec3 arrowBase = points.at(indices[i]) - (direction * 0.15f);
 
 					s_Data.IndexedLineVertexBufferPtr->aID = id;
@@ -639,22 +639,22 @@ namespace Graphics {
 		void BatchRenderer::DrawQuad(const GUI::DataType::vec3& p1, const GUI::DataType::vec3& p2, const GUI::DataType::vec3& p3, const GUI::DataType::vec3& p4, const GUI::DataType::vec4& color, const int id) {
 			assert(s_Data.inScene);
 			s_Data.TriangleVertexBufferPtr->aID = id;
-			s_Data.TriangleVertexBufferPtr->Position = GUI::DataType::vec3(p1.x(), p1.y(), p1.z());
+			s_Data.TriangleVertexBufferPtr->Position = GUI::DataType::vec3(p1._X_, p1._Y_, p1._Z_);
 			s_Data.TriangleVertexBufferPtr->Color = color;
 			s_Data.TriangleVertexBufferPtr++;
 
 			s_Data.TriangleVertexBufferPtr->aID = id;
-			s_Data.TriangleVertexBufferPtr->Position = GUI::DataType::vec3(p2.x(), p2.y(), p2.z());
+			s_Data.TriangleVertexBufferPtr->Position = GUI::DataType::vec3(p2._X_, p2._Y_, p2._Z_);
 			s_Data.TriangleVertexBufferPtr->Color = color;
 			s_Data.TriangleVertexBufferPtr++;
 
 			s_Data.TriangleVertexBufferPtr->aID = id;
-			s_Data.TriangleVertexBufferPtr->Position = GUI::DataType::vec3(p3.x(), p3.y(), p3.z());
+			s_Data.TriangleVertexBufferPtr->Position = GUI::DataType::vec3(p3._X_, p3._Y_, p3._Z_);
 			s_Data.TriangleVertexBufferPtr->Color = color;
 			s_Data.TriangleVertexBufferPtr++;
 
 			s_Data.TriangleVertexBufferPtr->aID = id;
-			s_Data.TriangleVertexBufferPtr->Position = GUI::DataType::vec3(p4.x(), p4.y(), p4.z());
+			s_Data.TriangleVertexBufferPtr->Position = GUI::DataType::vec3(p4._X_, p4._Y_, p4._Z_);
 			s_Data.TriangleVertexBufferPtr->Color = color;
 			s_Data.TriangleVertexBufferPtr++;
 
@@ -678,13 +678,13 @@ namespace Graphics {
 		}
 
 		void BatchRenderer::DrawQuad(const GUI::DataType::vec2& p1, const GUI::DataType::vec2& p2, const GUI::DataType::vec2& p3, const GUI::DataType::vec2& p4, const GUI::DataType::vec4& color, const int id) {
-			DrawQuad(GUI::DataType::vec3(p1.x(), p1.y(),0.0), GUI::DataType::vec3(p2.x(), p2.y(), 0.0), GUI::DataType::vec3(p3.x(), p3.y(), 0.0), GUI::DataType::vec3(p4.x(), p4.y(), 0.0),color,id);
+			DrawQuad(GUI::DataType::vec3(p1._X_, p1._Y_,0.0), GUI::DataType::vec3(p2._X_, p2._Y_, 0.0), GUI::DataType::vec3(p3._X_, p3._Y_, 0.0), GUI::DataType::vec3(p4._X_, p4._Y_, 0.0),color,id);
 		}
 
 		void BatchRenderer::DrawQuad(const GUI::DataType::vec2& position, float size, const GUI::DataType::vec4& color, const int id) {
 			assert(s_Data.inScene);
 
-			QuadVertices(GUI::DataType::vec3(position.x(), position.y(), 0.0), size);
+			QuadVertices(GUI::DataType::vec3(position._X_, position._Y_, 0.0), size);
 
 			DrawQuad(s_Data.quadVertices[0], s_Data.quadVertices[1], s_Data.quadVertices[2], s_Data.quadVertices[3], color);
 
@@ -693,7 +693,7 @@ namespace Graphics {
 		void BatchRenderer::DrawQuad(const GUI::DataType::vec2& position, const GUI::DataType::vec2& size, const GUI::DataType::vec4& color, const int id) {
 			assert(s_Data.inScene);
 
-			QuadVertices(GUI::DataType::vec3(position.x(), position.y(), 0.0), size);
+			QuadVertices(GUI::DataType::vec3(position._X_, position._Y_, 0.0), size);
 
 			DrawQuad(s_Data.quadVertices[0], s_Data.quadVertices[1], s_Data.quadVertices[2], s_Data.quadVertices[3], color);
 
@@ -702,7 +702,7 @@ namespace Graphics {
 		void BatchRenderer::DrawQuad(const GUI::DataType::vec3& position, float size, const GUI::DataType::vec4& color, const int id) {
 			assert(s_Data.inScene);
 
-			QuadVertices(GUI::DataType::vec3(position.x(), position.y(), position.z()), size);
+			QuadVertices(GUI::DataType::vec3(position._X_, position._Y_, position._Z_), size);
 
 			DrawQuad(s_Data.quadVertices[0], s_Data.quadVertices[1], s_Data.quadVertices[2], s_Data.quadVertices[3], color, id);
 
@@ -711,7 +711,7 @@ namespace Graphics {
 		void BatchRenderer::DrawQuad(const GUI::DataType::vec3& position, const GUI::DataType::vec2& size, const GUI::DataType::vec4& color, const int id) {
 			assert(s_Data.inScene);
 
-			QuadVertices(GUI::DataType::vec3(position.x(), position.y(), position.z()), size);
+			QuadVertices(GUI::DataType::vec3(position._X_, position._Y_, position._Z_), size);
 
 			DrawQuad(s_Data.quadVertices[0], s_Data.quadVertices[1], s_Data.quadVertices[2], s_Data.quadVertices[3], color, id);
 
@@ -723,14 +723,14 @@ namespace Graphics {
 			assert(s_Data.inScene);
 
 			GUI::DataType::vec2 direction = GUI::DataOp::normalize(end - start);
-			GUI::DataType::vec2 normal = GUI::DataType::vec2(direction.y(), -direction.x());
+			GUI::DataType::vec2 normal = GUI::DataType::vec2(direction._Y_, -direction._X_);
 
 			int segments = 12; // Number of segments in the semicircle
 			float radius = thickness * 0.5f;
 			float angleIncrement = glm::pi<float>() / static_cast<float>(segments);
 
 			s_Data.TriangleVertexBufferPtr->aID = id;
-			s_Data.TriangleVertexBufferPtr->Position = GUI::DataType::vec3(start.x(), start.y(), start.z());
+			s_Data.TriangleVertexBufferPtr->Position = GUI::DataType::vec3(start._X_, start._Y_, start._Z_);
 			s_Data.TriangleVertexBufferPtr->Color = color;
 			s_Data.TriangleVertexBufferPtr++;
 
@@ -739,7 +739,7 @@ namespace Graphics {
 				float angle = angleIncrement * 1 * i;
 				s_Data.TriangleVertexBufferPtr->aID = id;
                 GUI::DataType::vec2 sp = GUI::DataType::vec2(start) - (GUI::DataOp::rotate(normal, angle) * radius);
-				s_Data.TriangleVertexBufferPtr->Position = GUI::DataType::vec3(sp.x(), sp.y(),start.z());
+				s_Data.TriangleVertexBufferPtr->Position = GUI::DataType::vec3(sp._X_, sp._Y_,start._Z_);
 				s_Data.TriangleVertexBufferPtr->Color = color;
 				s_Data.TriangleVertexBufferPtr++;
 
@@ -763,7 +763,7 @@ namespace Graphics {
 		{
 			assert(s_Data.inScene);
 			GUI::DataType::vec3 dir = GUI::DataOp::normalize(to - from);
-			GUI::DataType::vec3 normal = GUI::DataType::vec3(-dir.y(), dir.x(), dir.z());
+			GUI::DataType::vec3 normal = GUI::DataType::vec3(-dir._Y_, dir._X_, dir._Z_);
 			GUI::DataType::vec3 p1 = from + normal * thickness / 2.0f;
 			GUI::DataType::vec3 p2 = to + normal * thickness / 2.0f;
 			GUI::DataType::vec3 p3 = to - normal * thickness / 2.0f;
@@ -775,14 +775,14 @@ namespace Graphics {
 
 		void BatchRenderer::DrawTrace(const GUI::DataType::vec2& from, const GUI::DataType::vec2& to, const GUI::DataType::vec4& color, float thickness, const int id)
 		{
-			DrawTrace(GUI::DataType::vec3(from.x(), from.y(), 0.0), GUI::DataType::vec3(to.x(), to.y(), 0.0), color, thickness, id);
+			DrawTrace(GUI::DataType::vec3(from._X_, from._Y_, 0.0), GUI::DataType::vec3(to._X_, to._Y_, 0.0), color, thickness, id);
 		}
 
 		void BatchRenderer::DrawObround(const GUI::DataType::vec3& position, const GUI::DataType::vec2& size, const GUI::DataType::vec4& color, const int id)
 		{
 			//If the obround is a circle
-			if (size.x() == size.y()) {
-				DrawCircle(position, size.x() / 2, color, id);
+			if (size._X_ == size._Y_) {
+				DrawCircle(position, size._X_ / 2, color, id);
 				return;
 			}
 			//Position is the center of the obround
@@ -791,19 +791,19 @@ namespace Graphics {
 			float halfHeightWithoutCap;
 			GUI::DataType::vec3 start;
 			GUI::DataType::vec3 end;
-			float thickness = size.x() < size.y() ? size.x() : size.y();
+			float thickness = size._X_ < size._Y_ ? size._X_ : size._Y_;
 
-			if (size.x() < size.y()) {
-				obroundRadius = size.x() / 2;
-				halfHeightWithoutCap = (size.y() - (obroundRadius * 2)) / 2;
-				start = { position.x(), position.y() + halfHeightWithoutCap, position.z() };
-				end = { position.x(), position.y() - halfHeightWithoutCap, position.z() };
+			if (size._X_ < size._Y_) {
+				obroundRadius = size._X_ / 2;
+				halfHeightWithoutCap = (size._Y_ - (obroundRadius * 2)) / 2;
+				start = { position._X_, position._Y_ + halfHeightWithoutCap, position._Z_ };
+				end = { position._X_, position._Y_ - halfHeightWithoutCap, position._Z_ };
 			}
 			else {
-				obroundRadius = size.y() / 2;
-				halfHeightWithoutCap = (size.x() - (obroundRadius * 2)) / 2;
-				start = { position.x() - halfHeightWithoutCap, position.y(), position.z() };
-				end = { position.x() + halfHeightWithoutCap, position.y(), position.z() };
+				obroundRadius = size._Y_ / 2;
+				halfHeightWithoutCap = (size._X_ - (obroundRadius * 2)) / 2;
+				start = { position._X_ - halfHeightWithoutCap, position._Y_, position._Z_ };
+				end = { position._X_ + halfHeightWithoutCap, position._Y_, position._Z_ };
 			}
 
 			DrawTrace(start, end, color, thickness, id);
@@ -811,7 +811,7 @@ namespace Graphics {
 
 		void BatchRenderer::DrawObround(const GUI::DataType::vec2& position, const GUI::DataType::vec2& size, const GUI::DataType::vec4& color, const int id)
 		{
-			DrawObround(GUI::DataType::vec3(position.x(), position.y(), 0.0f), size, color, id);
+			DrawObround(GUI::DataType::vec3(position._X_, position._Y_, 0.0f), size, color, id);
 		}
 
 }

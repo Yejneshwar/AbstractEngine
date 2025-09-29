@@ -3,7 +3,7 @@
 
 #include "Renderer/Renderer.h"
 
-#ifdef BUILDING_METAL
+#if BUILDING_METAL
 #include "Platform/Metal/MetalContext.h"
 #else
 #include "Platform/OpenGL/OpenGLContext.h"
@@ -11,10 +11,10 @@
 
 namespace Graphics {
 
-	Ref<GraphicsContext> GraphicsContext::Create(void* window)
+	Scope<GraphicsContext> GraphicsContext::Create(void* window)
 	{
-#ifdef BUILDING_METAL
-        return CreateRef<MetalContext>(window);
+#if BUILDING_METAL
+        return CreateScope<MetalContext>(window);
 #else
 		switch (Renderer::GetAPI())
 		{

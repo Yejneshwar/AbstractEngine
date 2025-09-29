@@ -26,6 +26,7 @@ namespace Graphics {
 
 		static void DrawGridTriangles();
 
+		static void SetClearColor(glm::vec4 color);
 		static void Clear(float alpha = 1.0);
 		static void DepthTest(bool enable);
 		
@@ -41,7 +42,7 @@ namespace Graphics {
 		static void SetStencilOp(unsigned int sfail, unsigned int dpfail, unsigned int dppass);
 
 		static RendererAPI::API GetAPI() { return RendererAPI::GetAPI(); }
-        static Ref<GraphicsContext> GetContext() { return GUI::AbstractApplication::Get().GetWindow().GetRenderContext(); }
+        static GraphicsContext* GetContext() { return GUI::AbstractApplication::Get().GetWindow().GetRenderContext(); }
 	private:
 		struct SceneData
 		{

@@ -66,14 +66,11 @@ namespace GUI {
 		uint32_t id;
 		CameraType cameraType = CameraType::ThreeD;
 		Graphics::Ref<Graphics::Framebuffer> Framebuffer;
-		//Composite the init due to rendering artifacts
-		Graphics::Ref<Graphics::Framebuffer> JumpFloodICFramebuffer;
-		Graphics::Ref<Graphics::Framebuffer> JumpFloodFramebuffer;
         Graphics::Ref<Graphics::Texture> JFATextureA, JFATextureB, JFAResultTexture, JFACompositeTexture;
 		Graphics::Ref<Graphics::Camera> ViewPortCamera;
 		SceneDataUBO uboDataScene;
 		bool ViewportFocused = true, ViewportHovered = false;
-		glm::vec2 ViewportSize = { 1.0f, 1.0f };
+		glm::u32vec2 ViewportSize = { 1.0f, 1.0f };
 		glm::vec2 ViewportBounds[2];
 		bool isOpen = true;
 
@@ -81,16 +78,7 @@ namespace GUI {
 
 		explicit ViewPort(Graphics::FramebufferSpecification fbSpec, CameraType camera, uint32_t _id) : cameraType(camera), id(_id) {
 			Framebuffer = Graphics::Framebuffer::Create(fbSpec);
-
-			Graphics::FramebufferSpecification jumpFooldInitFbSpec = fbSpec;
-			Graphics::FramebufferSpecification jumpFooldFbSpec = fbSpec;
-
-			jumpFooldInitFbSpec.Attachments = { Graphics::FramebufferTextureFormat::RGBA8,Graphics::FramebufferTextureFormat::DEPTH32STENCIL8 };
-
-			jumpFooldFbSpec.Attachments = { Graphics::FramebufferTextureFormat::RGBA8 };
-			JumpFloodICFramebuffer = Graphics::Framebuffer::Create(jumpFooldInitFbSpec);
-			JumpFloodFramebuffer = Graphics::Framebuffer::Create(jumpFooldFbSpec);
-            
+        
             JFATextureA = Graphics::Texture2D::Create(fbSpec.Width, fbSpec.Height, Graphics::TextureFormat::RGBA32FLOAT);
             JFATextureB = Graphics::Texture2D::Create(fbSpec.Width, fbSpec.Height, Graphics::TextureFormat::RGBA32FLOAT);
             JFAResultTexture = Graphics::Texture2D::Create(fbSpec.Width, fbSpec.Height, Graphics::TextureFormat::RGBA8);
@@ -206,7 +194,6 @@ namespace GUI {
 		Graphics::Ref<Graphics::Shader> m_gridShader;
 		Graphics::Ref<Graphics::Shader> m_gridShader2D;
 
-		Graphics::Ref<Graphics::Shader> m_JumpFlood_init, m_JumpFlood_init2, m_JumpFlood_pass, m_JumpFlood_composite;
         Graphics::Ref<Graphics::ComputeShader> m_JFAComputeSeed, m_JFAComputeShader, m_JFAComputeVisualize, m_JFAComposite;
 
 		Graphics::Ref<Graphics::Texture> m_font;

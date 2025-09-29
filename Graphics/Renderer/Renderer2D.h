@@ -6,7 +6,6 @@
 
 #include "Renderer/Camera.h"
 
-//#include "Hazel/Scene/Components.h"
 
 namespace Graphics {
 

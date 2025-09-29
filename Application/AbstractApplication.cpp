@@ -51,10 +51,10 @@ namespace GUI {
 		this->CreateShaders();
 		Graphics::BatchRenderer::Init();
 
-#ifdef BUILDING_METAL
+#if BUILDING_METAL
         m_ImGuiHandler = new ImGuiHandler(m_Window->GetNativeWindow(), "");
 #else
-		m_ImGuiHandler = new ImGuiHandler((GLFWwindow*)m_Window->GetNativeWindow(), "#version 330");
+		m_ImGuiHandler = new ImGuiHandler(m_Window->GetNativeWindow(), "#version 330");
 #endif
 	}
 
@@ -69,10 +69,6 @@ namespace GUI {
 		m_font = Graphics::Texture2D::Create("Resource/Textures/FontAtlas.png");
 		m_gridShader = Graphics::Shader::Create("./Resource/Shaders/Grid.glsl", true);
 		m_gridShader2D = Graphics::Shader::Create("./Resource/Shaders/Grid2D.glsl", true);
-		m_JumpFlood_init = Graphics::Shader::Create("./Resource/Shaders/JumpFloodInit.glsl", true);
-		m_JumpFlood_init2 = Graphics::Shader::Create("./Resource/Shaders/JumpFloodInit2.glsl", true);
-		m_JumpFlood_pass = Graphics::Shader::Create("./Resource/Shaders/JumpFloodPass.glsl", true);
-		m_JumpFlood_composite = Graphics::Shader::Create("./Resource/Shaders/JumpFloodComposite.glsl", true);
         m_JFAComputeSeed = Graphics::ComputeShader::Create(std::filesystem::path("./Resource/ComputeShaders/JFASeed.glsl"));
         m_JFAComputeShader = Graphics::ComputeShader::Create(std::filesystem::path("./Resource/ComputeShaders/JFAPass.glsl"));
         m_JFAComputeVisualize = Graphics::ComputeShader::Create(std::filesystem::path("./Resource/ComputeShaders/JFAVisualize.glsl"));
@@ -236,13 +232,12 @@ namespace GUI {
 							const auto& ySize = v.ViewportSize.y;
 							LOG_TRACE_STREAM << "Viewport resized to: " << xSize << " x " << ySize;
 							//Update here coz this runs only when viewport size changes
-							v.JumpFloodFramebuffer->Resize((uint32_t)xSize, (uint32_t)ySize);
-							v.Framebuffer->Resize((uint32_t)xSize, (uint32_t)ySize);
+							v.Framebuffer->Resize(xSize, ySize);
 							v.ViewPortCamera->SetViewportSize(xSize, ySize);
-                            v.JFATextureA->Resize((uint32_t)xSize, (uint32_t)ySize);
-                            v.JFATextureB->Resize((uint32_t)xSize, (uint32_t)ySize);
-                            v.JFAResultTexture->Resize((uint32_t)xSize, (uint32_t)ySize);
-                            v.JFACompositeTexture->Resize((uint32_t)xSize, (uint32_t)ySize);
+                            v.JFATextureA->Resize(xSize, ySize);
+                            v.JFATextureB->Resize(xSize, ySize);
+                            v.JFAResultTexture->Resize(xSize, ySize);
+                            v.JFACompositeTexture->Resize(xSize, ySize);
 							v.update();
 						}
 						if (!v.ViewportHovered && !v.ViewportFocused && !m_updateAllViewPorts) continue;
@@ -268,57 +263,6 @@ namespace GUI {
 						Graphics::Renderer::DisableStencil();
 
 						v.Framebuffer->SetDrawBuffer(0); // prevent drawing to id buffer from here nothing should be drawn to the id buffer anyway...
-
-                        
-						/////////////////////////////////////////////////////////////JUMP FLOOD - FOR SELECTED OBJECT/////////////////////////////////////////////////////////////////////////
-//						if (m_ObjectSelection.objectID > -1 && m_ObjectSelection.objectID < MAX_SELECTED_OBJECT_ID) {
-//
-//							v.Framebuffer->Unbind();
-//
-//							v.JumpFloodICFramebuffer->Bind();
-//							Graphics::Renderer::Clear(0.0); // Clear the jumpflood init frameBuffer
-//
-//							v.Framebuffer->BindColorAttachmentAsTexture(2, 2);
-//
-//							m_JumpFlood_init2->Bind();
-//							Graphics::Renderer::DrawGridTriangles();
-//							m_JumpFlood_init2->Unbind();
-//
-//							v.JumpFloodICFramebuffer->Unbind();
-//
-//							v.JumpFloodFramebuffer->Bind();
-//							Graphics::Renderer::Clear(0.0); // Clear the jumpflood frameBuffer
-//
-////							v.JumpFloodFramebuffer->BlitBuffers(v.JumpFloodICFramebuffer->getID(), 0, 0, v.JumpFloodICFramebuffer->GetSpecification().Width, v.JumpFloodICFramebuffer->GetSpecification().Height, 0, 0, v.JumpFloodFramebuffer->GetSpecification().Width, v.JumpFloodFramebuffer->GetSpecification().Height, GL_COLOR_BUFFER_BIT, GL_NEAREST);
-//
-//
-//							v.JumpFloodFramebuffer->BindColorAttachmentAsTexture(0, 1);
-////							int steps = 2;
-////							int step = (int)glm::round(glm::pow<int>(steps - 1, 2));
-////							int index = 0;
-////							glm::vec2 texelSize = { 1.0f / v.Framebuffer->GetSpecification().Width, 1.0f / v.Framebuffer->GetSpecification().Height };
-////							glm::float32 invTexelRatio = texelSize.y / texelSize.x;
-////							while (step != 0) {
-////
-////								m_JumpFlood_pass->Bind();
-////								m_JumpFlood_pass->SetFloat2("a_texelSize", texelSize);
-////								m_JumpFlood_pass->SetFloat("a_invTexelRatio", invTexelRatio);
-////								m_JumpFlood_pass->SetInt("a_step", step);
-////								Graphics::Renderer::DrawGridTriangles();
-////								m_JumpFlood_pass->Unbind();
-////								index = (index + 1) % 2;
-////								step /= 2;
-////							}
-//
-//							v.JumpFloodFramebuffer->Unbind();
-//							v.Framebuffer->Bind();
-//
-//							m_JumpFlood_composite->Bind();
-//							Graphics::Renderer::DrawGridTriangles();
-//							m_JumpFlood_composite->Unbind();
-//
-//						}
-						/////////////////////////////////////////////////////////////JUMP FLOOD - FOR SELECTED OBJECT/////////////////////////////////////////////////////////////////////////
 
 
 						if (v.cameraType == CameraType::ThreeD) {
@@ -372,26 +316,26 @@ namespace GUI {
                                 
                                 // Dispatch the compute kernel. 🚀
                                 m_JFAComputeShader->Dispatch(v.ViewportSize.x, v.ViewportSize.y, 1);
-                                
-                                // Prepare for the next pass
-                                step /= 2;
-                                passCount += 1;
-                            }
-                            
-                            auto JFAResult = (passCount % 2 == 0) ? v.JFATextureA.get() : v.JFATextureB.get();
-                            
-                            m_JFAComputeShader->Unbind();
-                            
-                            m_JFAComputeVisualize->Bind();
-                            m_JFAComputeVisualize->BindTexture(v.JFAResultTexture->GetRendererID(), 0); // [[texture(0)]]
-                            m_JFAComputeVisualize->BindTexture(JFAResult->GetRendererID(), 1); // [[texture(1)]]
+
+								// Prepare for the next pass
+								step /= 2;
+								passCount += 1;
+							}
+
+							auto JFAResult = (passCount % 2 == 0) ? v.JFATextureA.get() : v.JFATextureB.get();
+
+							m_JFAComputeShader->Unbind();
+
+							m_JFAComputeVisualize->Bind();
+							m_JFAComputeVisualize->BindTexture(v.JFAResultTexture->GetRendererID(), 0); // [[texture(0)]]
+							m_JFAComputeVisualize->BindTexture(JFAResult->GetRendererID(), 1); // [[texture(1)]]
                             m_JFAComputeVisualize->Dispatch(v.ViewportSize.x, v.ViewportSize.y, 1);
-                            m_JFAComputeVisualize->Unbind();
-                            
-                            m_JFAComposite->Bind();
-                            m_JFAComposite->BindTexture(v.JFACompositeTexture->GetRendererID(), 0); // [[texture(0)]]
-                            m_JFAComposite->BindTexture(JFAResult->GetRendererID(), 1); // [[texture(1)]]
-                            m_JFAComposite->BindTexture(v.Framebuffer->GetColorAttachmentRendererID(), 2); // [[texture(2)]]
+							m_JFAComputeVisualize->Unbind();
+
+							m_JFAComposite->Bind();
+							m_JFAComposite->BindTexture(v.JFACompositeTexture->GetRendererID(), 0); // [[texture(0)]]
+							m_JFAComposite->BindTexture(JFAResult->GetRendererID(), 1); // [[texture(1)]]
+							m_JFAComposite->BindTexture(v.Framebuffer->GetColorAttachmentRendererID(), 2); // [[texture(2)]]
                             m_JFAComposite->Dispatch(v.ViewportSize.x, v.ViewportSize.y, 1);
                             m_JFAComposite->Unbind();
                             
@@ -602,7 +546,7 @@ namespace GUI {
 			ImVec2 viewportPanelSize = ImGui::GetContentRegionAvail();
 
 
-			glm::vec2 tmp = ViewPortIt->ViewportSize;
+			glm::u32vec2 tmp = ViewPortIt->ViewportSize;
 			ViewPortIt->ViewportSize = { viewportPanelSize.x, viewportPanelSize.y };
 			
 			//one of the viewports has resized
@@ -611,7 +555,7 @@ namespace GUI {
 
 			uint64_t textureID = ViewPortIt->Framebuffer->GetColorAttachmentRendererID();
 
-			ImGui::Image(reinterpret_cast<void*>(textureID), ImVec2{ ViewPortIt->ViewportSize.x, ViewPortIt->ViewportSize.y }, ImVec2{ 0, 1 }, ImVec2{ 1, 0 });
+			ImGui::Image(reinterpret_cast<void*>(textureID), ImVec2{ (float)ViewPortIt->ViewportSize.x, (float)ViewPortIt->ViewportSize.y }, ImVec2{ 0, 1 }, ImVec2{ 1, 0 });
 			auto rectMin = ImVec2{ ViewPortIt->ViewportBounds[0].x, ViewPortIt->ViewportBounds[0].y };
 			auto rectMax = ImVec2{ ViewPortIt->ViewportBounds[1].x, ViewPortIt->ViewportBounds[1].y };
 			//ImGui::GetForegroundDrawList()->AddRect(rectMin, rectMax, IM_COL32(255, 255, 0, 255));

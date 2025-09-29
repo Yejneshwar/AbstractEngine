@@ -10,6 +10,7 @@
 #include "Renderer/Renderer.h"
 
 #include "Platform/OpenGL/OpenGLContext.h"
+#include "Window/Platform/InputManager/InputManager.h"
 
 #include "Logger.h"
 
@@ -66,7 +67,7 @@ namespace Application {
 		}
 
 		glfwWindowHint(GLFW_SAMPLES, 8);
-		m_Context = Graphics::GraphicsContext::Create(m_Window);
+		m_Context = Graphics::GraphicsContext::Create((void*)m_Window);
 		m_Context->Init();
 
 		glfwSetWindowUserPointer(m_Window, &m_Data);
@@ -135,13 +136,17 @@ namespace Application {
 				{
 					if (button == GLFW_MOUSE_BUTTON_LEFT) {
 						data.m_mousePressStartLeft = std::chrono::high_resolution_clock::now();
+						InputManager::OnMouseDown(button);
 					}
-					else if (button == GLFW_MOUSE_BUTTON_RIGHT)
+					else if (button == GLFW_MOUSE_BUTTON_RIGHT) {
 						data.m_mousePressStartRight = std::chrono::high_resolution_clock::now();
+						InputManager::OnMouseDown(button);
+					}
 
 
 					MouseButtonPressedEvent event(button);
 					data.EventCallback(event);
+
 					break;
 				}
 				case GLFW_RELEASE:
@@ -151,12 +156,14 @@ namespace Application {
 						data.m_mousePressEndLeft = std::chrono::high_resolution_clock::now();
 						MouseButtonReleasedEvent event(button, std::chrono::duration_cast<std::chrono::milliseconds>(data.m_mousePressEndLeft - data.m_mousePressStartLeft));
 						data.EventCallback(event);
+						InputManager::OnMouseUp(button);
 						break;
 					}
 					else if (button == GLFW_MOUSE_BUTTON_RIGHT) {
 						data.m_mousePressEndRight = std::chrono::high_resolution_clock::now();
 						MouseButtonReleasedEvent event(button, std::chrono::duration_cast<std::chrono::milliseconds>(data.m_mousePressEndRight - data.m_mousePressStartRight));
 						data.EventCallback(event);
+						InputManager::OnMouseUp(button);
 						break;
 					}
 
@@ -179,6 +186,7 @@ namespace Application {
 
 				MouseMovedEvent event((float)xPos, (float)yPos);
 				data.EventCallback(event);
+				InputManager::OnMouseMoved((float)xPos, (float)yPos);
 			});
 
 		glfwSetMonitorCallback([](GLFWmonitor* monitor, int event)
@@ -215,6 +223,11 @@ namespace Application {
 		{
 			glfwTerminate();
 		}
+	}
+
+	Graphics::GraphicsContext* WindowsWindow::GetRenderContext() const
+	{
+		return m_Context.get();
 	}
 
 	void WindowsWindow::OnUpdate()

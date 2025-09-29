@@ -5,6 +5,7 @@
 
 #include <glm/glm.hpp>
 #include "GraphicsCore.h"
+#include <shaderc/shaderc.hpp>
 
 namespace Graphics {
 
@@ -16,8 +17,8 @@ namespace Graphics {
         UNKNOWN = 0x0
     };
 
-    typedef std::map<ShaderStage, ShaderStage> ShaderSources;
-#ifdef BUILDING_METAL
+    typedef std::map<ShaderStage, std::string> ShaderSources;
+#if BUILDING_METAL
     typedef std::map<ShaderStage, std::string> ShaderFunctionNames;
 #endif
 
@@ -49,6 +50,54 @@ namespace Graphics {
             GRAPHICS_CORE_ASSERT(false);
             return nullptr;
         }
+
+        static shaderc_shader_kind ShaderStageToShaderC(Graphics::ShaderStage stage)
+        {
+            switch (stage)
+            {
+            case Graphics::ShaderStage::VERTEX_SHADER:   return shaderc_glsl_vertex_shader;
+            case Graphics::ShaderStage::FRAGMENT_SHADER: return shaderc_glsl_fragment_shader;
+            case Graphics::ShaderStage::GEOMETRY_SHADER: return shaderc_glsl_geometry_shader;
+            case Graphics::ShaderStage::COMPUTE_SHADER: return shaderc_glsl_compute_shader;
+            case Graphics::ShaderStage::UNKNOWN: throw("Unknown shader stage");
+            }
+            GRAPHICS_CORE_ASSERT(false);
+            return (shaderc_shader_kind)0;
+        }
+
+        static std::string ResetLineOffset(const std::string& source, const std::string& filename, int lineOffset)
+        {
+            //Sample error
+            //./Resources/Shaders/MeshNormals.glsl:96: error: 'pixelFac' : undeclared identifier
+
+            std::string result;
+            std::istringstream stream(source);
+
+            //Find the line number in error message
+            std::string line;
+
+            while (std::getline(stream, line))
+            {
+                if (line.find(filename) != std::string::npos)
+                {
+                    std::string::size_type pos = line.find(":");
+                    if (pos != std::string::npos)
+                    {
+                        std::string::size_type pos2 = line.find(":", pos + 1);
+                        if (pos2 != std::string::npos)
+                        {
+                            std::string lineNumber = line.substr(pos + 1, pos2 - pos - 1);
+                            int errorLine = std::stoi(lineNumber);
+                            errorLine -= lineOffset;
+                            line.replace(pos + 1, pos2 - pos - 1, std::to_string(errorLine));
+                        }
+                    }
+                }
+                result += line + "\n";
+            }
+
+            return result;
+        }
     }
 
 	class Shader
@@ -64,7 +113,9 @@ namespace Graphics {
             return filePath.substr(lastSlash, count);
         }
         
+#if BUILDING_METAL
         static std::string CompileSpirVToMSL(ShaderStage stage, const std::vector<uint32_t>& shaderData);
+#endif
         
         struct ShaderProgramSource
         {
@@ -110,7 +161,7 @@ namespace Graphics {
 
 		static Ref<Shader> Create(const std::string& filepath, bool cache = true);
 		static Ref<Shader> Create(const std::string& name, const ShaderSources& shaderSources);
-#ifdef BUILDING_METAL
+#if BUILDING_METAL
         static Ref<Shader> CreateFromMSL(const std::string& MSLSrc, const ShaderFunctionNames& shaderFunctionNames);
 #endif
 	};

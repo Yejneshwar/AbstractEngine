@@ -35,6 +35,9 @@ public:
     static void OnTouchDown(float x, float y, size_t touchPoints);
     static void OnTouchUp(float x, float y);
     static void OnTouchMoved(float x, float y);
+    static void OnMouseDown(MouseCode button);
+    static void OnMouseUp(MouseCode button);
+    static void OnMouseMoved(float x, float y);
 
     InputManager() = default;
     ~InputManager() = default;

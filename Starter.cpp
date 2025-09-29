@@ -14,14 +14,16 @@
 #include <Renderer/BatchRenderer.h>
 #include "MetalTestLayer.h"
 
-#include <simd/simd.h>
-
+#ifdef __APPLE__
 #define NS_PRIVATE_IMPLEMENTATION
 #define CA_PRIVATE_IMPLEMENTATION
 #define MTL_PRIVATE_IMPLEMENTATION
 #include <Metal/Metal.hpp>
 #include <Foundation/Foundation.hpp>
 #include <QuartzCore/QuartzCore.hpp>
+#endif
+
+#include "DataTypes.h"
 
 namespace GUI {
 
@@ -29,18 +31,18 @@ namespace GUI {
         static const uint32_t MaxQuads = 10;
         static const uint32_t MaxVertices = MaxQuads * 4;
         static const uint32_t MaxIndices = MaxQuads * 6;
-        simd_float4 triangleColor = simd_make_float4(1.0f, 0.5f, 0.2f, 0.1f);
+        DataType::vec4 triangleColor = { 1.0f, 0.5f, 0.2f, 0.1f };
 
         struct UBODataFragmentAttached {
-            simd_float4 triangleColor;
-            simd_int1 selectedObject;
+            DataType::vec4 triangleColor;
+            DataType::int1 selectedObject;
         };
 
         struct TriangleVertex {
-            simd_int1 aID;
-            simd_float3 aPos;
-            simd_float3 aNormal;
-            simd_float3 aColor;
+            DataType::int1 aID;
+            DataType::vec3 aPos;
+            DataType::vec3 aNormal;
+            DataType::vec3 aColor;
         };
 
         UBODataFragmentAttached uboDataFragment = UBODataFragmentAttached(triangleColor, 2);
@@ -239,13 +241,3 @@ namespace GUI {
 		return new TestGUI(spec, nativeWindow);
 	}
 }
-
-//int main(int argc, char** argv)
-//
-//{
-//	auto app = GUI::CreateApplication({ argc, argv });
-//
-//	app->Run();
-//
-//	delete app;
-//}

@@ -8,68 +8,17 @@
 #include <spirv_glsl.hpp>
 #include <shaderc/shaderc.hpp>
 
-#ifdef BUILDING_METAL
+#if BUILDING_METAL
 #include "Platform/Metal/MetalShader.h"
 #include "IOS/FileUtils.h"
-#include <spirv_cross.hpp>
 #include <spirv_msl.hpp>
 #else
 #include "Platform/OpenGL/OpenGLShader.h"
 #endif
 
-namespace Utils {
-    static shaderc_shader_kind ShaderStageToShaderC(Graphics::ShaderStage stage)
-    {
-        switch (stage)
-        {
-            case Graphics::ShaderStage::VERTEX_SHADER:   return shaderc_glsl_vertex_shader;
-            case Graphics::ShaderStage::FRAGMENT_SHADER: return shaderc_glsl_fragment_shader;
-            case Graphics::ShaderStage::GEOMETRY_SHADER: return shaderc_glsl_geometry_shader;
-            case Graphics::ShaderStage::COMPUTE_SHADER: return shaderc_glsl_compute_shader;
-            case Graphics::ShaderStage::UNKNOWN: throw("Unknown shader stage");
-        }
-        GRAPHICS_CORE_ASSERT(false);
-        return (shaderc_shader_kind)0;
-    }
-
-    std::string ResetLineOffset(const std::string& source, const std::string& filename, int lineOffset)
-    {
-        //Sample error
-        //./Resources/Shaders/MeshNormals.glsl:96: error: 'pixelFac' : undeclared identifier
-        
-        std::string result;
-        std::istringstream stream(source);
-        
-        //Find the line number in error message
-        std::string line;
-        
-        while (std::getline(stream, line))
-        {
-            if (line.find(filename) != std::string::npos)
-            {
-                std::string::size_type pos = line.find(":");
-                if (pos != std::string::npos)
-                {
-                    std::string::size_type pos2 = line.find(":", pos + 1);
-                    if (pos2 != std::string::npos)
-                    {
-                        std::string lineNumber = line.substr(pos + 1, pos2 - pos - 1);
-                        int errorLine = std::stoi(lineNumber);
-                        errorLine -= lineOffset;
-                        line.replace(pos + 1, pos2 - pos - 1, std::to_string(errorLine));
-                    }
-                }
-            }
-            result += line + "\n";
-        }
-        
-        return result;
-    }
-
-}
-
 namespace Graphics {
-    
+
+#if BUILDING_METAL
     std::string Shader::CompileSpirVToMSL(ShaderStage stage, const std::vector<uint32_t>& shaderData) {
         spirv_cross::CompilerMSL compiler(shaderData);
         
@@ -92,6 +41,7 @@ namespace Graphics {
         
         throw;
     }
+#endif
 
     std::string Shader::ReadFile(const std::string& filepath, uint32_t* num_lines)
     {
@@ -150,7 +100,7 @@ namespace Graphics {
                     }
                     const std::string name = source.substr(p1 + 1, p2 - p1 - 1);
                     uint32_t num_lines;
-#ifdef BUILDING_METAL
+#if BUILDING_METAL
                     const std::string include = ReadFile(GUI::Utils::getResourcePath(name).c_str(), &num_lines);
 #else
                     const std::string include = ReadFile(name.c_str(), &num_lines);
@@ -214,10 +164,10 @@ namespace Graphics {
         shaderData.clear();
         for (auto&& [stage, program] : shaderSources)
         {
-                shaderc::SpvCompilationResult module = compiler.CompileGlslToSpv(program.Source, ::Utils::ShaderStageToShaderC(stage), m_FilePath.c_str(), options);
+                shaderc::SpvCompilationResult module = compiler.CompileGlslToSpv(program.Source, Utils::ShaderStageToShaderC(stage), m_FilePath.c_str(), options);
                 if (module.GetCompilationStatus() != shaderc_compilation_status_success)
                 {
-                    LOG_FATAL_STREAM << "\n" << ::Utils::ResetLineOffset(module.GetErrorMessage(), m_FilePath, program.lineOffset);
+                    LOG_FATAL_STREAM << "\n" << Utils::ResetLineOffset(module.GetErrorMessage(), m_FilePath, program.lineOffset);
                     LOG_FATAL_STREAM << "Stage :" << Utils::ShaderStageToString(stage);
                     throw(std::runtime_error("Error in compiling shader to SPIRV"));
                     
@@ -279,7 +229,7 @@ namespace Graphics {
 
 	Ref<Shader> Shader::Create(const std::string& filepath, bool cache)
 	{
-#ifdef BUILDING_METAL
+#if BUILDING_METAL
         return CreateRef<MetalShader>(filepath, cache);
 #else
 		switch (Renderer::GetAPI())
@@ -295,13 +245,13 @@ namespace Graphics {
 
 	Ref<Shader> Shader::Create(const std::string& name, const ShaderSources& shaderSources)
 	{
-#ifdef BUILDING_METAL
+#if BUILDING_METAL
         return CreateRef<MetalShader>(name, shaderSources);
 #else
 		switch (Renderer::GetAPI())
 		{
 			case RendererAPI::API::None:    GRAPHICS_CORE_ASSERT(false, "RendererAPI::None is currently not supported!"); return nullptr;
-			case RendererAPI::API::OpenGL:  return CreateRef<OpenGLShader>(name, vertexSrc, fragmentSrc);
+			case RendererAPI::API::OpenGL:  return CreateRef<OpenGLShader>(name, shaderSources);
 		}
 
 		GRAPHICS_CORE_ASSERT(false, "Unknown RendererAPI!");
@@ -309,7 +259,7 @@ namespace Graphics {
 #endif
 	}
 
-#ifdef BUILDING_METAL
+#if BUILDING_METAL
     Ref<Shader> Shader::CreateFromMSL(const std::string& MSLSrc, const ShaderFunctionNames& shaderFunctionNames)
     {
         return CreateRef<MetalShader>(MSLSrc, shaderFunctionNames);

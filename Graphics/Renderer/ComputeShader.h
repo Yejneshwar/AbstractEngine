@@ -25,7 +25,7 @@ namespace Graphics {
 
         static Ref<ComputeShader> Create(const std::filesystem::path& path);
         static Ref<ComputeShader> Create(const std::string& src);
-#ifdef BUILDING_METAL
+#if BUILDING_METAL
         static Ref<ComputeShader> CreateFromMSL(const std::string& MSLSrc, const std::string& functionName);
 #endif
 	};

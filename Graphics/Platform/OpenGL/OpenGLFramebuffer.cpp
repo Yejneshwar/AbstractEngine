@@ -275,4 +275,45 @@ namespace Graphics {
 		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 		Bind();
 	}
+	void OpenGLFramebuffer::BlitToColorAttachment(int index, uintptr_t srcTexture)
+	{
+		// The framebuffer to be written to (the "draw" framebuffer) must be bound.
+		// However, the source (the "read" framebuffer) can be specified directly
+		// in the blit call without being bound.
+		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, m_RendererID);
+
+		// Create a temporary framebuffer object to act as the source
+		GLuint readFBO = 0;
+		glGenFramebuffers(1, &readFBO);
+		glBindFramebuffer(GL_READ_FRAMEBUFFER, readFBO);
+
+		// Attach the source texture to the temporary framebuffer
+		// We assume the source is a 2D texture.
+		glFramebufferTexture2D(GL_READ_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, (GLuint)srcTexture, 0);
+
+		// Ensure the temporary framebuffer is complete
+		if (glCheckFramebufferStatus(GL_READ_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+			// Handle or log the error, as the blit will fail.
+			// For example: LOG_ERROR("Source FBO for blit is not complete!");
+			glDeleteFramebuffers(1, &readFBO);
+			glBindFramebuffer(GL_FRAMEBUFFER, 0); // Unbind
+			return;
+		}
+
+		// Specify which attachment of the DRAW framebuffer to write to.
+		glDrawBuffer(GL_COLOR_ATTACHMENT0 + index);
+
+		// Perform the blit operation.
+		// This copies from the currently bound GL_READ_FRAMEBUFFER to the currently bound GL_DRAW_FRAMEBUFFER.
+		glBlitFramebuffer(
+			0, 0, m_Specification.Width, m_Specification.Height, // Source rectangle (x0, y0, x1, y1)
+			0, 0, m_Specification.Width, m_Specification.Height, // Destination rectangle (x0, y0, x1, y1)
+			GL_COLOR_BUFFER_BIT, // Mask: specifies that we're copying the color buffer
+			GL_NEAREST           // Filter: use nearest-neighbor for a direct, unfiltered copy
+		);
+
+		// Clean up: delete the temporary framebuffer and unbind.
+		glDeleteFramebuffers(1, &readFBO);
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	}
 }

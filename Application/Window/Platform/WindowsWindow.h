@@ -1,4 +1,5 @@
 #include "Window/Window.h"
+#include "GLFW/glfw3.h"
 
 namespace Application {
 
@@ -25,6 +26,8 @@ namespace Application {
 		virtual int GetMonitorCount() const override { return m_Data.m_Settings.monitorCount; }
 
 		virtual const char* GetPrimaryMonitorName() const override { return glfwGetMonitorName(m_Data.m_Settings.primaryMonitor); }
+
+		virtual Graphics::GraphicsContext* GetRenderContext() const override;
 	private:
 		virtual void Init(const WindowProps& props);
 		virtual void InitMonitors();

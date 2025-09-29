@@ -1,4 +1,6 @@
 #include "ImGuiHandler.h"
+#include <imgui_impl_glfw.h>
+#include <imgui_impl_opengl3.h>
 
 void ImGuiHandler::NewFrame() {
     ImGui_ImplOpenGL3_NewFrame();
@@ -11,7 +13,7 @@ inline void ImGuiHandler::Render() {
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 }
 
-ImGuiHandler::ImGuiHandler(GLFWwindow* window, const char* glsl_version) {
+ImGuiHandler::ImGuiHandler(void* window, const char* glsl_version) {
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO(); (void)io;
@@ -28,7 +30,7 @@ ImGuiHandler::ImGuiHandler(GLFWwindow* window, const char* glsl_version) {
 
 
     ImGui::StyleColorsDark();
-    ImGui_ImplGlfw_InitForOpenGL(window, true);
+    ImGui_ImplGlfw_InitForOpenGL((GLFWwindow*)window, true);
     ImGui_ImplOpenGL3_Init(glsl_version);
 }
 

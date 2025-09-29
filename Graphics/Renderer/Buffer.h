@@ -10,7 +10,7 @@ namespace Graphics {
 		None = 0, Float, Float2, Float3, Float4, Mat3, Mat4, Int, Int2, Int3, Int4, Bool
 	};
 
-#ifdef BUILDING_METAL
+#if BUILDING_METAL
     static uint32_t ShaderDataTypeSize(ShaderDataType type)
     {
         switch (type)
@@ -152,7 +152,6 @@ namespace Graphics {
 		static Ref<VertexBuffer> Create(float* vertices, uint32_t size, std::string label = "");
 	};
 
-	// Currently Hazel only supports 32-bit index buffers
 	class IndexBuffer
 	{
 	public:

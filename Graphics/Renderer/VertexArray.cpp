@@ -3,7 +3,7 @@
 
 #include "Renderer/Renderer.h"
 
-#ifdef BUILDING_METAL
+#if BUILDING_METAL
 #include "Platform/Metal/MetalVertexArray.h"
 #else
 #include "Platform/OpenGL/OpenGLVertexArray.h"
@@ -14,7 +14,7 @@ namespace Graphics {
 
 	Ref<VertexArray> VertexArray::Create()
 	{
-#ifdef BUILDING_METAL
+#if BUILDING_METAL
         return CreateRef<MetalVertexArray>();
 #else
 		switch (Renderer::GetAPI())

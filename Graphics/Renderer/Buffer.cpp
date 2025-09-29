@@ -3,7 +3,7 @@
 
 #include "Renderer/Renderer.h"
 
-#ifdef BUILDING_METAL
+#if BUILDING_METAL
 #include "Platform/Metal/MetalBuffer.h"
 #else
 #include "Platform/OpenGL/OpenGLBuffer.h"
@@ -13,7 +13,7 @@ namespace Graphics {
 
 	Ref<VertexBuffer> VertexBuffer::Create(uint32_t size, std::string label)
 	{
-#ifdef BUILDING_METAL
+#if BUILDING_METAL
         return CreateRef<MetalVertexBuffer>(size, label);
 #else
 		switch (Renderer::GetAPI())
@@ -29,7 +29,7 @@ namespace Graphics {
 
 	Ref<VertexBuffer> VertexBuffer::Create(float* vertices, uint32_t size, std::string label)
 	{
-#ifdef BUILDING_METAL
+#if BUILDING_METAL
         return CreateRef<MetalVertexBuffer>(vertices, size, label);
 #else
 		switch (Renderer::GetAPI())
@@ -45,7 +45,7 @@ namespace Graphics {
 
 	Ref<IndexBuffer> IndexBuffer::Create(uint32_t* indices, uint32_t size, std::string label)
 	{
-#ifdef BUILDING_METAL
+#if BUILDING_METAL
         return CreateRef<MetalIndexBuffer>(indices, size, label);
 #else
 		switch (Renderer::GetAPI())
@@ -61,7 +61,7 @@ namespace Graphics {
 
 	Ref<IndexBuffer> IndexBuffer::Create(uint32_t size, std::string label)
 	{
-#ifdef BUILDING_METAL
+#if BUILDING_METAL
         return CreateRef<MetalIndexBuffer>(size, label);
 #else
 		switch (Renderer::GetAPI())

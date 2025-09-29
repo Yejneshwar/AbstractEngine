@@ -6,6 +6,10 @@
 
 namespace Graphics {
 
+	struct {
+		int major = 4, minor = 5, rev;
+	} GLVersion;
+
 	OpenGLContext::OpenGLContext(GLFWwindow* windowHandle)
 		: m_WindowHandle(windowHandle)
 	{
@@ -20,13 +24,13 @@ namespace Graphics {
 		int status = gladLoadGL((GLADloadfunc)glfwGetProcAddress);
 		GRAPHICS_CORE_ASSERT(status, "Failed to initialize Glad!");
 
-		GRAPHICS_CORE_ASSERT(GLVersion.major > 4 || (GLVersion.major == 4 && GLVersion.minor >= 5), "Hazel requires at least OpenGL version 4.5!");
+		//glfwGetVersion(&GLVersion.major, &GLVersion.minor, &GLVersion.rev);
+
+		GRAPHICS_CORE_ASSERT(GLVersion.major > 4 || (GLVersion.major == 4 && GLVersion.minor >= 5), std::format("AbstractEngine requires at least OpenGL version 4.5! \n OpenGL {}.{}rev{}", GLVersion.major, GLVersion.minor, GLVersion.rev));
 	}
 
 	void OpenGLContext::SwapBuffers()
 	{
-		
-
 		glfwSwapBuffers(m_WindowHandle);
 	}
 

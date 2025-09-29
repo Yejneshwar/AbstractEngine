@@ -55,6 +55,11 @@ namespace Graphics {
 		RenderCommand::DrawGridTriangles();
 	}
 
+	void Renderer::SetClearColor(glm::vec4 color)
+	{
+		RenderCommand::SetClearColor(color);
+	}
+
 	void Renderer::Clear(float alpha) {
 		RenderCommand::Clear(alpha);
 	}

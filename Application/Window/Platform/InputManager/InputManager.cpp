@@ -38,6 +38,27 @@ namespace Application {
     void InputManager::OnTouchMoved(float x, float y) {
         s_Instance.m_PointerPosition = { x, y };
     }
+
+    void InputManager::OnMouseDown(MouseCode button) {
+        if (button == Mouse::ButtonLeft) {
+            s_Instance.m_IsPrimaryButtonPressed = true;
+            return;
+        }
+        s_Instance.m_IsSecondaryButtonPressed = true;
+    }
+
+    void InputManager::OnMouseUp(MouseCode button) {
+        if (button == Mouse::ButtonLeft) {
+            s_Instance.m_IsPrimaryButtonPressed = false;
+            return;
+        }
+        s_Instance.m_IsSecondaryButtonPressed = false;
+    }
+
+    void InputManager::OnMouseMoved(float x, float y)
+    {
+        s_Instance.m_PointerPosition = { x, y };
+    }
     
     // --- Polling Method Implementations ---
     

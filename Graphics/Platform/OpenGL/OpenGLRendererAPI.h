@@ -42,6 +42,10 @@ namespace Graphics {
 		virtual void SetLineWidth(float width) override;
 		virtual void SetRendererMode(int mode) override;
 		virtual void SetRendererModeToDefault() override;
+
+		// Inherited via RendererAPI
+		virtual void BeginLoop() override;
+		virtual void EndLoop() override;
 	};
 
 
