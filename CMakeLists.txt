@@ -1,4 +1,4 @@
-# CMakeList.txt : CMake project for OpenGL Starter, include source and define
+﻿# CMakeList.txt : CMake project for OpenGL Starter, include source and define
 # project specific logic here.
 #
 cmake_minimum_required (VERSION 3.20)
@@ -410,7 +410,7 @@ include_directories(Utils)
 add_executable (${PROJECT_NAME} ${SRC})
 if(GUI_BUILD_TESTING)
     if(APPLE)
-        target_sources(${PROJECT_NAME} PRIVATE "MainIOS.mm" "Starter.cpp" "Starter.h" "MetalTestLayer.mm" "MetalTestLayer.h")
+        target_sources(${PROJECT_NAME} PRIVATE "MainApple.mm" "Starter.cpp" "Starter.h" "MetalTestLayer.mm" "MetalTestLayer.h")
     else()
         target_sources(${PROJECT_NAME} PRIVATE "MainWindows.cpp" "Starter.cpp" "Starter.h")
     endif()
