@@ -2,10 +2,31 @@
 
 
 namespace Application {
+    
+    struct WindowSettings {
+        bool VSync = true;
+        bool PolygonSmooth = false;
+        bool fullScreen = false;
+        int monitorCount;
+    };
+    
+    struct WindowData
+    {
+        std::string Title;
+        unsigned int Width, Height;
+        WindowSettings m_Settings;
+        std::chrono::high_resolution_clock::time_point m_mousePressStartLeft;
+        std::chrono::high_resolution_clock::time_point m_mousePressEndLeft;
+        
+        std::chrono::high_resolution_clock::time_point m_mousePressStartRight;
+        std::chrono::high_resolution_clock::time_point m_mousePressEndRight;
+        
+        Window::EventCallbackFn EventCallback;
+    };
 
     class MacOSWindow : public Window {
     public:
-        MacOSWindow(const WindowProps& props);
+        MacOSWindow(const WindowProps& props, void* nativeWindow);
 		virtual ~MacOSWindow();
 
 		virtual void OnUpdate() override;
@@ -25,10 +46,13 @@ namespace Application {
 		virtual int GetMonitorCount() const override;
         virtual const char* GetPrimaryMonitorName() const override;
         
-        Graphics::Ref<Graphics::GraphicsContext> GetRenderContext() const override;
+        Graphics::GraphicsContext* GetRenderContext() const override;
         
     private:
         Graphics::Scope<Graphics::GraphicsContext> m_GraphicsContext;
+        void* m_Window;
+        
+        WindowData m_Data;
     };
 
 }

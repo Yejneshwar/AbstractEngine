@@ -5,6 +5,12 @@
 
 #include <Metal/Metal.hpp>
 
+#if TARGET_OS_OSX
+#define _VIEW_ NSView
+#elif TARGET_OS_IOS
+#define _VIEW_ UIView
+#endif
+
 namespace Graphics {
 
 class MetalContext : public GraphicsContext {
@@ -21,7 +27,7 @@ public:
     void setActiveRenderPassDescriptor(MTL::RenderPassDescriptor* descriptor);
     void setActivePipelineStateDescriptor(MTL::RenderPipelineDescriptor* descriptor);
     
-    static Ref<MetalContext> Get() { return std::static_pointer_cast<MetalContext>(Renderer::GetContext()); }
+    static MetalContext* Get() { return static_cast<MetalContext*>(Renderer::GetContext()); }
     static MTL::Device* GetCurrentDevice() { return Get()->GetDevice(); }
     static MTL::CommandQueue* GetCurrentCommandQueue() { return Get()->m_CommandQueue; }
     static void* GetCurrentDrawable() { return Get()->m_CurrentDrawable; }

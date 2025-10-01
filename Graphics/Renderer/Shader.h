@@ -19,7 +19,7 @@ namespace Graphics {
 
     typedef std::map<ShaderStage, std::string> ShaderSources;
 #if BUILDING_METAL
-    typedef std::map<ShaderStage, std::string> ShaderFunctionNames;
+    typedef std::map<ShaderStage, char*> ShaderFunctionNames;
 #endif
 
     namespace Utils {

@@ -6,6 +6,8 @@
 
 #if TARGET_OS_OSX
 #import <AppKit/NSView.h>
+#import <QuartzCore/QuartzCore.h>
+#include "imgui_impl_osx.h"
 #elif TARGET_OS_IOS
 #import <UIKit/UIKit.h>
 #endif
@@ -22,7 +24,7 @@ id<MTLCommandBuffer> commandBuffer;
 MTLRenderPassDescriptor* renderPassDescriptor;
 id<CAMetalDrawable> drawable;
 
-UIView* nativeView;
+_VIEW_* nativeView;
 
 void ImGuiHandler::NewFrame() {
     
@@ -55,6 +57,9 @@ void ImGuiHandler::NewFrame() {
     }
     
     ImGui_ImplMetal_NewFrame(renderPassDescriptor);
+#if TARGET_OS_OSX
+    ImGui_ImplOSX_NewFrame(nativeView);
+#endif
     ImGui::NewFrame();
 }
 
@@ -87,7 +92,7 @@ ImGuiHandler::ImGuiHandler(void* window, const char* glsl_version) {
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     
-    nativeView = (__bridge UIView*)Graphics::MetalContext::GetNativeView();
+    nativeView = (__bridge _VIEW_*)Graphics::MetalContext::GetNativeView();
     id<MTLDevice> device = (__bridge id<MTLDevice>)Graphics::MetalContext::GetCurrentDevice();
     
     CAMetalLayer* metalLayer = (CAMetalLayer*)nativeView.layer;
@@ -110,6 +115,9 @@ ImGuiHandler::ImGuiHandler(void* window, const char* glsl_version) {
     ImGui::StyleColorsDark();
     
     ImGui_ImplMetal_Init(device);
+#if TARGET_OS_OSX
+    ImGui_ImplOSX_Init(nativeView);
+#endif
 }
 
 void ImGuiHandler::Update(const ImGuiUpdateFn& updateFn) {
@@ -117,7 +125,7 @@ void ImGuiHandler::Update(const ImGuiUpdateFn& updateFn) {
     if (!drawablePtr) {
         return;
     }
-    drawable = (__bridge id<CAMetalDrawable>)Graphics::MetalContext::GetCurrentDrawable();
+    drawable = (__bridge id<CAMetalDrawable>)drawablePtr;
     CAMetalLayer* metalLayer = (CAMetalLayer*)nativeView.layer;
     ImGuiIO& io = ImGui::GetIO(); (void)io;
     io.DisplaySize.x = metalLayer.drawableSize.width;
@@ -137,6 +145,9 @@ void ImGuiHandler::Update(const ImGuiUpdateFn& updateFn) {
 
 ImGuiHandler::~ImGuiHandler() {
     ImGui_ImplMetal_Shutdown();
+#if TARGET_OS_OSX
+    ImGui_ImplOSX_Shutdown();
+#endif
     ImGui::DestroyContext();
 }
 
@@ -158,6 +169,8 @@ void ImGuiHandler::OnDrawUpdate()
 
 void ImGuiHandler::OnEvent(Application::Event& event)
 {
+#if TARGET_OS_IOS
+    // Pass events to imgui
     std::cout << event.ToString() << std::endl;
     UIEvent* uiEvent = (__bridge UIEvent*)event.m_NativeEvent;
     UITouch *anyTouch = uiEvent.allTouches.anyObject;
@@ -176,6 +189,7 @@ void ImGuiHandler::OnEvent(Application::Event& event)
         }
     }
     io.AddMouseButtonEvent(0, hasActiveTouch);
+#endif
 }
 
 void ImGuiHandler::OnSelection(int objectId, bool state)

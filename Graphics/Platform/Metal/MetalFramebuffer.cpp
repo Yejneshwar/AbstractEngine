@@ -26,6 +26,7 @@ namespace Graphics {
                 case FramebufferTextureFormat::BLUE_INTEGER:    GRAPHICS_CORE_ASSERT(false, "MTLPixelFormat for BLUE_INTEGER not supported directly."); return MTL::PixelFormatInvalid;
 #if TARGET_OS_OSX
                 case FramebufferTextureFormat::DEPTH24STENCIL8: return MTL::PixelFormatDepth24Unorm_Stencil8;
+                case FramebufferTextureFormat::DEPTH32STENCIL8: return MTL::PixelFormatDepth32Float_Stencil8;
 #else
                 case FramebufferTextureFormat::DEPTH24STENCIL8: return MTL::PixelFormatInvalid;
                 case FramebufferTextureFormat::DEPTH32FLOAT: return MTL::PixelFormatDepth32Float;

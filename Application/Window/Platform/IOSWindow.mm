@@ -1,4 +1,5 @@
 #include "IOSWindow.h"
+
 #import <UIKit/UIKit.h>
 #import <Foundation/Foundation.h>
 
@@ -13,10 +14,13 @@
 // A custom UIView subclass that tells iOS its backing layer should be a CAMetalLayer.
 @interface MetalView : UIView
 @property (nonatomic, assign) Application::WindowData* windowData;
-@property (nonatomic, strong) UIPinchGestureRecognizer *pinchGestureRecognizer;
+@property (nonatomic, strong) UIPinchGestureRecognizer* pinchGestureRecognizer;
 @end
 
 @implementation MetalView
+
+    std::chrono::high_resolution_clock::time_point touchStart, touchEnd;
+
 + (Class)layerClass {
     return [CAMetalLayer class];
 }
@@ -96,6 +100,7 @@
 
 // Called when a finger first touches the screen
 - (void)touchesBegan:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
+    self.windowData->m_mousePressStartLeft = std::chrono::high_resolution_clock::now();
     UITouch *touch = [touches anyObject];
     CGPoint location = [touch locationInView:self];
     NSLog(@"Tap count: %ld", [touch tapCount]);
@@ -125,13 +130,14 @@
 
 // Called when a finger is lifted from the screen
 - (void)touchesEnded:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
+    self.windowData->m_mousePressEndLeft = std::chrono::high_resolution_clock::now();
     UITouch *touch = [touches anyObject];
     CGPoint location = [touch locationInView:self];
     
     // Update the C++ InputManager singleton for polling
     Application::InputManager::OnTouchUp((float)location.x, (float)location.y);
 
-    Application::MouseButtonReleasedEvent releaseEvent(0, (__bridge_retained void*)event);
+    Application::MouseButtonReleasedEvent releaseEvent(0,std::chrono::duration_cast<std::chrono::milliseconds>(self.windowData->m_mousePressEndLeft - self.windowData->m_mousePressStartLeft), (__bridge_retained void*)event);
     [self dispatchMouseEvent:releaseEvent];
 }
 
@@ -278,8 +284,8 @@ public:
         return "iOS Screen";
     }
 
-    Graphics::Ref<Graphics::GraphicsContext> IOSWindow::GetRenderContext() const {
-        return m_GraphicsContext;
+    Graphics::GraphicsContext* IOSWindow::GetRenderContext() const {
+        return m_GraphicsContext.get();
     }
 
 

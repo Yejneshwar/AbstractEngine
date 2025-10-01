@@ -1,4 +1,4 @@
-﻿# CMakeList.txt : CMake project for OpenGL Starter, include source and define
+# CMakeList.txt : CMake project for OpenGL Starter, include source and define
 # project specific logic here.
 #
 cmake_minimum_required (VERSION 3.20)
@@ -24,7 +24,7 @@ if(APPLE)
 	    set(PLATFORM "OS64COMBINED" CACHE STRING "")
     endif()
     if (NOT DEFINED DEPLOYMENT_TARGET)
-	    set(DEPLOYMENT_TARGET "18.0" CACHE STRING "")
+	    set(DEPLOYMENT_TARGET "26.0" CACHE STRING "")
     endif()
     message(STATUS "PLATFORM: ${PLATFORM}")
     message(STATUS "Deployment Target ${DEPLOYMENT_TARGET}")
@@ -60,6 +60,7 @@ elseif(ANDROID)
 	endif()
 elseif(APPLE)
    message("Apple Build")
+   add_compile_definitions(BUILDING_METAL)
 elseif(WIN32)
     message("Windows Build")
 else()
@@ -68,6 +69,9 @@ endif()
 
 message("Project Name : ${GUI_PROJECT_NAME}")
 message("Building Testing : ${GUI_BUILD_TESTING}")
+
+
+message("${CMAKE_MODULE_PATH}")
 
 #if tags not set set them
 if (NOT DEFINED GLFW_TAG)
@@ -178,7 +182,7 @@ list(APPEND components imgui)
 FetchContent_MakeAvailable(${components})
 
 
-if(IOS)
+if(APPLE)
     file(GLOB imgui_SRC ${imgui_SOURCE_DIR}/*.cpp ${imgui_SOURCE_DIR}/*.h)
     add_library(
             imgui
@@ -187,34 +191,19 @@ if(IOS)
             ${imgui_SOURCE_DIR}/backends/imgui_impl_metal.h
     )
     target_link_libraries(imgui PUBLIC "-framework Foundation")
-    target_link_libraries(imgui PUBLIC "-framework UIKit")
     target_link_libraries(imgui PUBLIC "-framework GameController")
+    if(IOS)
+        target_link_libraries(imgui PUBLIC "-framework UIKit")
+    elseif(MACOS)
+        target_sources(imgui PUBLIC 
+            ${imgui_SOURCE_DIR}/backends/imgui_impl_osx.mm
+            ${imgui_SOURCE_DIR}/backends/imgui_impl_osx.h
+        )
+        target_link_libraries(imgui PUBLIC "-framework AppKit")
+    endif()
     target_link_libraries(imgui PUBLIC "-framework QuartzCore")
     target_link_libraries(imgui PUBLIC "-framework Metal")
     target_link_libraries(imgui PUBLIC "-framework MetalKit")
-    target_include_directories(
-            imgui
-            PUBLIC
-            ${imgui_SOURCE_DIR}
-            ${imgui_SOURCE_DIR}/backends
-    )
-elseif(APPLE)
-    file(GLOB imgui_SRC ${imgui_SOURCE_DIR}/*.cpp ${imgui_SOURCE_DIR}/*.h)
-    add_library(
-            imgui
-            ${imgui_SRC}
-            ${imgui_SOURCE_DIR}/backends/imgui_impl_metal.mm
-            ${imgui_SOURCE_DIR}/backends/imgui_impl_metal.h
-            ${imgui_SOURCE_DIR}/backends/imgui_impl_glfw.cpp
-            ${imgui_SOURCE_DIR}/backends/imgui_impl_glfw.h
-    )
-    target_link_libraries(imgui PUBLIC "-framework Foundation")
-    target_link_libraries(imgui PUBLIC "-framework UIKit")
-    target_link_libraries(imgui PUBLIC "-framework QuartzCore")
-    target_link_libraries(imgui PUBLIC "-framework Metal")
-    target_link_libraries(imgui PUBLIC "-framework MetalKit")
-    target_link_libraries(imgui PUBLIC glfw)
-    #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DIMGUI_IMPL_OPENGL_LOADER_GLAD2")
     target_include_directories(
             imgui
             PUBLIC
@@ -335,9 +324,12 @@ set(PLATFORM_OPENGL_WINDOW
 "Application/Window/Platform/WindowsWindow.h"
 )
 
-set(PLATFROM_METAL_WINDOW
+set(PLATFROM_MACOS_WINDOW
 "Application/Window/Platform/MacOSWindow.mm"
 "Application/Window/Platform/MacOSWindow.h"
+)
+
+set(PLATFROM_IOS_WINDOW
 "Application/Window/Platform/IOSWindow.mm"
 "Application/Window/Platform/IOSWindow.h"
 )
@@ -349,8 +341,10 @@ set(PLATFORM_WINDOW_SRC
 "Application/Window/Platform/InputManager/InputManager.h"
 )
 
-if(APPLE)
-list(APPEND PLATFORM_WINDOW_SRC ${PLATFROM_METAL_WINDOW})
+if(MACOS)
+list(APPEND PLATFORM_WINDOW_SRC ${PLATFROM_MACOS_WINDOW})
+elseif(IOS)
+list(APPEND PLATFORM_WINDOW_SRC ${PLATFROM_IOS_WINDOW})
 else()
 list(APPEND PLATFORM_WINDOW_SRC ${PLATFORM_OPENGL_WINDOW})
 endif()
@@ -425,14 +419,24 @@ if(APPLE)
 
 SET(RESOURCES_PATH "${CMAKE_CURRENT_SOURCE_DIR}/Resources")
 message(STATUS "Resources path for APPLE ${RESOURCES_PATH}")
+SET(APP_ASSETS "${CMAKE_CURRENT_SOURCE_DIR}/AppIcon.icon")
+
+if(IOS)
+    list(APPEND APP_ASSETS "${CMAKE_CURRENT_SOURCE_DIR}/LaunchScreen.storyboard")
+endif(IOS)
 
 resource(RESOURCE_FILES ${RESOURCES_PATH} "Resources/Resource" *)
+asset(OTHER_ASSETS "Resources" ${APP_ASSETS})
 
-target_sources(${PROJECT_NAME} PRIVATE ${RESOURCE_FILES})
+target_sources(${PROJECT_NAME} PRIVATE ${RESOURCE_FILES} ${OTHER_ASSETS})
 
 set_xcode_property(${PROJECT_NAME} PRODUCT_BUNDLE_IDENTIFIER "com.abstract.testgui" All)
 set_target_properties(${PROJECT_NAME} PROPERTIES
+    MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/Info.plist.in"
     MACOSX_BUNDLE_BUNDLE_NAME ${PROJECT_NAME}
+    MACOSX_BUNDLE_ICON_FILE "AppIcon"
+    XCODE_ATTRIBUTE_ASSETCATALOG_COMPILER_APPICON_NAME "AppIcon"
+    MACOSX_BUNDLE_LAUNCH_SCREEN_NAME "LaunchScreen"
     MACOSX_BUNDLE_BUNDLE_VERSION "1"
     MACOSX_BUNDLE_LONG_VERSION_STRING "1.0"
     XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY "Apple Development"
@@ -489,7 +493,7 @@ add_executable(AppleMetalTest-IOS "AppleMetalTest.mm" "AppleMetalTest.h")
 SET(RESOURCES_PATH "${CMAKE_CURRENT_SOURCE_DIR}/Resources")
 message(STATUS "Resources path for APPLE ${RESOURCES_PATH}")
 
-resource(RESOURCE_FILES ${RESOURCES_PATH} "Resources/Resource" *)
+# resource(RESOURCE_FILES ${RESOURCES_PATH} "Resources/Resource" *)
 
 target_sources(AppleMetalTest-IOS PRIVATE ${RESOURCE_FILES})
 

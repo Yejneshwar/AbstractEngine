@@ -2,11 +2,16 @@
 #include "Window/Window.h"
 
 #if BUILDING_METAL
+
+#if TARGET_OS_OSX
 #include "Platform/MacOSWindow.h"
+#elif TARGET_OS_IOS
 #include "Platform/IOSWindow.h"
+#endif // TARGET_OS_OSX
+
 #else
 #include "Platform/WindowsWindow.h"
-#endif
+#endif // BUILDING_METAL
 
 namespace Application {
 
@@ -14,7 +19,7 @@ namespace Application {
 	{
 #if BUILDING_METAL
 #if TARGET_OS_OSX
-        return Graphics::CreateScope<MacOSWindow>(props);
+        return Graphics::CreateScope<MacOSWindow>(props, nativeWindow);
 #else
         return Graphics::CreateScope<IOSWindow>(props, nativeWindow);
 #endif

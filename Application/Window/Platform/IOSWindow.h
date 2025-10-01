@@ -47,10 +47,10 @@ namespace Application {
         virtual int GetMonitorCount() const override;
         virtual const char* GetPrimaryMonitorName() const override;
         
-        Graphics::Ref<Graphics::GraphicsContext> GetRenderContext() const override;
+        Graphics::GraphicsContext* GetRenderContext() const override;
         
     private:
-        Graphics::Ref<Graphics::GraphicsContext> m_GraphicsContext;
+        Graphics::Scope<Graphics::GraphicsContext> m_GraphicsContext;
         void* m_Window;
 
         WindowData m_Data;

@@ -78,8 +78,8 @@ void MetalVertexBuffer::SetData(const void* data, uint32_t size, uint32_t offset
 
 #if TARGET_OS_OSX
     // Only needed for Managed storage; harmless check for Shared
-    if (buffer.storageMode == MTLStorageModeManaged) {
-        [buffer didModifyRange:NSMakeRange(offset, size)];
+    if(m_Buffer->storageMode() == MTL::StorageModeManaged) {
+        m_Buffer->didModifyRange(NS::Range::Make(offset, size));
     }
 #endif
 }

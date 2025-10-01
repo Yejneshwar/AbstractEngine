@@ -6,7 +6,7 @@
 #include <cassert>
 #include <string>
 
-#define STB_IMAGE_IMPLEMENTATION
+//#define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
 #include "Logger.h"
@@ -29,7 +29,7 @@ namespace Graphics {
     }
 
     MetalTexture2D::MetalTexture2D(uint32_t width, uint32_t height, TextureFormat format) :
-        m_Width(width), m_Height(height), m_InternalFormat(Utils::TextureFormatToMTL(format))
+        Texture2D(format), m_Width(width), m_Height(height), m_InternalFormat(Utils::TextureFormatToMTL(format))
     {
         MTL::TextureDescriptor* descriptor = MTL::TextureDescriptor::alloc()->init();
         descriptor->setPixelFormat(m_InternalFormat);
@@ -53,7 +53,7 @@ namespace Graphics {
     }
 
     MetalTexture2D::MetalTexture2D(const std::string& path) :
-        m_Path(GUI::Utils::getResourcePath(path))
+        Texture2D(TextureFormat::RGBA32FLOAT), m_Path(GUI::Utils::getResourcePath(path))
     {
         LOG_TRACE_STREAM << "Loading texture " << m_Path;
         int width, height, channels;

@@ -6,8 +6,11 @@
 
 #if TARGET_OS_OSX
     #import <AppKit/NSView.h>
+    #import <QuartzCore/QuartzCore.h>
+    #define _VIEW_ NSView
 #elif TARGET_OS_IOS
     #import <UIKit/UIKit.h>
+    #define _VIEW_ UIView
 #endif
 
 namespace Graphics {
@@ -40,7 +43,7 @@ namespace Graphics {
 
         #if TARGET_OS_OSX
             NSView* view = (__bridge NSView*)m_NativeView;
-            metalLayer.contentsScale = view.window.backingScaleFactor;
+//            metalLayer.contentsScale = view.window.backingScaleFactor;
             view.wantsLayer = YES;
             view.layer = metalLayer;
         #elif TARGET_OS_IOS

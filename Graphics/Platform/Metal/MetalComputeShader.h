@@ -5,7 +5,7 @@
 
 namespace Graphics {
 
-	class MetalComputeShader : public ComputeShader, public Shader
+	class MetalComputeShader : public ComputeShader, private Shader
 	{
 	public:
         MetalComputeShader(const std::filesystem::path& filepath);

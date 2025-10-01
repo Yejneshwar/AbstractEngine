@@ -18,7 +18,7 @@ namespace GUI {
 	{
 		HZ_PROFILE_FUNCTION();
 
-		assert(!s_Instance, "Application already exists!");
+		assert(!s_Instance && "Application already exists!");
 		s_Instance = this;
 
 		// Set working directory here
@@ -34,7 +34,7 @@ namespace GUI {
 			Graphics::FramebufferTextureFormat::RGBA8,
 			Graphics::FramebufferTextureFormat::RED_INTEGER,
 			Graphics::FramebufferTextureFormat::RGBA8,
-#if TARGET_OS_IOS
+#if __APPLE__
             Graphics::FramebufferTextureFormat::DEPTH32STENCIL8,
 #else
 			Graphics::FramebufferTextureFormat::Depth,
@@ -131,7 +131,7 @@ namespace GUI {
 				LOG_TRACE_STREAM << "Mouse button hold duration: " << mouseEvent->GetPressDuration();
 
 				//This means mouse button was held down
-				if (mouseEvent->GetPressDuration() > std::chrono::milliseconds(350)) break;
+				if (mouseEvent->GetPressDuration() > std::chrono::milliseconds(100)) break;
 
 				auto [mx, my] = ImGui::GetMousePos();
 				mx -= viewPort.ViewportBounds[0].x;
@@ -296,7 +296,10 @@ namespace GUI {
 
 						v.Framebuffer->Unbind();
                         if (m_ObjectSelection.objectID > -1 && m_ObjectSelection.objectID < MAX_SELECTED_OBJECT_ID) {
-                            
+#if BUILDING_METAL
+                            int numGroupsX = v.ViewportSize.x;
+                            int numGroupsY = v.ViewportSize.y;
+#else
 							// Texture dimensions
 							int textureWidth = v.ViewportSize.x;
 							int textureHeight = v.ViewportSize.y;
@@ -309,7 +312,7 @@ namespace GUI {
 							// This is a common way to do integer ceiling division
 							int numGroupsX = (textureWidth + localSizeX - 1) / localSizeX;
 							int numGroupsY = (textureHeight + localSizeY - 1) / localSizeY;
-
+#endif
                             m_JFAComputeSeed->Bind();
                             m_JFAComputeSeed->BindTexture(v.Framebuffer->GetColorAttachmentRendererID(2), 0); // [[texture(0)]]
                             m_JFAComputeSeed->BindTexture(v.JFATextureA->GetRendererID(), 1); // [[texture(1)]]
