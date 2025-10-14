@@ -41,12 +41,16 @@ function(asset VAR DESTINATION)
 endfunction()
 
 function(codesign PROJECT_NAME)
+    if (NOT IOS)
+        message(STATUS "No need for codesign on non-IOS devices")
+        return()
+    endif()
     add_custom_command(
         TARGET ${PROJECT_NAME}
         POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E echo "Running custom post-build script..."
-        COMMAND chmod +x ${CMAKE_SOURCE_DIR}/ios-codesign.sh
-        COMMAND ${CMAKE_SOURCE_DIR}/ios-codesign.sh  # Path to your script
+        COMMAND chmod +x ${CMAKE_CURRENT_SOURCE_DIR}/ios-codesign.sh
+        COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/ios-codesign.sh  # Path to your script
         COMMENT "Executing custom codesign script for ${PROJECT_NAME}"
     )
 endfunction()

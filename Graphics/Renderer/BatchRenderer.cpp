@@ -52,8 +52,8 @@ namespace Graphics {
 		};
 
 		struct DrawList {
-			std::vector<double> vertices;
-			std::vector<double> normals;
+			std::vector<float> vertices;
+			std::vector<float> normals;
 			std::vector<uint32_t> indices;
 			uint32_t indicesOffset = 0;
 			bool updateBatch = false;
@@ -453,10 +453,10 @@ namespace Graphics {
 
 			if (s_Data.storage.updateBatch) {
 				for (size_t i = 0; i < s_Data.storage.vertices.size(); i += 3) {
-					s_Data.StaticTriangleVertexBufferPtr->aID = -1;
-                    s_Data.StaticTriangleVertexBufferPtr->Position = { static_cast<float>(s_Data.storage.vertices.at(i)), static_cast<float>(s_Data.storage.vertices.at(i + 1)), static_cast<float>(s_Data.storage.vertices.at(i + 2)) };
-                    s_Data.StaticTriangleVertexBufferPtr->Normal = { 1.0f,0.0f,0.0f };
-                    s_Data.StaticTriangleVertexBufferPtr->Color = { 1.0f, 1.0f, 1.0f, 1.0f };
+					s_Data.StaticTriangleVertexBufferPtr->aID = 1;
+                    s_Data.StaticTriangleVertexBufferPtr->Position = GUI::DataType::vec3(s_Data.storage.vertices.at(i), s_Data.storage.vertices.at(i + 1), s_Data.storage.vertices.at(i + 2));                   
+                    s_Data.StaticTriangleVertexBufferPtr->Normal = GUI::DataType::vec3( 1.0f,0.0f,0.0f );
+                    s_Data.StaticTriangleVertexBufferPtr->Color = GUI::DataType::vec4( 1.0f, 1.0f, 1.0f, 1.0f );
 					s_Data.StaticTriangleVertexBufferPtr++;
 				}
 
@@ -504,7 +504,7 @@ namespace Graphics {
 
 			for (size_t i = 0; i < vertices.size(); i += 3) {
 				s_Data.TriangleVertexBufferPtr->aID = id;
-                s_Data.TriangleVertexBufferPtr->Position = { static_cast<float>(vertices.at(i)), static_cast<float>(vertices.at(i + 1)), static_cast<float>(vertices.at(i + 2)) };
+                s_Data.TriangleVertexBufferPtr->Position = GUI::DataType::vec3( vertices.at(i), vertices.at(i + 1), vertices.at(i + 2) );
 				s_Data.TriangleVertexBufferPtr->Color = color;
 				s_Data.TriangleVertexBufferPtr++;
 			}

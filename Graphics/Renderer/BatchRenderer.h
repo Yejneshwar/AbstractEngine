@@ -1,7 +1,7 @@
 #pragma once
 #include <cstdint>
 #include <vector>
-#include <Renderer/Framebuffer.h>
+#include <Renderer/FrameBuffer.h>
 
 #include "DataTypes.h"
 
@@ -51,6 +51,11 @@ namespace Graphics {
 
 			static void DrawLines(const std::vector<GUI::DataType::vec3>& points, const std::vector<uint32_t>& indices, const GUI::DataType::vec4& color, const int id = -1, bool withArrows = false);
 
+#if __APPLE__
+            static void DrawLines(const std::vector<glm::vec3>& points, const std::vector<uint32_t>& indices, const GUI::DataType::vec4& color, const int id = -1, bool withArrows = false){
+                DrawLines(GUI::convert_to_simd_vector<simd_float3, 3>(points), indices, color, id, withArrows);
+            }
+#endif
 
 			static void DrawQuad(const GUI::DataType::vec3& p1, const GUI::DataType::vec3& p2, const GUI::DataType::vec3& p3, const GUI::DataType::vec3& p4, const GUI::DataType::vec4& color, const int id = -1);
 

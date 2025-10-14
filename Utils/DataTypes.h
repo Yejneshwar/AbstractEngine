@@ -8,6 +8,8 @@
 #define _Z_ z()
 
 #include <simd/simd.h>
+#include <glm/glm.hpp>
+#include <ostream>
 
 inline simd_float4x4 operator*(const simd_float4x4& lhs, const simd_float4x4& rhs) {
     return simd_mul(lhs, rhs);
@@ -55,6 +57,15 @@ using SIMDVec4 = SIMDVec<simd_float4, 4>;
 template<typename VectorType, int N>
 struct SIMDVec {
     VectorType data;
+    
+    // Access operator for convenience
+    auto operator[](int index) const -> decltype(data[index]) {
+        return data[index];
+    }
+    
+    auto operator[](int index) -> decltype(data[index]) {
+        return data[index];
+    }
 
     // Default constructor (initializes to zero)
     SIMDVec() : data{} {}
@@ -156,7 +167,46 @@ struct SIMDVec {
 
     float& w() { static_assert(N >= 4, "Vector does not have a 'w' component."); return reinterpret_cast<float*>(&data)[3]; }
     const float& w() const { static_assert(N >= 4, "Vector does not have a 'w' component."); return reinterpret_cast<const float*>(&data)[3]; }
+
+       
+    //glm conversion operators
+    template<typename T,
+    typename = std::enable_if_t<
+    (std::is_same_v<std::decay_t<T>, glm::vec2> && N == 2) ||
+    (std::is_same_v<std::decay_t<T>, glm::vec3> && N == 3) ||
+    (std::is_same_v<std::decay_t<T>, glm::vec4> && N == 4)
+    >>
+    SIMDVec(const T& v)
+    {
+        // Use if constexpr (C++17) for efficient compile-time branching
+        if constexpr (N == 2) {
+            data.x = v.x;
+            data.y = v.y;
+        } else if constexpr (N == 3) {
+            data.x = v.x;
+            data.y = v.y;
+            data.z = v.z;
+        } else if constexpr (N == 4) {
+            data.x = v.x;
+            data.y = v.y;
+            data.z = v.z;
+            data.w = v.w;
+        }
+    }
 };
+    
+    // << operator overload for SIMDVec
+    template<typename VectorType, int N>
+    std::ostream& operator<<(std::ostream& os, const SIMDVec<VectorType, N>& vec) {
+        os << "[";
+        for (int i = 0; i < N; ++i) {
+            os << vec[i];
+            if (i != N - 1)
+                os << ", ";
+        }
+        os << "]";
+        return os;
+    }
 
 // Non-member binary operators
 template<typename VT, int N> inline SIMDVec<VT, N> operator+(const SIMDVec<VT, N>& lhs, const SIMDVec<VT, N>& rhs) { return SIMDVec<VT, N>(lhs.data + rhs.data); }
@@ -169,6 +219,25 @@ template<typename VT, int N> inline SIMDVec<VT, N> operator/(const SIMDVec<VT, N
 template<typename VT, int N> inline float length(const SIMDVec<VT, N>& v) { return simd_length(v.data); }
 template<typename VT, int N> inline SIMDVec<VT, N> normalize(const SIMDVec<VT, N>& v) { return SIMDVec<VT, N>(simd_normalize(v.data)); }
 template<typename VT, int N> inline float dot(const SIMDVec<VT, N>& lhs, const SIMDVec<VT, N>& rhs) { return simd_dot(lhs.data, rhs.data); }
+    
+/**
+    * @brief Converts a std::vector of glm::vec to a std::vector of SIMDVec.
+    *
+    * @tparam VectorType The target underlying SIMD vector type (e.g., simd_float3).
+    * @tparam N The number of floating-point elements in the vector (e.g., 3).
+    * @param glm_vectors A constant reference to the input vector of glm::vec<N, ...>.
+    * @return A new std::vector containing the converted SIMDVec<VectorType, N> elements.
+    */
+template<typename VectorType, int N>
+std::vector<SIMDVec<VectorType, N>>
+convert_to_simd_vector(const std::vector<glm::vec<N, float, glm::defaultp>>& glm_vectors) {
+    std::vector<SIMDVec<VectorType, N>> simd_vectors;
+    simd_vectors.reserve(glm_vectors.size());
+    for (const auto& glm_vec : glm_vectors) {
+        simd_vectors.emplace_back(glm_vec);
+    }
+    return simd_vectors;
+}
 
 
 namespace DataType {

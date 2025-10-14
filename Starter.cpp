@@ -14,14 +14,6 @@
 #include <Renderer/BatchRenderer.h>
 #include "MetalTestLayer.h"
 
-#ifdef __APPLE__
-#define NS_PRIVATE_IMPLEMENTATION
-#define CA_PRIVATE_IMPLEMENTATION
-#define MTL_PRIVATE_IMPLEMENTATION
-#include <Metal/Metal.hpp>
-#include <Foundation/Foundation.hpp>
-#include <QuartzCore/QuartzCore.hpp>
-#endif
 
 #include "DataTypes.h"
 

@@ -3,10 +3,6 @@
 #
 cmake_minimum_required (VERSION 3.20)
 
-if(NOT DEFINED GUI_PROJECT_NAME)
-   set(GUI_PROJECT_NAME "TestGui")
-   #message( FATAL_ERROR "Set the project name with GUI_PROJECT_NAME." )
-endif()
 if(NOT DEFINED GUI_BUILD_TESTING)
    set(GUI_BUILD_TESTING OFF CACHE BOOL "")
 endif()
@@ -40,12 +36,11 @@ if (POLICY CMP0141)
   set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT "$<IF:$<AND:$<C_COMPILER_ID:MSVC>,$<CXX_COMPILER_ID:MSVC>>,$<$<CONFIG:Debug,RelWithDebInfo>:EditAndContinue>,$<$<CONFIG:Debug,RelWithDebInfo>:ProgramDatabase>>")
 endif()
 
-project (${GUI_PROJECT_NAME} VERSION 1.0)
+project (AbstractEngine VERSION 1.0)
 
 message("Cmake System Name ${CMAKE_SYSTEM_NAME} - ${CMAKE_SYSTEM_VERSION} - ${CMAKE_OSX_DEPLOYMENT_TARGET}")
 if(IOS)
     message("IOS Build")
-    add_compile_definitions(BUILDING_METAL)
 elseif(ANDROID)
 	if(${ANDROID_ABI} STREQUAL "x86_64")
 		message("-- Android Build for x86_64")
@@ -60,14 +55,13 @@ elseif(ANDROID)
 	endif()
 elseif(APPLE)
    message("Apple Build")
-   add_compile_definitions(BUILDING_METAL)
 elseif(WIN32)
     message("Windows Build")
 else()
 	message(FATAL_ERROR "-- Undefined build")
 endif()
 
-message("Project Name : ${GUI_PROJECT_NAME}")
+message("Project Name : ${PROJECT_NAME}")
 message("Building Testing : ${GUI_BUILD_TESTING}")
 
 
@@ -275,7 +269,7 @@ set(PLATFORM_METAL
 )
 
 set(GRAPHICS_SRC "Graphics/GraphicsCore.h"
-"Graphics/GraphicsBase.h"
+"Graphics/include/GraphicsBase.h"
 "Graphics/Renderer/BatchRenderer.h"
 "Graphics/Renderer/BatchRenderer.cpp"
 "Graphics/Renderer/Buffer.h"
@@ -402,21 +396,41 @@ FetchContent_Declare(LoggingLibrary                   #name of repository
 
 FetchContent_MakeAvailable(LoggingLibrary)
 
-include_directories(Graphics)
-include_directories(Application)
-include_directories(Utils)
+set(ENGINE_PROJECT_NAME "AbstractEngine")
+message(STATUS "Building ${ENGINE_PROJECT_NAME} as library")
+add_library(${ENGINE_PROJECT_NAME} ${SRC})
 
-# Add source to this project's executable.
-add_executable (${PROJECT_NAME} ${SRC})
+target_include_directories(${ENGINE_PROJECT_NAME}
+  PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/Graphics
+    ${CMAKE_CURRENT_SOURCE_DIR}/Application
+    ${CMAKE_CURRENT_SOURCE_DIR}/Utils
+)
+
 if(GUI_BUILD_TESTING)
+    add_executable(AbstractEngine-TestGUI)
+    set_xcode_property(${ENGINE_PROJECT_NAME} PRODUCT_BUNDLE_IDENTIFIER "com.abstract.testgui" All)
+    set_target_properties(AbstractEngine-TestGUI PROPERTIES
+        MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/Info.plist.in"
+        MACOSX_BUNDLE_BUNDLE_NAME AbstractEngine-TestGUI
+        MACOSX_BUNDLE_LAUNCH_SCREEN_NAME "LaunchScreen"
+        MACOSX_BUNDLE_BUNDLE_VERSION "1"
+        MACOSX_BUNDLE_LONG_VERSION_STRING "1.0"
+        XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY "Apple Development"
+        XCODE_ATTRIBUTE_CODE_SIGNING_REQUIRED "YES"
+        XCODE_ATTRIBUTE_TARGETED_DEVICE_FAMILY "1,2"
+        MACOSX_BUNDLE_GUI_IDENTIFIER "\$\{PRODUCT_BUNDLE_IDENTIFIER\}"
+    )
+    target_link_libraries(AbstractEngine-TestGUI ${ENGINE_PROJECT_NAME})
     if(APPLE)
-        target_sources(${PROJECT_NAME} PRIVATE "MainApple.mm" "Starter.cpp" "Starter.h" "MetalTestLayer.mm" "MetalTestLayer.h")
+        target_sources(AbstractEngine-TestGUI PRIVATE "MainApple.mm" "Starter.cpp" "Starter.h" "MetalTestLayer.mm" "MetalTestLayer.h")
+        codesign(AbstractEngine-TestGUI)
     else()
-        target_sources(${PROJECT_NAME} PRIVATE "MainWindows.cpp" "Starter.cpp" "Starter.h")
+        target_sources(AbstractEngine-TestGUI PRIVATE "MainWindows.cpp" "Starter.cpp" "Starter.h")
     endif()
 endif()
 if(APPLE)
-
+target_compile_definitions(${ENGINE_PROJECT_NAME} PUBLIC BUILDING_METAL=1)
 SET(RESOURCES_PATH "${CMAKE_CURRENT_SOURCE_DIR}/Resources")
 message(STATUS "Resources path for APPLE ${RESOURCES_PATH}")
 SET(APP_ASSETS "${CMAKE_CURRENT_SOURCE_DIR}/AppIcon.icon")
@@ -428,15 +442,19 @@ endif(IOS)
 resource(RESOURCE_FILES ${RESOURCES_PATH} "Resources/Resource" *)
 asset(OTHER_ASSETS "Resources" ${APP_ASSETS})
 
-target_sources(${PROJECT_NAME} PRIVATE ${RESOURCE_FILES} ${OTHER_ASSETS})
+target_sources(${ENGINE_PROJECT_NAME} PUBLIC ${OTHER_ASSETS})
 
-set_xcode_property(${PROJECT_NAME} PRODUCT_BUNDLE_IDENTIFIER "com.abstract.testgui" All)
-set_target_properties(${PROJECT_NAME} PROPERTIES
+
+# Create a module library for the resource bundle
+add_library(AbstractEngine_Resources INTERFACE)
+target_sources(AbstractEngine_Resources INTERFACE ${RESOURCE_FILES})
+
+set_xcode_property(${ENGINE_PROJECT_NAME} PRODUCT_BUNDLE_IDENTIFIER "com.abstract.engine" All)
+set_target_properties(${ENGINE_PROJECT_NAME} PROPERTIES
     MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/Info.plist.in"
-    MACOSX_BUNDLE_BUNDLE_NAME ${PROJECT_NAME}
+    MACOSX_BUNDLE_BUNDLE_NAME ${ENGINE_PROJECT_NAME}
     MACOSX_BUNDLE_ICON_FILE "AppIcon"
     XCODE_ATTRIBUTE_ASSETCATALOG_COMPILER_APPICON_NAME "AppIcon"
-    MACOSX_BUNDLE_LAUNCH_SCREEN_NAME "LaunchScreen"
     MACOSX_BUNDLE_BUNDLE_VERSION "1"
     MACOSX_BUNDLE_LONG_VERSION_STRING "1.0"
     XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY "Apple Development"
@@ -444,40 +462,39 @@ set_target_properties(${PROJECT_NAME} PROPERTIES
     XCODE_ATTRIBUTE_TARGETED_DEVICE_FAMILY "1,2"
     MACOSX_BUNDLE_GUI_IDENTIFIER "\$\{PRODUCT_BUNDLE_IDENTIFIER\}"
 )
-target_link_libraries(${PROJECT_NAME} "-framework Foundation")
-target_link_libraries(${PROJECT_NAME} "-framework QuartzCore")
-target_link_libraries(${PROJECT_NAME} "-framework Metal")
-target_link_libraries(${PROJECT_NAME} "-framework MetalKit")
-target_include_directories(${PROJECT_NAME} PRIVATE
-        "Graphics/lib"
+
+target_link_libraries(${ENGINE_PROJECT_NAME} "-framework Foundation")
+target_link_libraries(${ENGINE_PROJECT_NAME} "-framework QuartzCore")
+target_link_libraries(${ENGINE_PROJECT_NAME} "-framework Metal")
+target_link_libraries(${ENGINE_PROJECT_NAME} "-framework MetalKit")
+target_include_directories(${ENGINE_PROJECT_NAME} PUBLIC
+        "${CMAKE_CURRENT_SOURCE_DIR}/Graphics/lib"
         )
 find_package(Threads REQUIRED)
-target_link_libraries(${PROJECT_NAME} Threads::Threads)
+target_link_libraries(${ENGINE_PROJECT_NAME} Threads::Threads)
 
-target_link_libraries(${PROJECT_NAME} spirv-cross-msl)
-
-codesign(${PROJECT_NAME})
+target_link_libraries(${ENGINE_PROJECT_NAME} spirv-cross-msl)
 
 else()
 file(COPY "Resources/" DESTINATION "${CMAKE_CURRENT_BINARY_DIR}/Resource")
-target_link_libraries(${PROJECT_NAME} glad)
-target_link_libraries(${PROJECT_NAME} glfw)
+target_link_libraries(${ENGINE_PROJECT_NAME} glad)
+target_link_libraries(${ENGINE_PROJECT_NAME} glfw)
 endif()
-target_link_libraries(${PROJECT_NAME} spirv-cross-core spirv-cross-glsl spirv-cross-cpp)
-target_link_libraries(${PROJECT_NAME} shaderc)
-target_link_libraries(${PROJECT_NAME} glm)
-target_link_libraries(${PROJECT_NAME} imgui)
-target_link_libraries(${PROJECT_NAME} LoggingLibrary)
+target_link_libraries(${ENGINE_PROJECT_NAME} spirv-cross-core spirv-cross-glsl spirv-cross-cpp)
+target_link_libraries(${ENGINE_PROJECT_NAME} shaderc)
+target_link_libraries(${ENGINE_PROJECT_NAME} glm)
+target_link_libraries(${ENGINE_PROJECT_NAME} imgui)
+target_link_libraries(${ENGINE_PROJECT_NAME} LoggingLibrary)
 
 
 if(IMGUI_DOCKING_BRANCH)
-    target_compile_definitions(${PROJECT_NAME} PRIVATE IMGUI_DOCKING_BRANCH_ENABLED)
+    target_compile_definitions(${ENGINE_PROJECT_NAME} PRIVATE IMGUI_DOCKING_BRANCH_ENABLED)
 endif()
 
-message(STATUS "${PROJECT_NAME} uses STB_IMAGE_IMPLEMENTATION : ${USE_STB_IMAGE_IMPLEMENTATION}")
+message(STATUS "${ENGINE_PROJECT_NAME} uses STB_IMAGE_IMPLEMENTATION : ${USE_STB_IMAGE_IMPLEMENTATION}")
 if(USE_STB_IMAGE_IMPLEMENTATION)
     message("You can turn this off by setting USE_STB_IMAGE_IMPLEMENTATION to OFF")
-    target_compile_definitions(${PROJECT_NAME} PRIVATE USE_STB_IMAGE_IMPLEMENTATION)
+    target_compile_definitions(${ENGINE_PROJECT_NAME} PRIVATE USE_STB_IMAGE_IMPLEMENTATION)
 else()
     message("You can turn this on by setting USE_STB_IMAGE_IMPLEMENTATION to ON")
 endif()
@@ -514,7 +531,7 @@ endif()
 message("Final CXX_STANDARD ${CMAKE_CXX_STANDARD}")
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)
-  set_property(TARGET ${PROJECT_NAME} PROPERTY CXX_STANDARD 20)
+  set_property(TARGET ${ENGINE_PROJECT_NAME} PROPERTY CXX_STANDARD 20)
 endif()
 
 # TODO: Add tests and install targets if needed. 

@@ -1,3 +1,12 @@
+#ifdef __APPLE__
+#define NS_PRIVATE_IMPLEMENTATION
+#define CA_PRIVATE_IMPLEMENTATION
+#define MTL_PRIVATE_IMPLEMENTATION
+#include <Metal/Metal.hpp>
+#include <Foundation/Foundation.hpp>
+#include <QuartzCore/QuartzCore.hpp>
+#endif
+
 #include "AbstractApplication.h"
 #include "Renderer/Renderer.h"
 #include <Logger.h>
@@ -170,7 +179,7 @@ namespace GUI {
 			if (m_ObjectSelection.state) {
 				ViewPort::s_selectedObject = m_ObjectSelection.objectID;
 			}
-			else 
+			else
 				ViewPort::s_selectedObject = -1;
 
 			for (auto it = m_LayerStack.rbegin(); it != m_LayerStack.rend(); ++it)
@@ -179,7 +188,7 @@ namespace GUI {
 			}
 			m_emitSelectionEvent = false;
 
-			if (m_ObjectSelection.state == false) 
+			if (m_ObjectSelection.state == false)
 				m_ObjectSelection.objectID = -1;
 		}
 
@@ -510,7 +519,7 @@ namespace GUI {
 				//ToDo: account for the vieport position.
 				glm::vec2 world = { ((pos.x / screenWidth) * (worldXmax - worldXmin)) + worldXmin , worldYmax - ((pos.y / screenHeight) * (worldYmax - worldYmin)) };
 
-				//Note: The mouse coordinates lose precision because of the below two lines 
+				//Note: The mouse coordinates lose precision because of the below two lines
 				world.x += v.ViewPortCamera->GetFocalPoint().x;
 				world.y += v.ViewPortCamera->GetFocalPoint().y;
 
