@@ -176,6 +176,15 @@ bool Graphics::TwoDCamera::OnMouseMove(Application::MouseMovedEvent& e)
 
 	if (!mLeft && !mRight) return false;
 
+	// Tap-vs-drag hysteresis: ignore movement until it exceeds the slop
+	// radius from the press anchor (see OnMousePressed).
+	if (!m_DragLatched) {
+		constexpr float kDragThresholdPoints = 4.0f;
+		if (glm::length(mouse - m_PressAnchor) < kDragThresholdPoints)
+			return false;
+		m_DragLatched = true;
+	}
+
 	if (mLeft)
 		MousePan(delta);
 
@@ -187,7 +196,10 @@ bool Graphics::TwoDCamera::OnMouseMove(Application::MouseMovedEvent& e)
 bool Graphics::TwoDCamera::OnMousePressed(Application::MouseButtonPressedEvent& e) {
     const glm::vec2& mouse{ Application::Input::GetMouseX(), Application::Input::GetMouseY() };
     m_InitialMousePosition = mouse;
-    std::cout << "Initial Mouse Set" << std::endl;
+    // Arm the tap-vs-drag threshold (a Pencil tap micro-jitters; it must
+    // select without panning the canvas).
+    m_PressAnchor = mouse;
+    m_DragLatched = false;
     return false;
 }
 

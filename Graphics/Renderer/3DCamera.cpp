@@ -31,6 +31,11 @@ void Graphics::ThreeDCamera::OnEvent(Application::Event& event)
 bool Graphics::ThreeDCamera::OnMousePressed(Application::MouseButtonPressedEvent& e)
 {
 	m_InitialMousePosition = Application::Input::GetMousePosition();
+	// Arm the drag threshold: camera manipulation only starts once the
+	// pointer travels a few points, so a tap (especially an Apple Pencil
+	// tap, which micro-jitters) selects without nudging the view.
+	m_PressAnchor = m_InitialMousePosition;
+	m_DragLatched = false;
 	return false;
 }
 
@@ -125,6 +130,15 @@ bool Graphics::ThreeDCamera::OnMouseMove(Application::MouseMovedEvent& e)
 	// NOTE: the old iOS "discard large deltas" hack is gone — the platform
 	// layer now tracks a single primary touch continuously, so deltas are
 	// coherent, and multi-finger input arrives as gesture events instead.
+
+	// Tap-vs-drag hysteresis: ignore movement until it exceeds the slop
+	// radius from the press anchor (see OnMousePressed).
+	if (!m_DragLatched) {
+		constexpr float kDragThresholdPoints = 4.0f;
+		if (glm::length(mouse - m_PressAnchor) < kDragThresholdPoints)
+			return false;
+		m_DragLatched = true;
+	}
 
 	if (Application::Input::IsMouseButtonPressed(Application::Mouse::ButtonLeft))
 		MouseRotate(delta);

@@ -68,6 +68,10 @@ namespace Graphics {
 		bool OnMouseScroll(Application::MouseScrolledEvent& e);
 		bool OnMouseMove(Application::MouseMovedEvent& e);
 		bool OnMousePressed(Application::MouseButtonPressedEvent& e);
+
+		// Tap-vs-drag hysteresis state (see OnMousePressed / OnMouseMove).
+		glm::vec2 m_PressAnchor = { 0.0f, 0.0f };
+		bool m_DragLatched = true;
 		bool OnPinch(Application::PinchGestureEvent& e);
 		bool OnRotateGesture(Application::RotateGestureEvent& e);
 		bool OnPanGesture(Application::PanGestureEvent& e);
