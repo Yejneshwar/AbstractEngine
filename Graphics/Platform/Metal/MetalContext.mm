@@ -6,6 +6,7 @@
 
 #if TARGET_OS_OSX
     #import <AppKit/NSView.h>
+    #import <AppKit/NSWindow.h>
     #import <QuartzCore/QuartzCore.h>
     #define _VIEW_ NSView
 #elif TARGET_OS_IOS
@@ -43,9 +44,15 @@ namespace Graphics {
 
         #if TARGET_OS_OSX
             NSView* view = (__bridge NSView*)m_NativeView;
-//            metalLayer.contentsScale = view.window.backingScaleFactor;
             view.wantsLayer = YES;
             view.layer = metalLayer;
+            // The view is already in a window at this point; render at the
+            // display's native (retina) scale. MetalView keeps this up to date
+            // on resize / screen changes.
+            CGFloat backingScale = view.window ? view.window.backingScaleFactor : 1.0;
+            metalLayer.contentsScale = backingScale;
+            metalLayer.drawableSize = CGSizeMake(view.bounds.size.width * backingScale,
+                                                 view.bounds.size.height * backingScale);
         #elif TARGET_OS_IOS
             UIView* view = (__bridge UIView*)m_NativeView;
             if (![view.layer isKindOfClass:[CAMetalLayer class]])
@@ -64,10 +71,9 @@ namespace Graphics {
             existingLayer.contentsScale = metalLayer.contentsScale;
 
             metalLayer = existingLayer;
+            metalLayer.drawableSize = metalLayer.bounds.size;
         #endif
 
-        metalLayer.drawableSize = metalLayer.bounds.size;
-        
         // Store the layer
         m_MetalLayer = (__bridge_retained void*)metalLayer;
         m_CommandQueue = m_Device->newCommandQueue();

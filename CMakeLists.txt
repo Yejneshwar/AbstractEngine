@@ -409,7 +409,7 @@ target_include_directories(${ENGINE_PROJECT_NAME}
 
 if(GUI_BUILD_TESTING)
     add_executable(AbstractEngine-TestGUI)
-    set_xcode_property(${ENGINE_PROJECT_NAME} PRODUCT_BUNDLE_IDENTIFIER "com.abstract.testgui" All)
+    set_xcode_property(AbstractEngine-TestGUI PRODUCT_BUNDLE_IDENTIFIER "com.abstract.testgui" All)
     set_target_properties(AbstractEngine-TestGUI PROPERTIES
         MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/Info.plist.in"
         MACOSX_BUNDLE_BUNDLE_NAME AbstractEngine-TestGUI
@@ -442,7 +442,7 @@ endif(IOS)
 resource(RESOURCE_FILES ${RESOURCES_PATH} "Resources/Resource" *)
 asset(OTHER_ASSETS "Resources" ${APP_ASSETS})
 
-target_sources(${ENGINE_PROJECT_NAME} PUBLIC ${OTHER_ASSETS})
+target_sources(${ENGINE_PROJECT_NAME} PUBLIC ${RESOURCE_FILES} ${OTHER_ASSETS})
 
 
 # Create a module library for the resource bundle
@@ -480,6 +480,15 @@ file(COPY "Resources/" DESTINATION "${CMAKE_CURRENT_BINARY_DIR}/Resource")
 target_link_libraries(${ENGINE_PROJECT_NAME} glad)
 target_link_libraries(${ENGINE_PROJECT_NAME} glfw)
 endif()
+# target_include_directories(${ENGINE_PROJECT_NAME} PUBLIC
+#     "${CMAKE_CURRENT_SOURCE_DIR}/Application"
+#     # "${CMAKE_CURRENT_SOURCE_DIR}/Graphics"  # Corrected line
+# )
+message(STATUS "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!${CMAKE_CURRENT_SOURCE_DIR}")
+target_include_directories(${ENGINE_PROJECT_NAME}
+  PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Application> # For building locally
+)
 target_link_libraries(${ENGINE_PROJECT_NAME} spirv-cross-core spirv-cross-glsl spirv-cross-cpp)
 target_link_libraries(${ENGINE_PROJECT_NAME} shaderc)
 target_link_libraries(${ENGINE_PROJECT_NAME} glm)

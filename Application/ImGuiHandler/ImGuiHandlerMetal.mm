@@ -66,15 +66,40 @@ void ImGuiHandler::NewFrame() {
 inline void ImGuiHandler::Render() {
     ImGui::Render();
     ImDrawData* draw_data = ImGui::GetDrawData();
-    
+
     if (renderPassDescriptor == nil)
     {
         // Handle case where descriptor couldn't be created
         [commandBuffer commit];
         return;
     }
-    
-    
+
+    // The drawable can be smaller than the size this frame was built for
+    // (live resize, device rotation, or layer contentsScale != backingScaleFactor).
+    // Metal validation aborts on any scissor rect exceeding the render target,
+    // so clamp every clip rect to the real target size before encoding.
+    id<MTLTexture> targetTexture = renderPassDescriptor.colorAttachments[0].texture;
+    if (targetTexture != nil)
+    {
+        const ImVec2 off = draw_data->DisplayPos;
+        const float scaleX = draw_data->FramebufferScale.x > 0.0f ? draw_data->FramebufferScale.x : 1.0f;
+        const float scaleY = draw_data->FramebufferScale.y > 0.0f ? draw_data->FramebufferScale.y : 1.0f;
+        const float maxX = off.x + (float)targetTexture.width / scaleX;
+        const float maxY = off.y + (float)targetTexture.height / scaleY;
+        for (int n = 0; n < draw_data->CmdListsCount; n++)
+        {
+            ImDrawList* cmdList = draw_data->CmdLists[n];
+            for (int c = 0; c < cmdList->CmdBuffer.Size; c++)
+            {
+                ImDrawCmd& cmd = cmdList->CmdBuffer[c];
+                if (cmd.ClipRect.x > maxX) cmd.ClipRect.x = maxX;
+                if (cmd.ClipRect.y > maxY) cmd.ClipRect.y = maxY;
+                if (cmd.ClipRect.z > maxX) cmd.ClipRect.z = maxX;
+                if (cmd.ClipRect.w > maxY) cmd.ClipRect.w = maxY;
+            }
+        }
+    }
+
     renderPassDescriptor.colorAttachments[0].clearColor = MTLClearColorMake(0.2, 0.3, 0.3, 1.0);
     
     id <MTLRenderCommandEncoder> renderEncoder = [commandBuffer renderCommandEncoderWithDescriptor:renderPassDescriptor];

@@ -42,26 +42,52 @@
     return YES;
 }
 
-// This method is called when the view's frame changes.
-- (void)resizeSubviewsWithOldSize:(NSSize)oldSize {
-    [super resizeSubviewsWithOldSize:oldSize];
-    
+// Keep the metal layer rendering at the display's native (retina) scale.
+// Called on frame changes, when the view lands in a window, and when the
+// window moves to a screen with a different backing scale factor.
+- (void)updateDrawableScaleAndSize {
+    if (self.window == nil) {
+        return;
+    }
     CAMetalLayer *metalLayer = (CAMetalLayer *)self.layer;
-    
+
     // On macOS, we get the scale factor from the window.
     CGFloat scale = self.window.backingScaleFactor;
-    
+    if (scale <= 0.0) {
+        scale = 1.0;
+    }
+
     // Calculate the new size in pixels.
     CGSize newSize = CGSizeMake(self.bounds.size.width * scale, self.bounds.size.height * scale);
-    
-    // Update the layer's drawableSize only if it has actually changed.
-    if (!CGSizeEqualToSize(metalLayer.drawableSize, newSize)) {
+
+    // Update the layer only if something actually changed.
+    if (metalLayer.contentsScale != scale || !CGSizeEqualToSize(metalLayer.drawableSize, newSize)) {
+        metalLayer.contentsScale = scale;
         metalLayer.drawableSize = newSize;
-        
+
         // Dispatch a window resize event
         Application::WindowResizeEvent event((uint32_t)newSize.width, (uint32_t)newSize.height);
         [self dispatchEvent:event];
     }
+}
+
+// This method is called when the view's frame changes.
+- (void)resizeSubviewsWithOldSize:(NSSize)oldSize {
+    [super resizeSubviewsWithOldSize:oldSize];
+    [self updateDrawableScaleAndSize];
+}
+
+// Called when the view is added to (or removed from) a window — the first
+// moment the backing scale factor is actually known.
+- (void)viewDidMoveToWindow {
+    [super viewDidMoveToWindow];
+    [self updateDrawableScaleAndSize];
+}
+
+// Called when the window moves to a screen with a different scale factor.
+- (void)viewDidChangeBackingProperties {
+    [super viewDidChangeBackingProperties];
+    [self updateDrawableScaleAndSize];
 }
 
 // Helper function to dispatch events
