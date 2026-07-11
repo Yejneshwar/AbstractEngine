@@ -1022,7 +1022,7 @@ namespace Graphics {
 
 			QuadVertices(GUI::DataType::vec3(position._X_, position._Y_, 0.0), size);
 
-			DrawQuad(s_Data.quadVertices[0], s_Data.quadVertices[1], s_Data.quadVertices[2], s_Data.quadVertices[3], color);
+			DrawQuad(s_Data.quadVertices[0], s_Data.quadVertices[1], s_Data.quadVertices[2], s_Data.quadVertices[3], color, id);
 
 		}
 
@@ -1031,7 +1031,7 @@ namespace Graphics {
 
 			QuadVertices(GUI::DataType::vec3(position._X_, position._Y_, 0.0), size);
 
-			DrawQuad(s_Data.quadVertices[0], s_Data.quadVertices[1], s_Data.quadVertices[2], s_Data.quadVertices[3], color);
+			DrawQuad(s_Data.quadVertices[0], s_Data.quadVertices[1], s_Data.quadVertices[2], s_Data.quadVertices[3], color, id);
 
 		}
 
