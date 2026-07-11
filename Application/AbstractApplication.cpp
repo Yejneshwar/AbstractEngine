@@ -14,7 +14,10 @@
 #include "Renderer/BatchRenderer.h"
 #include <Events/Input.h>
 
-#define MAX_SELECTED_OBJECT_ID 10000
+// Upper bound for valid pick ids read back from the ID attachment (filters
+// garbage reads). Apps assign one id per selectable object — a dense PCB
+// easily exceeds tens of thousands, so keep this generous.
+#define MAX_SELECTED_OBJECT_ID (1 << 30)
 namespace GUI {
 	bool Layer::m_updateLayers = true;
 
@@ -131,16 +134,21 @@ namespace GUI {
 		if (ImGui::GetIO().WantCaptureMouse && std::all_of(m_ViewPorts.begin(), m_ViewPorts.end(), [](ViewPort v) { return v.ViewportHovered == false; })) return;
 
 		for (ViewPort& viewPort : m_ViewPorts) {
-			if (!viewPort.ViewportHovered || !viewPort.ViewportFocused) continue;
-			viewPort.ViewPortCamera->OnEvent(e);
+			// Picking only needs the cursor over the viewport. Requiring focus
+			// too meant the first click on an unfocused viewport did nothing
+			// (it only transferred focus).
+			if (!viewPort.ViewportHovered) continue;
+			if (viewPort.ViewportFocused)
+				viewPort.ViewPortCamera->OnEvent(e);
 
 			if (e.GetEventType() == Application::EventType::MouseButtonReleased) {
 
 				auto mouseEvent = dynamic_cast<Application::MouseButtonReleasedEvent*>(&e);
 				LOG_TRACE_STREAM << "Mouse button hold duration: " << mouseEvent->GetPressDuration();
 
-				//This means mouse button was held down
-				if (mouseEvent->GetPressDuration() > std::chrono::milliseconds(100)) break;
+				//This means mouse button was held down (a camera drag, not a
+				//click). 100ms dropped unhurried-but-genuine clicks.
+				if (mouseEvent->GetPressDuration() > std::chrono::milliseconds(200)) break;
 
 				auto [mx, my] = ImGui::GetMousePos();
 				mx -= viewPort.ViewportBounds[0].x;

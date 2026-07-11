@@ -410,26 +410,39 @@ target_include_directories(${ENGINE_PROJECT_NAME}
 
 if(GUI_BUILD_TESTING)
     add_executable(AbstractEngine-TestGUI)
-    set_xcode_property(AbstractEngine-TestGUI PRODUCT_BUNDLE_IDENTIFIER "com.abstract.testgui" All)
-    set_target_properties(AbstractEngine-TestGUI PROPERTIES
-        MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/Info.plist.in"
-        MACOSX_BUNDLE_BUNDLE_NAME AbstractEngine-TestGUI
-        MACOSX_BUNDLE_LAUNCH_SCREEN_NAME "LaunchScreen"
-        MACOSX_BUNDLE_BUNDLE_VERSION "1"
-        MACOSX_BUNDLE_LONG_VERSION_STRING "1.0"
-        XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY "Apple Development"
-        XCODE_ATTRIBUTE_CODE_SIGNING_REQUIRED "YES"
-        XCODE_ATTRIBUTE_TARGETED_DEVICE_FAMILY "1,2"
-        MACOSX_BUNDLE_GUI_IDENTIFIER "\$\{PRODUCT_BUNDLE_IDENTIFIER\}"
-    )
     target_link_libraries(AbstractEngine-TestGUI ${ENGINE_PROJECT_NAME})
     if(APPLE)
+        # set_xcode_property comes from cmake/IOS-helpers.cmake (Apple-only).
+        set_xcode_property(AbstractEngine-TestGUI PRODUCT_BUNDLE_IDENTIFIER "com.abstract.testgui" All)
+        set_target_properties(AbstractEngine-TestGUI PROPERTIES
+            MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/Info.plist.in"
+            MACOSX_BUNDLE_BUNDLE_NAME AbstractEngine-TestGUI
+            MACOSX_BUNDLE_LAUNCH_SCREEN_NAME "LaunchScreen"
+            MACOSX_BUNDLE_BUNDLE_VERSION "1"
+            MACOSX_BUNDLE_LONG_VERSION_STRING "1.0"
+            XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY "Apple Development"
+            XCODE_ATTRIBUTE_CODE_SIGNING_REQUIRED "YES"
+            XCODE_ATTRIBUTE_TARGETED_DEVICE_FAMILY "1,2"
+            MACOSX_BUNDLE_GUI_IDENTIFIER "\$\{PRODUCT_BUNDLE_IDENTIFIER\}"
+        )
         target_sources(AbstractEngine-TestGUI PRIVATE "MainApple.mm" "Starter.cpp" "Starter.h" "MetalTestLayer.mm" "MetalTestLayer.h")
         codesign(AbstractEngine-TestGUI)
     else()
         target_sources(AbstractEngine-TestGUI PRIVATE "MainWindows.cpp" "Starter.cpp" "Starter.h")
+        if(NOT USE_STB_IMAGE_IMPLEMENTATION)
+            # When the engine library ships without the stb_image
+            # implementation (combined builds: the host app provides one,
+            # e.g. CADKernel gets stbi_* from draco), the standalone
+            # TestGUI must carry its own.
+            target_sources(AbstractEngine-TestGUI PRIVATE "Graphics/stb_image_impl.cpp")
+            target_compile_definitions(AbstractEngine-TestGUI PRIVATE USE_STB_IMAGE_IMPLEMENTATION)
+        endif()
     endif()
 endif()
+# Consumers link this on every platform; it only carries bundled resource
+# sources on Apple (elsewhere resources are copied next to the binary).
+add_library(AbstractEngine_Resources INTERFACE)
+
 if(APPLE)
 target_compile_definitions(${ENGINE_PROJECT_NAME} PUBLIC BUILDING_METAL=1)
 SET(RESOURCES_PATH "${CMAKE_CURRENT_SOURCE_DIR}/Resources")
@@ -446,8 +459,7 @@ asset(OTHER_ASSETS "Resources" ${APP_ASSETS})
 target_sources(${ENGINE_PROJECT_NAME} PUBLIC ${RESOURCE_FILES} ${OTHER_ASSETS})
 
 
-# Create a module library for the resource bundle
-add_library(AbstractEngine_Resources INTERFACE)
+# Attach the resource bundle sources for Apple app targets.
 target_sources(AbstractEngine_Resources INTERFACE ${RESOURCE_FILES})
 
 set_xcode_property(${ENGINE_PROJECT_NAME} PRODUCT_BUNDLE_IDENTIFIER "com.abstract.engine" All)

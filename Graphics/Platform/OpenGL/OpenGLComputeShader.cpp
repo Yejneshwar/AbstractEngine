@@ -153,7 +153,9 @@ namespace Graphics {
 		glDispatchCompute(width, height, depth);
 
 		// Ensure that memory operations are complete before proceeding.
-		// This is crucial if the results are needed immediately by subsequent OpenGL calls.
-		glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+		// Image stores are incoherent: cover the next compute pass reading the
+		// result as an image, samplers reading it as a texture, and the blit
+		// that copies the composite back into a framebuffer attachment.
+		glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT | GL_FRAMEBUFFER_BARRIER_BIT);
 	}
 }

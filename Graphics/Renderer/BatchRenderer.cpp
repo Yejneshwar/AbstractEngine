@@ -486,6 +486,7 @@ namespace Graphics {
 			s_Retained.vertices.swap(newVertices);
 			s_Retained.indices.swap(newIndices);
 			s_Retained.gpuDirty = true;
+			LOG_DEBUG_STREAM << "DestroyMesh: retained arena now " << s_Retained.vertices.size() << " vertices, " << s_Retained.indices.size() << " indices";
 		}
 
 		void BatchRenderer::DrawMesh(MeshHandle handle)
@@ -1063,6 +1064,13 @@ namespace Graphics {
 			int segments = 12; // Number of segments in the semicircle
 			float radius = thickness * 0.5f;
 			float angleIncrement = glm::pi<float>() / static_cast<float>(segments);
+
+			GrowStagingArray(s_Data.TriangleVertexBufferBase, s_Data.TriangleVertexBufferPtr,
+				s_Data.TriangleVertexBufferOffset, s_Data.TriangleVertexCapacity,
+				s_Data.TriangleVertexBufferOffset + (uint32_t)(segments + 2));
+			GrowStagingArray(s_Data.TriangleIndexBufferBase, s_Data.TriangleIndexBufferPtr,
+				s_Data.TriangleIndexCount, s_Data.TriangleIndexCapacity,
+				s_Data.TriangleIndexCount + (uint32_t)(3 * segments));
 
 			s_Data.TriangleVertexBufferPtr->aID = id;
 			s_Data.TriangleVertexBufferPtr->Position = GUI::DataType::vec3(start._X_, start._Y_, start._Z_);
