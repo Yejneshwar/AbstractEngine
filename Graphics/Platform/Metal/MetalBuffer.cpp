@@ -4,43 +4,70 @@
 
 namespace Graphics {
 
-MetalVertexBuffer::MetalVertexBuffer(uint32_t size, std::string& label)
-{
-    m_Buffer = MetalContext::GetCurrentDevice()->newBuffer(size, MTL::ResourceStorageModeShared);
-    
-    if(!label.empty()) m_Buffer->setLabel(NS::String::string(label.c_str(), NS::UTF8StringEncoding));
-    
-    m_Size = size;                   // add this member if you don't have it
-}
+// ---------------------------------------------------------------------------
+// MetalVertexBuffer
+// ---------------------------------------------------------------------------
 
-MetalVertexBuffer::MetalVertexBuffer(float* vertices, uint32_t size, std::string& label)
+MetalVertexBuffer::MetalVertexBuffer(uint32_t size, std::string& label, bool retained)
 {
-    m_Buffer = MetalContext::GetCurrentDevice()->newBuffer(vertices, size, MTL::ResourceStorageModeShared);
-    
-    if(!label.empty()) m_Buffer->setLabel(NS::String::string(label.c_str(), NS::UTF8StringEncoding));
+    // Dynamic buffer: one copy per in-flight frame.
+    // Retained buffer: a single copy; updates synchronize with the GPU.
+    isStatic = retained;
+    const uint32_t copies = retained ? 1 : kRingSize;
+    for (uint32_t i = 0; i < copies; i++) {
+        m_Buffers[i] = MetalContext::GetCurrentDevice()->newBuffer(size, MTL::ResourceStorageModeShared);
+        if (!label.empty()) m_Buffers[i]->setLabel(NS::String::string(label.c_str(), NS::UTF8StringEncoding));
+    }
 
     m_Size = size;
 }
 
+MetalVertexBuffer::MetalVertexBuffer(float* vertices, uint32_t size, std::string& label)
+{
+    // Static buffer: single copy, uploaded once.
+    isStatic = true;
+    m_Buffers[0] = MetalContext::GetCurrentDevice()->newBuffer(vertices, size, MTL::ResourceStorageModeShared);
+    if (!label.empty()) m_Buffers[0]->setLabel(NS::String::string(label.c_str(), NS::UTF8StringEncoding));
+
+    m_Size = size;
+    m_ContentBytes = size;
+}
+
 MetalVertexBuffer::~MetalVertexBuffer()
 {
-    if (m_Buffer) {
-        // We used __bridge_retained, so release here.
-        m_Buffer->release();
-        m_Buffer = nullptr;
+    const uint32_t copies = isStatic ? 1 : kRingSize;
+    for (uint32_t i = 0; i < copies; i++) {
+        if (m_Buffers[i]) {
+            m_Buffers[i]->release();
+            m_Buffers[i] = nullptr;
+        }
     }
+}
+
+uint32_t MetalVertexBuffer::CurrentSlot() const
+{
+    return isStatic ? 0 : (MetalContext::GetFrameInFlightIndex() % kRingSize);
+}
+
+MTL::Buffer* MetalVertexBuffer::CurrentBuffer() const
+{
+    const uint32_t slot = CurrentSlot();
+    // A slot that missed one or more SetData calls catches up from the
+    // newest copy before the GPU reads it (only sporadically-updated
+    // buffers ever hit this; per-frame batches are always current).
+    if (!isStatic && m_SlotVersions[slot] != m_ContentVersion && m_ContentBytes) {
+        memcpy(m_Buffers[slot]->contents(), m_Buffers[m_LatestSlot]->contents(), m_ContentBytes);
+        m_SlotVersions[slot] = m_ContentVersion;
+    }
+    return m_Buffers[slot];
 }
 
 void MetalVertexBuffer::Bind() const
 {
-    // No-op by design in Metal. Prefer a method that takes an encoder + index.
-    // Example you could add:
-    //   void SetOnEncoder(id<MTLRenderCommandEncoder> enc, uint32_t index, uint32_t offset) const {
-    //       [enc setVertexBuffer:ToMTLBuffer(m_Buffer) offset:offset atIndex:index];
-    //   }
+    MTL::Buffer* buffer = CurrentBuffer();
     MTL::RenderCommandEncoder* pEncoder = MetalContext::GetCurrentRenderCommandEncoder();
-    pEncoder->setVertexBuffer(m_Buffer, 0, 30);
-    pEncoder->setFragmentBuffer(m_Buffer, 0, 30);
+    pEncoder->setVertexBuffer(buffer, 0, 30);
+    pEncoder->setFragmentBuffer(buffer, 0, 30);
 }
 
 void MetalVertexBuffer::Unbind() const
@@ -50,56 +77,96 @@ void MetalVertexBuffer::Unbind() const
 
 void MetalVertexBuffer::ResizeBuffer(uint32_t newSize)
 {
-    MTL::Buffer* newBuffer = MetalContext::GetCurrentDevice()->newBuffer(newSize, MTL::ResourceStorageModeShared);
-
-    MTL::Buffer* oldBuffer = m_Buffer;
-    if (oldBuffer) {
-        // Preserve existing data (up to min sizes) when in Shared storage.
-        const NS::UInteger copySize = (NS::UInteger)std::min<uint32_t>(m_Size, newSize);
-        if (copySize > 0) {
-            memcpy(newBuffer->contents(), oldBuffer->contents(), copySize);
-        }
-        m_Buffer->release();
+    // Content is not preserved: growth only happens for dynamic batches,
+    // which re-upload their full contents on every flush.
+    const uint32_t copies = isStatic ? 1 : kRingSize;
+    for (uint32_t i = 0; i < copies; i++) {
+        if (m_Buffers[i]) m_Buffers[i]->release();
+        m_Buffers[i] = MetalContext::GetCurrentDevice()->newBuffer(newSize, MTL::ResourceStorageModeShared);
     }
-
-    m_Buffer = newBuffer;
     m_Size = newSize;
+    m_ContentBytes = 0;
+    m_ContentVersion++;
 }
 
 void MetalVertexBuffer::SetData(const void* data, uint32_t size, uint32_t offset)
 {
-    assert(m_Buffer != nullptr);
+    const uint32_t slot = CurrentSlot();
+    MTL::Buffer* buffer = m_Buffers[slot];
+    assert(buffer != nullptr);
 
-    const NS::UInteger bufLen = m_Buffer->length();
+    const NS::UInteger bufLen = buffer->length();
     assert((NS::UInteger)offset + (NS::UInteger)size <= bufLen);
 
-    uint8_t* dst = (uint8_t*)m_Buffer->contents() + offset;
+    if (isStatic) {
+        // Single-copy buffer: make sure no in-flight frame is still reading.
+        MetalContext::WaitForGpuIdle();
+    }
+
+    uint8_t* dst = (uint8_t*)buffer->contents() + offset;
     memcpy(dst, data, size);
+
+    m_ContentVersion++;
+    m_SlotVersions[slot] = m_ContentVersion;
+    m_LatestSlot = slot;
+    if (offset + size > m_ContentBytes)
+        m_ContentBytes = offset + size;
 
 #if TARGET_OS_OSX
     // Only needed for Managed storage; harmless check for Shared
-    if(m_Buffer->storageMode() == MTL::StorageModeManaged) {
-        m_Buffer->didModifyRange(NS::Range::Make(offset, size));
+    if(buffer->storageMode() == MTL::StorageModeManaged) {
+        buffer->didModifyRange(NS::Range::Make(offset, size));
     }
 #endif
 }
 
-	// MetalIndexBuffer Implementation
+// ---------------------------------------------------------------------------
+// MetalIndexBuffer
+// ---------------------------------------------------------------------------
+
 	MetalIndexBuffer::MetalIndexBuffer(uint32_t* indices, uint32_t count, std::string& label) : m_Count(count), isStatic(true)
 	{
 		// Create a Metal buffer with initial data
-        m_Buffer = MetalContext::GetCurrentDevice()->newBuffer(indices, count * sizeof(uint32_t), MTL::ResourceStorageModeShared);
+        m_Buffers[0] = MetalContext::GetCurrentDevice()->newBuffer(indices, count * sizeof(uint32_t), MTL::ResourceStorageModeShared);
+        if (!label.empty()) m_Buffers[0]->setLabel(NS::String::string(label.c_str(), NS::UTF8StringEncoding));
+        m_ContentBytes = count * sizeof(uint32_t);
 	}
 
-	MetalIndexBuffer::MetalIndexBuffer(uint32_t count, std::string& label) : m_Count(count), isStatic(false)
+	MetalIndexBuffer::MetalIndexBuffer(uint32_t count, std::string& label, bool retained) : m_Count(count), isStatic(retained)
 	{
-		// Create a Metal buffer with no initial data
-        m_Buffer = MetalContext::GetCurrentDevice()->newBuffer(count * sizeof(uint32_t), MTL::ResourceStorageModeShared);
+		// Dynamic buffer: one copy per in-flight frame.
+		// Retained buffer: a single copy; updates synchronize with the GPU.
+        const uint32_t copies = retained ? 1 : kRingSize;
+        for (uint32_t i = 0; i < copies; i++) {
+            m_Buffers[i] = MetalContext::GetCurrentDevice()->newBuffer(count * sizeof(uint32_t), MTL::ResourceStorageModeShared);
+            if (!label.empty()) m_Buffers[i]->setLabel(NS::String::string(label.c_str(), NS::UTF8StringEncoding));
+        }
 	}
 
 	MetalIndexBuffer::~MetalIndexBuffer()
 	{
-		// Destructor cleanup if necessary
+        const uint32_t copies = isStatic ? 1 : kRingSize;
+        for (uint32_t i = 0; i < copies; i++) {
+            if (m_Buffers[i]) {
+                m_Buffers[i]->release();
+                m_Buffers[i] = nullptr;
+            }
+        }
+	}
+
+	uint32_t MetalIndexBuffer::CurrentSlot() const
+	{
+		return isStatic ? 0 : (MetalContext::GetFrameInFlightIndex() % kRingSize);
+	}
+
+	MTL::Buffer* MetalIndexBuffer::GetBuffer() const
+	{
+		const uint32_t slot = CurrentSlot();
+		if (!isStatic && m_SlotVersions[slot] != m_ContentVersion && m_ContentBytes) {
+			memcpy(m_Buffers[slot]->contents(), m_Buffers[m_LatestSlot]->contents(), m_ContentBytes);
+			m_SlotVersions[slot] = m_ContentVersion;
+		}
+		return m_Buffers[slot];
 	}
 
 	void MetalIndexBuffer::Bind() const
@@ -114,21 +181,27 @@ void MetalVertexBuffer::SetData(const void* data, uint32_t size, uint32_t offset
 		// Again, unbinding is generally handled within command encoders
 	}
 
+	void MetalIndexBuffer::ResizeBuffer(uint32_t count)
+	{
+		const uint32_t copies = isStatic ? 1 : kRingSize;
+		for (uint32_t i = 0; i < copies; i++) {
+			if (m_Buffers[i]) m_Buffers[i]->release();
+			m_Buffers[i] = MetalContext::GetCurrentDevice()->newBuffer(count * sizeof(uint32_t), MTL::ResourceStorageModeShared);
+		}
+		m_Count = count;
+		m_ContentBytes = 0;
+		m_ContentVersion++;
+	}
+
 	void MetalIndexBuffer::SetData(const uint32_t* data, uint32_t count, uint32_t offset)
 	{
-        assert(!isStatic);
-        
-//        id<MTLBuffer> buffer = ToMTLBuffer(m_Buffer);
-//
-//        NSCAssert(buffer != nil, @"MTLBuffer is nil");
-//        const NSUInteger bufLen = buffer.length;
-//        const NSUInteger size = count * sizeof(uint32_t);
-//        NSCAssert((NSUInteger)offset + (NSUInteger)size <= bufLen, @"Write out of bounds");
-//
-//        uint32_t* dst = (uint32_t*)[buffer contents] + offset;
-//        memcpy(dst, data, size);
-        
-        MTL::Buffer* buffer = m_Buffer;
+        if (isStatic) {
+            // Single-copy buffer: make sure no in-flight frame is still reading.
+            MetalContext::WaitForGpuIdle();
+        }
+
+        const uint32_t slot = CurrentSlot();
+        MTL::Buffer* buffer = m_Buffers[slot];
 
         assert(buffer != nullptr && "MTLBuffer is nil");
 
@@ -141,6 +214,12 @@ void MetalVertexBuffer::SetData(const void* data, uint32_t size, uint32_t offset
 
         // Apply the byte offset and copy the data.
         memcpy(buffer_ptr + offset, data, size);
+
+        m_ContentVersion++;
+        m_SlotVersions[slot] = m_ContentVersion;
+        m_LatestSlot = slot;
+        if (offset + size > m_ContentBytes)
+            m_ContentBytes = (uint32_t)(offset + size);
 	}
 
 } // namespace Graphics

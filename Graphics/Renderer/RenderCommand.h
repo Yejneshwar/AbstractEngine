@@ -84,6 +84,12 @@ namespace Graphics {
 			s_RendererAPI->DrawIndexed(vertexArray, indexCount);
 		}
 
+		static void DrawIndexedRange(const Ref<VertexArray>& vertexArray, uint32_t indexCount, uint32_t indexByteOffset)
+		{
+			s_RendererAPI->DrawIndexedRange(vertexArray, indexCount, indexByteOffset);
+		}
+
+
 		static void DrawLines(const Ref<VertexArray>& vertexArray, uint32_t vertexCount)
 		{
 			s_RendererAPI->DrawLines(vertexArray, vertexCount);

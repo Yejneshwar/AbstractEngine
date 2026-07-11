@@ -34,6 +34,7 @@ namespace Graphics {
 
 		//glDrawArraysInstancedBaseInstance(GLenum mode, GLint first, GLsizei count, GLsizei instancecount, GLuint baseinstance)
 		virtual void DrawLinesInstancedBaseInstance(const Ref<VertexArray>& vertexArray, uint32_t filrst, uint32_t vertexCount, uint32_t instanceCount, uint32_t baseInstance) override;
+		virtual void DrawIndexedRange(const Ref<VertexArray>& vertexArray, uint32_t indexCount, uint32_t indexByteOffset) override;
 
 		virtual void DrawWireFrameCube(const std::vector<glm::dvec3>& cube, const float& thickness) override;
 

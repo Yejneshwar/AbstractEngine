@@ -236,7 +236,10 @@ namespace GUI {
 					}
                     Graphics::Renderer::BeginLoop();
 					Graphics::Renderer::ClearBuffers();
-					
+
+					Graphics::BatchRenderer::SetSelectionActive(
+						m_ObjectSelection.objectID > -1 && m_ObjectSelection.objectID < MAX_SELECTED_OBJECT_ID);
+
 					LOG_TRACE_STREAM << "Begin Viewports";
 					for (ViewPort& v : m_ViewPorts) {
 						//On viewport resize
@@ -330,7 +333,14 @@ namespace GUI {
                             
                             m_JFAComputeShader->Bind();
                             
-                            int step = std::max(v.ViewportSize.x, v.ViewportSize.y) / 2;
+                            // The composite shader only draws the outline within
+                            // ~8px of the mask (outline_distance + width/2 + softness),
+                            // so the jump flood only needs to propagate seeds that
+                            // far — not across the whole viewport. Capping the
+                            // initial step turns ~log2(viewport) full-screen
+                            // dispatches (~11 at 2K) into 5.
+                            constexpr int kMaxOutlineDistancePx = 16;
+                            int step = std::min((int)(std::max(v.ViewportSize.x, v.ViewportSize.y) / 2), kMaxOutlineDistancePx);
                             int passCount = 0;
                             
                             while (step > 0) {

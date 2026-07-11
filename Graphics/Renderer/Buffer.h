@@ -150,6 +150,8 @@ namespace Graphics {
 
 		static Ref<VertexBuffer> Create(uint32_t size, std::string label = "");
 		static Ref<VertexBuffer> Create(float* vertices, uint32_t size, std::string label = "");
+		// Single GPU copy for retained (rarely updated) geometry.
+		static Ref<VertexBuffer> CreateRetained(uint32_t size, std::string label = "");
 	};
 
 	class IndexBuffer
@@ -162,9 +164,16 @@ namespace Graphics {
 
 		virtual uint32_t GetCount() const = 0;
 
+		// Reallocate to hold `count` indices (contents need not be preserved —
+		// dynamic batches re-upload in full every flush).
+		virtual void ResizeBuffer(uint32_t count) = 0;
+
 		static Ref<IndexBuffer> Create(uint32_t* indices, uint32_t count, std::string label= "");
 
 		static Ref<IndexBuffer> Create(uint32_t count, std::string label = "");
+
+		// Single GPU copy for retained (rarely updated) geometry.
+		static Ref<IndexBuffer> CreateRetained(uint32_t count, std::string label = "");
 
 		virtual void SetData(const uint32_t* data, uint32_t count, uint32_t offset = 0) = 0;
 	};

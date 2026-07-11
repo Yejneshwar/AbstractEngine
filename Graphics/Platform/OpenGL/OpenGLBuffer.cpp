@@ -100,6 +100,16 @@ namespace Graphics {
 		glBufferSubData(GL_ARRAY_BUFFER, offset, count * sizeof(uint32_t), data);
 	}
 
+	void OpenGLIndexBuffer::ResizeBuffer(uint32_t count)
+	{
+		assert(!isStatic, "This Index Buffer is Static");
+		// Reallocating the buffer object's data store; the VAO's element
+		// binding references the buffer object, so no rebind is needed.
+		glBindBuffer(GL_ARRAY_BUFFER, m_RendererID);
+		glBufferData(GL_ARRAY_BUFFER, count * sizeof(uint32_t), nullptr, GL_DYNAMIC_DRAW);
+		m_Count = count;
+	}
+
 	OpenGLIndexBuffer::~OpenGLIndexBuffer()
 	{
 		

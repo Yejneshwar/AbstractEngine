@@ -86,11 +86,9 @@ void MetalVertexArray::AddVertexBuffer(const Ref<VertexBuffer>& vertexBuffer, co
 
 void MetalVertexArray::SetIndexBuffer(const Ref<IndexBuffer>& indexBuffer)
 {
-    if (m_IndexBuffer.get() != nullptr) {
-        m_IndexBuffer->Unbind();
-        m_IndexBuffer->~IndexBuffer();
-    }
-
+    // NOTE: no explicit destructor call here — the Ref manages the old
+    // buffer's lifetime (an explicit ~IndexBuffer() caused double-destruction
+    // when the Ref released it afterwards).
     m_IndexBuffer = indexBuffer;
 }
 

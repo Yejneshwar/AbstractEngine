@@ -244,10 +244,14 @@ namespace Graphics {
 
         int pixelData = -1;
         MTL::Region region = MTL::Region::Make2D(x, y, 1, 1);
-        
+
         // For RED_INTEGER (R32_SINT), each pixel is 4 bytes (sizeof(int)).
         // The 'bytesPerRow' parameter is the stride of the source texture.
         NS::UInteger bytesPerRow = textureWidth * sizeof(int);
+
+        // Frames are pipelined; make sure the GPU finished writing the ID
+        // attachment before reading it back (this runs on click only).
+        MetalContext::WaitForGpuIdle();
 
         // Directly copy the pixel data from the texture into our variable.
         // This is a direct memory access, no GPU commands needed.

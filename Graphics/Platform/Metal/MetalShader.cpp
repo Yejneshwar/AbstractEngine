@@ -55,14 +55,9 @@ namespace Graphics {
             colorAttachment->setDestinationAlphaBlendFactor(MTL::BlendFactorOneMinusSourceAlpha);
             
             m_PipelineDescriptor = newPipelineDescriptor;
-            
-            NS::Error* pError = nullptr;
-            m_PipelineState = MetalContext::GetCurrentDevice()->newRenderPipelineState(newPipelineDescriptor, &pError);
-            if (!m_PipelineState) {
-                std::cerr << "Failed to create pipeline state: "
-                          << pError->localizedDescription()->utf8String() << std::endl;
-            }
-            
+
+            // NOTE: the pipeline state itself is built (and cached) at draw
+            // time by MetalRendererAPI, once the vertex descriptor is known.
     }
 
     MetalShader::MetalShader(const std::string& name, const ShaderSources& shaderSources)

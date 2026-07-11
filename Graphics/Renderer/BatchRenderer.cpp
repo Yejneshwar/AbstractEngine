@@ -69,6 +69,32 @@ namespace Graphics {
 		
 			bool updateData = true;
 			int currentRenderMode = 0x1B02; // this is GL_FILL the default opengl polygon mode
+
+			// Runtime-growable capacities. MaxVertices/MaxIndices are only the
+			// initial sizes; the staging arrays and GPU buffers grow on demand
+			// so arbitrarily large scenes never overrun the batch (previously
+			// exceeding 32k vertices silently corrupted the heap).
+			uint32_t StaticTriangleVertexCapacity = MaxVertices;
+			uint32_t StaticTriangleIndexCapacity = MaxIndices;
+			uint32_t TriangleVertexCapacity = MaxVertices;
+			uint32_t TriangleIndexCapacity = MaxIndices;
+			uint32_t CircleVertexCapacity = MaxVertices;
+			uint32_t CircleIndexCapacity = MaxIndices;
+			uint32_t LineVertexCapacity = MaxVertices;
+			uint32_t IndexedLineVertexCapacity = MaxVertices;
+			uint32_t IndexedLineIndexCapacity = MaxIndices;
+
+			// Current sizes of the GPU-side buffers, in elements (resized in
+			// Flush when the staging data outgrew them).
+			uint32_t StaticTriangleVertexBufferGPUCount = MaxVertices;
+			uint32_t StaticTriangleIndexBufferGPUCount = MaxIndices;
+			uint32_t TriangleVertexBufferGPUCount = MaxVertices;
+			uint32_t TriangleIndexBufferGPUCount = MaxIndices;
+			uint32_t CircleVertexBufferGPUCount = MaxVertices;
+			uint32_t CircleIndexBufferGPUCount = MaxIndices;
+			uint32_t LineVertexBufferGPUCount = MaxVertices;
+			uint32_t IndexedLineVertexBufferGPUCount = MaxVertices;
+			uint32_t IndexedLineIndexBufferGPUCount = MaxIndices;
 		
 			Graphics::Ref<Graphics::VertexArray> QuadVertexArray;
 			Graphics::Ref<Graphics::VertexBuffer> QuadVertexBuffer;
@@ -151,6 +177,25 @@ namespace Graphics {
 		};
 		
 		static Renderer2DData s_Data;
+
+		// Grow a CPU staging array (preserving the used prefix and the write
+		// cursor) so batch submission can never write out of bounds.
+		template<typename V>
+		static void GrowStagingArray(V*& base, V*& ptr, uint32_t usedCount, uint32_t& capacity, uint32_t neededCount)
+		{
+			if (neededCount <= capacity)
+				return;
+			uint32_t newCapacity = capacity ? capacity : 1024;
+			while (newCapacity < neededCount)
+				newCapacity *= 2;
+			V* newBase = new V[newCapacity];
+			if (base && usedCount)
+				memcpy(newBase, base, (size_t)usedCount * sizeof(V));
+			delete[] base;
+			base = newBase;
+			ptr = newBase + usedCount;
+			capacity = newCapacity;
+		}
 
 		//Get quad vertices with position at center
 		void BatchRenderer::QuadVertices(GUI::DataType::vec3 position, float size)
@@ -305,6 +350,189 @@ namespace Graphics {
 			StartBatch();
 		}
 
+		static bool s_SelectionActive = false;
+
+		void BatchRenderer::SetSelectionActive(bool active)
+		{
+			s_SelectionActive = active;
+		}
+
+		// -------------------------------------------------------------------
+		// Retained meshes: geometry lives in a persistent GPU arena, uploaded
+		// only when meshes are created/destroyed. Per-frame submission is a
+		// handle push; drawing is one indexed-range draw per visible mesh.
+		// -------------------------------------------------------------------
+		struct RetainedMeshRange
+		{
+			uint32_t vertexOffset = 0;  // in vertices
+			uint32_t vertexCount = 0;
+			uint32_t indexOffset = 0;   // in indices
+			uint32_t indexCount = 0;
+			bool alive = false;
+		};
+
+		struct RetainedMeshStorage
+		{
+			std::vector<TriangleVertex> vertices;   // CPU arena (kept for growth re-uploads)
+			std::vector<uint32_t> indices;          // baked with the mesh's vertex offset
+			std::vector<RetainedMeshRange> meshes;  // handle - 1 indexes this
+			std::vector<BatchRenderer::MeshHandle> visible; // this scene's submissions
+
+			Graphics::Ref<Graphics::VertexArray> MeshVertexArray;
+			Graphics::Ref<Graphics::VertexBuffer> MeshVertexBuffer;
+			Graphics::Ref<Graphics::IndexBuffer> MeshIndexBuffer;
+
+			uint32_t gpuVertexCapacity = 0;
+			uint32_t gpuIndexCapacity = 0;
+			bool gpuDirty = false;
+			bool initialized = false;
+		};
+
+		static RetainedMeshStorage s_Retained;
+
+		static void InitRetained()
+		{
+			if (s_Retained.initialized)
+				return;
+
+			constexpr uint32_t kInitialVertices = 4096;
+			constexpr uint32_t kInitialIndices = 8192;
+
+			s_Retained.MeshVertexArray = Graphics::VertexArray::Create();
+			s_Retained.MeshVertexBuffer = Graphics::VertexBuffer::CreateRetained(kInitialVertices * sizeof(TriangleVertex), "RetainedMeshVB");
+			s_Retained.MeshVertexBuffer->SetLayout({
+				{ Graphics::ShaderDataType::Int, "aID"},
+				{ Graphics::ShaderDataType::Float3, "aPos"},
+				{ Graphics::ShaderDataType::Float4, "aColor"},
+			});
+			s_Retained.MeshVertexArray->AddVertexBuffer(s_Retained.MeshVertexBuffer);
+			s_Retained.MeshIndexBuffer = Graphics::IndexBuffer::CreateRetained(kInitialIndices, "RetainedMeshIB");
+			s_Retained.MeshVertexArray->SetIndexBuffer(s_Retained.MeshIndexBuffer);
+
+			s_Retained.gpuVertexCapacity = kInitialVertices;
+			s_Retained.gpuIndexCapacity = kInitialIndices;
+			s_Retained.initialized = true;
+		}
+
+		BatchRenderer::MeshHandle BatchRenderer::CreateMesh(const std::vector<double>& vertices, const std::vector<uint32_t>& indices, const GUI::DataType::vec4& color, const int id)
+		{
+			assert(vertices.size() % 3 == 0);
+			if (vertices.empty() || indices.empty())
+				return 0;
+
+			InitRetained();
+
+			RetainedMeshRange range;
+			range.vertexOffset = (uint32_t)s_Retained.vertices.size();
+			range.vertexCount = (uint32_t)(vertices.size() / 3);
+			range.indexOffset = (uint32_t)s_Retained.indices.size();
+			range.indexCount = (uint32_t)indices.size();
+			range.alive = true;
+
+			s_Retained.vertices.reserve(s_Retained.vertices.size() + range.vertexCount);
+			for (size_t i = 0; i < vertices.size(); i += 3) {
+				TriangleVertex vertex;
+				vertex.aID = id;
+				vertex.Position = GUI::DataType::vec3(vertices.at(i), vertices.at(i + 1), vertices.at(i + 2));
+				vertex.Color = color;
+				s_Retained.vertices.push_back(vertex);
+			}
+
+			s_Retained.indices.reserve(s_Retained.indices.size() + range.indexCount);
+			for (const uint32_t& index : indices) {
+				s_Retained.indices.push_back(index + range.vertexOffset);
+			}
+
+			s_Retained.meshes.push_back(range);
+			s_Retained.gpuDirty = true;
+
+			return (MeshHandle)s_Retained.meshes.size();
+		}
+
+		void BatchRenderer::DestroyMesh(MeshHandle handle)
+		{
+			if (handle == 0 || handle > s_Retained.meshes.size())
+				return;
+			RetainedMeshRange& dead = s_Retained.meshes[handle - 1];
+			if (!dead.alive)
+				return;
+			dead.alive = false;
+
+			// Compact the arenas; handles stay valid because ranges are
+			// looked up through the (stable) meshes table.
+			std::vector<TriangleVertex> newVertices;
+			std::vector<uint32_t> newIndices;
+			newVertices.reserve(s_Retained.vertices.size());
+			newIndices.reserve(s_Retained.indices.size());
+
+			for (RetainedMeshRange& mesh : s_Retained.meshes) {
+				if (!mesh.alive)
+					continue;
+				const uint32_t newVertexOffset = (uint32_t)newVertices.size();
+				const uint32_t newIndexOffset = (uint32_t)newIndices.size();
+
+				newVertices.insert(newVertices.end(),
+					s_Retained.vertices.begin() + mesh.vertexOffset,
+					s_Retained.vertices.begin() + mesh.vertexOffset + mesh.vertexCount);
+				for (uint32_t i = 0; i < mesh.indexCount; i++) {
+					const uint32_t oldIndex = s_Retained.indices[mesh.indexOffset + i];
+					newIndices.push_back(oldIndex - mesh.vertexOffset + newVertexOffset);
+				}
+
+				mesh.vertexOffset = newVertexOffset;
+				mesh.indexOffset = newIndexOffset;
+			}
+
+			s_Retained.vertices.swap(newVertices);
+			s_Retained.indices.swap(newIndices);
+			s_Retained.gpuDirty = true;
+		}
+
+		void BatchRenderer::DrawMesh(MeshHandle handle)
+		{
+			assert(s_Data.inScene);
+			if (handle == 0 || handle > s_Retained.meshes.size() || !s_Retained.meshes[handle - 1].alive)
+				return;
+			s_Retained.visible.push_back(handle);
+		}
+
+		// Upload pending arena changes (rare) and draw this scene's visible
+		// retained meshes with the given shader.
+		static void FlushRetained(const Graphics::Ref<Graphics::Shader>& shader)
+		{
+			if (s_Retained.visible.empty())
+				return;
+
+			if (s_Retained.gpuDirty) {
+				uint32_t neededVertices = (uint32_t)s_Retained.vertices.size();
+				uint32_t neededIndices = (uint32_t)s_Retained.indices.size();
+				if (neededVertices > s_Retained.gpuVertexCapacity) {
+					uint32_t newCapacity = s_Retained.gpuVertexCapacity;
+					while (newCapacity < neededVertices) newCapacity *= 2;
+					s_Retained.MeshVertexBuffer->ResizeBuffer(newCapacity * sizeof(TriangleVertex));
+					s_Retained.gpuVertexCapacity = newCapacity;
+				}
+				if (neededIndices > s_Retained.gpuIndexCapacity) {
+					uint32_t newCapacity = s_Retained.gpuIndexCapacity;
+					while (newCapacity < neededIndices) newCapacity *= 2;
+					s_Retained.MeshIndexBuffer->ResizeBuffer(newCapacity);
+					s_Retained.gpuIndexCapacity = newCapacity;
+				}
+				if (neededVertices)
+					s_Retained.MeshVertexBuffer->SetData(s_Retained.vertices.data(), neededVertices * sizeof(TriangleVertex), 0);
+				if (neededIndices)
+					s_Retained.MeshIndexBuffer->SetData(s_Retained.indices.data(), neededIndices, 0);
+				s_Retained.gpuDirty = false;
+			}
+
+			shader->Bind();
+			for (const BatchRenderer::MeshHandle& handle : s_Retained.visible) {
+				const RetainedMeshRange& mesh = s_Retained.meshes[handle - 1];
+				Graphics::RenderCommand::DrawIndexedRange(s_Retained.MeshVertexArray, mesh.indexCount, mesh.indexOffset * (uint32_t)sizeof(uint32_t));
+			}
+			shader->Unbind();
+		}
+
 		void BatchRenderer::setUpdateRequired(bool _state)
 		{
 			s_Data.updateData = _state;
@@ -349,6 +577,13 @@ namespace Graphics {
 			{
 				Graphics::RenderCommand::DrawLinesIndexed(s_Data.IndexedLineVertexArray, s_Data.IndexedLineIndexCount);
 			}
+
+			// Retained meshes participate in the selection mask too.
+			for (const BatchRenderer::MeshHandle& handle : s_Retained.visible) {
+				const RetainedMeshRange& mesh = s_Retained.meshes[handle - 1];
+				Graphics::RenderCommand::DrawIndexedRange(s_Retained.MeshVertexArray, mesh.indexCount, mesh.indexOffset * (uint32_t)sizeof(uint32_t));
+			}
+
 			s_Data.SelectedObjectShader->Unbind();
 			Renderer::DepthTest(true);
 		}
@@ -362,10 +597,18 @@ namespace Graphics {
 				uint32_t dataSize = (uint32_t)((uint8_t*)s_Data.StaticTriangleVertexBufferPtr - (uint8_t*)s_Data.StaticTriangleVertexBufferBase);
 				if (dataSize) {
 					LOG_DEBUG_STREAM << "Data Size : " << dataSize;
+					if (s_Data.StaticTriangleVertexCapacity > s_Data.StaticTriangleVertexBufferGPUCount) {
+						s_Data.StaticTriangleVertexBuffer->ResizeBuffer(s_Data.StaticTriangleVertexCapacity * sizeof(StaticTriangleVertex));
+						s_Data.StaticTriangleVertexBufferGPUCount = s_Data.StaticTriangleVertexCapacity;
+					}
 					s_Data.StaticTriangleVertexBuffer->SetData(s_Data.StaticTriangleVertexBufferBase, dataSize);
 					s_Data.StaticTriangleVertexBufferOffset += dataSize;
 
 
+					if (s_Data.StaticTriangleIndexCapacity > s_Data.StaticTriangleIndexBufferGPUCount) {
+						s_Data.StaticTriangleIndexBuffer->ResizeBuffer(s_Data.StaticTriangleIndexCapacity);
+						s_Data.StaticTriangleIndexBufferGPUCount = s_Data.StaticTriangleIndexCapacity;
+					}
 					uint32_t* triangleIndices = new uint32_t[s_Data.storage.indices.size()];
 					for (size_t i = 0; i < s_Data.storage.indices.size(); i++) {
 						triangleIndices[i] = s_Data.storage.indices.at(i);
@@ -383,6 +626,14 @@ namespace Graphics {
 
 			if (s_Data.TriangleIndexCount) {
 				uint32_t dataSize = (uint32_t)((uint8_t*)s_Data.TriangleVertexBufferPtr - (uint8_t*)s_Data.TriangleVertexBufferBase);
+				if (s_Data.TriangleVertexCapacity > s_Data.TriangleVertexBufferGPUCount) {
+					s_Data.TriangleVertexBuffer->ResizeBuffer(s_Data.TriangleVertexCapacity * sizeof(TriangleVertex));
+					s_Data.TriangleVertexBufferGPUCount = s_Data.TriangleVertexCapacity;
+				}
+				if (s_Data.TriangleIndexCapacity > s_Data.TriangleIndexBufferGPUCount) {
+					s_Data.TriangleIndexBuffer->ResizeBuffer(s_Data.TriangleIndexCapacity);
+					s_Data.TriangleIndexBufferGPUCount = s_Data.TriangleIndexCapacity;
+				}
 				s_Data.TriangleVertexBuffer->SetData(s_Data.TriangleVertexBufferBase, dataSize, 0);
 				s_Data.TriangleIndexBuffer->SetData(s_Data.TriangleIndexBufferBase, s_Data.TriangleIndexCount, 0);
 
@@ -394,6 +645,30 @@ namespace Graphics {
 			if (s_Data.CircleIndexCount)
 			{
 				uint32_t dataSize = (uint32_t)((uint8_t*)s_Data.CircleVertexBufferPtr - (uint8_t*)s_Data.CircleVertexBufferBase);
+				if (s_Data.CircleVertexCapacity > s_Data.CircleVertexBufferGPUCount) {
+					s_Data.CircleVertexBuffer->ResizeBuffer(s_Data.CircleVertexCapacity * sizeof(CircleVertex));
+					s_Data.CircleVertexBufferGPUCount = s_Data.CircleVertexCapacity;
+				}
+				// The circle batch shares a repeating quad index pattern; if the
+				// vertex batch outgrew it, rebuild the pattern index buffer.
+				if (s_Data.CircleIndexCapacity > s_Data.CircleIndexBufferGPUCount) {
+					const uint32_t patternIndices = s_Data.CircleIndexCapacity;
+					uint32_t* quadIndices = new uint32_t[patternIndices];
+					uint32_t offset = 0;
+					for (uint32_t i = 0; i + 5 < patternIndices; i += 6)
+					{
+						quadIndices[i + 0] = offset + 0;
+						quadIndices[i + 1] = offset + 1;
+						quadIndices[i + 2] = offset + 2;
+						quadIndices[i + 3] = offset + 2;
+						quadIndices[i + 4] = offset + 3;
+						quadIndices[i + 5] = offset + 0;
+						offset += 4;
+					}
+					s_Data.CircleVertexArray->SetIndexBuffer(Graphics::IndexBuffer::Create(quadIndices, patternIndices));
+					delete[] quadIndices;
+					s_Data.CircleIndexBufferGPUCount = patternIndices;
+				}
 				s_Data.CircleVertexBuffer->SetData(s_Data.CircleVertexBufferBase, dataSize, 0);
 
 				s_Data.CircleShader->Bind();
@@ -405,6 +680,10 @@ namespace Graphics {
 			if (s_Data.LineVertexCount)
 			{
 				uint32_t dataSize = (uint32_t)((uint8_t*)s_Data.LineVertexBufferPtr - (uint8_t*)s_Data.LineVertexBufferBase);
+				if (s_Data.LineVertexCapacity > s_Data.LineVertexBufferGPUCount) {
+					s_Data.LineVertexBuffer->ResizeBuffer(s_Data.LineVertexCapacity * sizeof(LineVertex));
+					s_Data.LineVertexBufferGPUCount = s_Data.LineVertexCapacity;
+				}
 				s_Data.LineVertexBuffer->SetData(s_Data.LineVertexBufferBase, dataSize, 0);
 
 				s_Data.LineShader->Bind();
@@ -415,6 +694,14 @@ namespace Graphics {
 			if (s_Data.IndexedLineIndexCount)
 			{
 				uint32_t dataSize = (uint32_t)((uint8_t*)s_Data.IndexedLineVertexBufferPtr - (uint8_t*)s_Data.IndexedLineVertexBufferBase);
+				if (s_Data.IndexedLineVertexCapacity > s_Data.IndexedLineVertexBufferGPUCount) {
+					s_Data.IndexedLineVertexBuffer->ResizeBuffer(s_Data.IndexedLineVertexCapacity * sizeof(LineVertex));
+					s_Data.IndexedLineVertexBufferGPUCount = s_Data.IndexedLineVertexCapacity;
+				}
+				if (s_Data.IndexedLineIndexCapacity > s_Data.IndexedLineIndexBufferGPUCount) {
+					s_Data.IndexedLineIndexBuffer->ResizeBuffer(s_Data.IndexedLineIndexCapacity);
+					s_Data.IndexedLineIndexBufferGPUCount = s_Data.IndexedLineIndexCapacity;
+				}
 				s_Data.IndexedLineVertexBuffer->SetData(s_Data.IndexedLineVertexBufferBase, dataSize, 0);
 				s_Data.IndexedLineIndexBuffer->SetData(s_Data.IndexedLineIndexBufferBase, s_Data.IndexedLineIndexCount, 0);
 
@@ -423,12 +710,20 @@ namespace Graphics {
 				s_Data.LineShader->Unbind();
 			}
 
-			DrawSelected();
+			// Retained meshes: uploaded once, drawn by handle.
+			FlushRetained(s_Data.TriangleShader);
+
+			// The selection-mask pass re-draws every batch; only pay for it
+			// when something is actually selected.
+			if (s_SelectionActive)
+				DrawSelected();
 
 		}
 
 		void BatchRenderer::StartBatch()
 		{
+			s_Retained.visible.clear();
+
 			s_Data.QuadIndexCount = 0;
 			s_Data.QuadVertexBufferPtr = s_Data.QuadVertexBufferBase;
 
@@ -452,6 +747,11 @@ namespace Graphics {
 			s_Data.IndexedLineIndexBufferPtr = s_Data.IndexedLineIndexBufferBase;
 
 			if (s_Data.storage.updateBatch) {
+				GrowStagingArray(s_Data.StaticTriangleVertexBufferBase, s_Data.StaticTriangleVertexBufferPtr,
+					0, s_Data.StaticTriangleVertexCapacity, (uint32_t)(s_Data.storage.vertices.size() / 3));
+				if ((uint32_t)s_Data.storage.indices.size() > s_Data.StaticTriangleIndexCapacity)
+					s_Data.StaticTriangleIndexCapacity = (uint32_t)s_Data.storage.indices.size();
+
 				for (size_t i = 0; i < s_Data.storage.vertices.size(); i += 3) {
 					s_Data.StaticTriangleVertexBufferPtr->aID = 1;
                     s_Data.StaticTriangleVertexBufferPtr->Position = GUI::DataType::vec3(s_Data.storage.vertices.at(i), s_Data.storage.vertices.at(i + 1), s_Data.storage.vertices.at(i + 2));                   
@@ -502,6 +802,13 @@ namespace Graphics {
 		void BatchRenderer::DrawMesh(const std::vector<double>& vertices, const std::vector<uint32_t>& indices, const GUI::DataType::vec4& color, const int id) {
 			assert((s_Data.inScene) && (vertices.size() % 3 == 0));
 
+			GrowStagingArray(s_Data.TriangleVertexBufferBase, s_Data.TriangleVertexBufferPtr,
+				s_Data.TriangleVertexBufferOffset, s_Data.TriangleVertexCapacity,
+				s_Data.TriangleVertexBufferOffset + (uint32_t)(vertices.size() / 3));
+			GrowStagingArray(s_Data.TriangleIndexBufferBase, s_Data.TriangleIndexBufferPtr,
+				s_Data.TriangleIndexCount, s_Data.TriangleIndexCapacity,
+				s_Data.TriangleIndexCount + (uint32_t)indices.size());
+
 			for (size_t i = 0; i < vertices.size(); i += 3) {
 				s_Data.TriangleVertexBufferPtr->aID = id;
                 s_Data.TriangleVertexBufferPtr->Position = GUI::DataType::vec3( vertices.at(i), vertices.at(i + 1), vertices.at(i + 2) );
@@ -520,6 +827,12 @@ namespace Graphics {
 
 		void BatchRenderer::DrawCircle(const GUI::DataType::vec3& position, float radius ,const GUI::DataType::vec4& color, const int id) {
 			assert(s_Data.inScene);
+
+			const uint32_t circleVerticesUsed = (uint32_t)(s_Data.CircleVertexBufferPtr - s_Data.CircleVertexBufferBase);
+			GrowStagingArray(s_Data.CircleVertexBufferBase, s_Data.CircleVertexBufferPtr,
+				circleVerticesUsed, s_Data.CircleVertexCapacity, circleVerticesUsed + 4);
+			if (s_Data.CircleIndexCount + 6 > s_Data.CircleIndexCapacity)
+				s_Data.CircleIndexCapacity *= 2;
 
 			QuadVertices(position, radius*2);
 
@@ -547,6 +860,9 @@ namespace Graphics {
 
 		void BatchRenderer::DrawLine(const GUI::DataType::vec3& from, const GUI::DataType::vec3& to, const GUI::DataType::vec4& color, const int id) {
 			assert(s_Data.inScene);
+
+			GrowStagingArray(s_Data.LineVertexBufferBase, s_Data.LineVertexBufferPtr,
+				s_Data.LineVertexCount, s_Data.LineVertexCapacity, s_Data.LineVertexCount + 2);
 
 			s_Data.LineVertexBufferPtr->aID = id;
 			s_Data.LineVertexBufferPtr->Position = GUI::DataType::vec3(from);
@@ -586,6 +902,17 @@ namespace Graphics {
 
 		void BatchRenderer::DrawLines(const std::vector<GUI::DataType::vec3>& points, const std::vector<uint32_t>& indices, const GUI::DataType::vec4& color, const int id, bool withArrows) {
 			assert((s_Data.inScene));
+
+			// Worst case with arrows: +2 vertices and +4 indices per segment.
+			const uint32_t maxExtraVerts = withArrows ? (uint32_t)indices.size() : 0;
+			const uint32_t maxExtraIndices = withArrows ? (uint32_t)indices.size() * 2 : 0;
+			GrowStagingArray(s_Data.IndexedLineVertexBufferBase, s_Data.IndexedLineVertexBufferPtr,
+				s_Data.IndexedLineVertexBufferOffset, s_Data.IndexedLineVertexCapacity,
+				s_Data.IndexedLineVertexBufferOffset + (uint32_t)points.size() + maxExtraVerts);
+			GrowStagingArray(s_Data.IndexedLineIndexBufferBase, s_Data.IndexedLineIndexBufferPtr,
+				s_Data.IndexedLineIndexCount, s_Data.IndexedLineIndexCapacity,
+				s_Data.IndexedLineIndexCount + (uint32_t)indices.size() + maxExtraIndices);
+
 			int count = 0;
 			float arrowSize = 0.5f;
 			for (size_t i = 0; i < points.size(); i ++) {
@@ -638,6 +965,14 @@ namespace Graphics {
 
 		void BatchRenderer::DrawQuad(const GUI::DataType::vec3& p1, const GUI::DataType::vec3& p2, const GUI::DataType::vec3& p3, const GUI::DataType::vec3& p4, const GUI::DataType::vec4& color, const int id) {
 			assert(s_Data.inScene);
+
+			GrowStagingArray(s_Data.TriangleVertexBufferBase, s_Data.TriangleVertexBufferPtr,
+				s_Data.TriangleVertexBufferOffset, s_Data.TriangleVertexCapacity,
+				s_Data.TriangleVertexBufferOffset + 4);
+			GrowStagingArray(s_Data.TriangleIndexBufferBase, s_Data.TriangleIndexBufferPtr,
+				s_Data.TriangleIndexCount, s_Data.TriangleIndexCapacity,
+				s_Data.TriangleIndexCount + 6);
+
 			s_Data.TriangleVertexBufferPtr->aID = id;
 			s_Data.TriangleVertexBufferPtr->Position = GUI::DataType::vec3(p1._X_, p1._Y_, p1._Z_);
 			s_Data.TriangleVertexBufferPtr->Color = color;

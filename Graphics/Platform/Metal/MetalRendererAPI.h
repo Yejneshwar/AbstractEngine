@@ -45,6 +45,7 @@ namespace Graphics {
         virtual void SetRendererModeToDefault() override;
         
         void DrawLinesInstancedBaseInstance(const Ref<VertexArray> &vertexArray, uint32_t filrst, uint32_t vertexCount, uint32_t instanceCount, uint32_t baseInstance) override;
+        virtual void DrawIndexedRange(const Ref<VertexArray>& vertexArray, uint32_t indexCount, uint32_t indexByteOffset) override;
         
 	};
 

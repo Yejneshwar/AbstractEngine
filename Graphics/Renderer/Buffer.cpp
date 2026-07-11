@@ -75,5 +75,26 @@ namespace Graphics {
 #endif
 	}
 
+	// Retained buffers: single GPU copy, updated rarely (not per frame).
+	// On Metal this avoids the per-frame ring (updates synchronize with the
+	// GPU instead); on OpenGL a dynamic buffer already has these semantics.
+	Ref<VertexBuffer> VertexBuffer::CreateRetained(uint32_t size, std::string label)
+	{
+#if BUILDING_METAL
+        return CreateRef<MetalVertexBuffer>(size, label, /*retained*/ true);
+#else
+		return VertexBuffer::Create(size, label);
+#endif
+	}
+
+	Ref<IndexBuffer> IndexBuffer::CreateRetained(uint32_t count, std::string label)
+	{
+#if BUILDING_METAL
+        return CreateRef<MetalIndexBuffer>(count, label, /*retained*/ true);
+#else
+		return IndexBuffer::Create(count, label);
+#endif
+	}
+
 
 }

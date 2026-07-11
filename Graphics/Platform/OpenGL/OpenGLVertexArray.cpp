@@ -221,12 +221,9 @@ namespace Graphics {
 
 	void OpenGLVertexArray::SetIndexBuffer(const Ref<IndexBuffer>& indexBuffer)
 	{
-		
-		if (m_IndexBuffer.get() != nullptr) {
-			m_IndexBuffer->Unbind();
-			LOG_DEBUG_STREAM << "Removing Index buffer";
-			m_IndexBuffer->~IndexBuffer();
-		}
+		// NOTE: no explicit destructor call on the old buffer — the Ref
+		// manages its lifetime (an explicit ~IndexBuffer() caused
+		// double-destruction when the Ref released it afterwards).
 		glBindVertexArray(m_RendererID);
 		indexBuffer->Bind();
 

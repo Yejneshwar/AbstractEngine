@@ -130,6 +130,17 @@ namespace Graphics {
 		glDrawElements(GL_TRIANGLES, indexCount, GL_UNSIGNED_INT, nullptr);
 	}
 
+	void OpenGLRendererAPI::DrawIndexedRange(const Ref<VertexArray>& vertexArray, uint32_t indexCount, uint32_t indexByteOffset)
+	{
+		const auto& indexBuffer = vertexArray->GetIndexBuffer();
+		if (indexBuffer == nullptr) {
+			LOG_FATAL_STREAM << "Index buffer not bound to vertexArray";
+			return;
+		}
+		vertexArray->Bind();
+		glDrawElements(GL_TRIANGLES, indexCount, GL_UNSIGNED_INT, (const void*)(uintptr_t)indexByteOffset);
+	}
+
 	void OpenGLRendererAPI::DrawLines(const Ref<VertexArray>& vertexArray, uint32_t vertexCount)
 	{
 		vertexArray->Bind();

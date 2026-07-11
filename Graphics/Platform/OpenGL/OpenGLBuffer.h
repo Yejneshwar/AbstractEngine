@@ -36,6 +36,7 @@ namespace Graphics {
 		virtual void Bind() const;
 		virtual void Unbind() const;
 		virtual void SetData(const uint32_t* data, uint32_t count, uint32_t offset = 0) override;
+		virtual void ResizeBuffer(uint32_t count) override;
 
 		virtual uint32_t GetCount() const { return m_Count; }
 	private:

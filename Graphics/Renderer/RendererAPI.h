@@ -35,6 +35,8 @@ namespace Graphics {
 
 		virtual void DrawNonIndexed(const Ref<VertexArray>& vertexArray, uint32_t count = 0, uint32_t start = 0) = 0;
 		virtual void DrawIndexed(const Ref<VertexArray>& vertexArray, uint32_t indexCount = 0) = 0;
+		// Draw a sub-range of the vertex array's index buffer (byte offset into the indices).
+		virtual void DrawIndexedRange(const Ref<VertexArray>& vertexArray, uint32_t indexCount, uint32_t indexByteOffset) = 0;
 		virtual void DrawLines(const Ref<VertexArray>& vertexArray, uint32_t vertexCount) = 0;
 		virtual void DrawLinesIndexed(const Ref<VertexArray>& vertexArray, uint32_t indexCount) = 0;
 		virtual void DrawLinesInstancedBaseInstance(const Ref<VertexArray>& vertexArray, uint32_t filrst, uint32_t vertexCount, uint32_t instanceCount, uint32_t baseInstance) = 0;

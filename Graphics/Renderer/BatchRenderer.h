@@ -33,9 +33,25 @@ namespace Graphics {
 			static void setUpdateRequired(bool _state);
 			static bool getUpdateRequired();
 
+			// Whether an object is currently selected. When false, the
+			// selection-mask pass (DrawSelected) is skipped entirely instead
+			// of re-drawing the whole scene into the mask attachment.
+			static void SetSelectionActive(bool active);
+
 			static void addData(const std::vector<double>& vertices, const std::vector<double>& vertexNormals, const std::vector<uint32_t>& indices, const int id = -1);
 
 			static void DrawMesh(const std::vector<double>& vertices, const std::vector<uint32_t>& indices, const GUI::DataType::vec4& color, const int id = -1);
+
+			// ---- Retained meshes -------------------------------------------
+			// Geometry is uploaded to the GPU ONCE at CreateMesh and drawn per
+			// frame by handle — no per-frame CPU walk or re-upload. Use this
+			// for meshes that don't change every frame (CAD/PCB geometry);
+			// use DrawMesh(vertices, ...) only for genuinely dynamic data.
+			using MeshHandle = uint32_t; // 0 = invalid
+
+			static MeshHandle CreateMesh(const std::vector<double>& vertices, const std::vector<uint32_t>& indices, const GUI::DataType::vec4& color, const int id = -1);
+			static void DestroyMesh(MeshHandle handle);
+			static void DrawMesh(MeshHandle handle);
 
 			static void DrawCircle(const GUI::DataType::vec3& position, float radius, const GUI::DataType::vec4& color, const int id = -1);
 

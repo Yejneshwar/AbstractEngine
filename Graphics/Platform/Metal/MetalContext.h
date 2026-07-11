@@ -44,6 +44,28 @@ public:
     static MTL::RenderPassDescriptor* GetCurrentRenderPassDescriptor() { return Get()->m_CurrentRenderPassDescriptor; }
     static MTL::RenderPipelineDescriptor* GetCurrentPipelineStateDecsriptor() { return Get()->m_CurrentPipelineStateDecsriptor; }
 
+    // --- Frame pipelining -------------------------------------------------
+    // The CPU may run up to this many frames ahead of the GPU. Per-frame
+    // dynamic buffers keep one copy per in-flight frame so the CPU never
+    // overwrites memory the GPU is still reading.
+    static constexpr uint32_t kMaxFramesInFlight = 3;
+    static uint32_t GetFrameInFlightIndex() { return Get()->m_FrameInFlightIndex; }
+    static void AdvanceFrameInFlight() { Get()->m_FrameInFlightIndex = (Get()->m_FrameInFlightIndex + 1) % kMaxFramesInFlight; }
+
+    // The most recently committed frame command buffer (retained). Used by
+    // rare synchronous operations (pixel readback for picking, updates to
+    // single-copy buffers) to wait for the GPU without stalling every frame.
+    static void SetLastCommittedCommandBuffer(MTL::CommandBuffer* commandBuffer) {
+        MTL::CommandBuffer*& last = Get()->m_LastCommittedCommandBuffer;
+        if (commandBuffer) commandBuffer->retain();
+        if (last) last->release();
+        last = commandBuffer;
+    }
+    static void WaitForGpuIdle() {
+        MTL::CommandBuffer* last = Get()->m_LastCommittedCommandBuffer;
+        if (last) last->waitUntilCompleted();
+    }
+
     private:
         //MetalView
         void* m_NativeView;
@@ -57,6 +79,8 @@ public:
         MTL::ComputeCommandEncoder* m_CurrentComputeCommandEncoder = nullptr;
         MTL::RenderPassDescriptor* m_CurrentRenderPassDescriptor = nullptr;
         MTL::RenderPipelineDescriptor* m_CurrentPipelineStateDecsriptor = nullptr;
+        uint32_t m_FrameInFlightIndex = 0;
+        MTL::CommandBuffer* m_LastCommittedCommandBuffer = nullptr;
     };
 
 }
