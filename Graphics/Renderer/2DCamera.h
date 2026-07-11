@@ -5,6 +5,7 @@
 #include "glm/gtx/quaternion.hpp"
 #include "Events/Event.h"
 #include <Events/EventTypes/MouseEvent.h>
+#include <Events/EventTypes/GestureEvent.h>
 
 namespace Graphics {
 
@@ -62,6 +63,8 @@ namespace Graphics {
         bool OnMousePressed(Application::MouseButtonPressedEvent& e);
 		bool OnMouseScroll(Application::MouseScrolledEvent& e);
 		bool OnMouseMove(Application::MouseMovedEvent& e);
+		bool OnPinch(Application::PinchGestureEvent& e);
+		bool OnPanGesture(Application::PanGestureEvent& e);
 
 
 		void MousePan(const glm::vec2& delta);

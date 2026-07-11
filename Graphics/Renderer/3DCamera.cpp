@@ -18,6 +18,46 @@ void Graphics::ThreeDCamera::OnEvent(Application::Event& event)
 	Application::EventDispatcher dispatcher(event);
 	dispatcher.Dispatch<Application::MouseScrolledEvent>(APP_BIND_EVENT_FN(Graphics::ThreeDCamera::OnMouseScroll));
 	dispatcher.Dispatch<Application::MouseMovedEvent>(APP_BIND_EVENT_FN(Graphics::ThreeDCamera::OnMouseMove));
+	dispatcher.Dispatch<Application::MouseButtonPressedEvent>(APP_BIND_EVENT_FN(Graphics::ThreeDCamera::OnMousePressed));
+	dispatcher.Dispatch<Application::PinchGestureEvent>(APP_BIND_EVENT_FN(Graphics::ThreeDCamera::OnPinch));
+	dispatcher.Dispatch<Application::RotateGestureEvent>(APP_BIND_EVENT_FN(Graphics::ThreeDCamera::OnRotateGesture));
+	dispatcher.Dispatch<Application::PanGestureEvent>(APP_BIND_EVENT_FN(Graphics::ThreeDCamera::OnPanGesture));
+}
+
+// Re-anchor the drag origin whenever a press/touch begins. Without this, the
+// first move of a new touch computes its delta against the END of the
+// previous drag (fingers teleport between touches, unlike a mouse) and the
+// orbit jumps instead of continuing from where it left off.
+bool Graphics::ThreeDCamera::OnMousePressed(Application::MouseButtonPressedEvent& e)
+{
+	m_InitialMousePosition = Application::Input::GetMousePosition();
+	return false;
+}
+
+// Pinch = dolly zoom. Scale delta ~1.0; the offset maps to the same units as
+// wheel zoom (yOffset * 0.1) with a feel-matched sensitivity.
+bool Graphics::ThreeDCamera::OnPinch(Application::PinchGestureEvent& e)
+{
+	MouseZoom((e.GetScaleDelta() - 1.0f) * 5.0f);
+	UpdateView();
+	return false;
+}
+
+// Two-finger twist = orbit around the up axis.
+bool Graphics::ThreeDCamera::OnRotateGesture(Application::RotateGestureEvent& e)
+{
+	float yawSign = GetUpDirection().y < 0 ? -1.0f : 1.0f;
+	m_Yaw += yawSign * e.GetAngleDelta();
+	UpdateView();
+	return false;
+}
+
+// Two-finger drag = pan, matching the scaling of mouse-move panning.
+bool Graphics::ThreeDCamera::OnPanGesture(Application::PanGestureEvent& e)
+{
+	MousePan(glm::vec2(e.GetDeltaX(), e.GetDeltaY()) * 0.003f);
+	UpdateView();
+	return false;
 }
 
 glm::vec3 Graphics::ThreeDCamera::GetUpDirection() const
@@ -81,14 +121,10 @@ bool Graphics::ThreeDCamera::OnMouseMove(Application::MouseMovedEvent& e)
 
 	glm::vec2 delta = (mouse - m_InitialMousePosition) * 0.003f;
 	m_InitialMousePosition = mouse;
-    
-#if TARGET_OS_IOS
-    //ios does not recieve continous mouse movements, one hack is to cancle deltas outside of a certain range e.g. -0.01 <-> 0.01
-    // We check the squared length of the delta vector to efficiently handle movements in any direction.
-    const float threshold = 0.1f;
-    if (glm::length2(delta) > (threshold * threshold))
-        delta = { 0.0f, 0.0f };
-#endif
+
+	// NOTE: the old iOS "discard large deltas" hack is gone — the platform
+	// layer now tracks a single primary touch continuously, so deltas are
+	// coherent, and multi-finger input arrives as gesture events instead.
 
 	if (Application::Input::IsMouseButtonPressed(Application::Mouse::ButtonLeft))
 		MouseRotate(delta);

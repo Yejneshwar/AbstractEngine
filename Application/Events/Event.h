@@ -19,7 +19,8 @@ namespace Application {
 		WindowClose, WindowResize, WindowFocus, WindowLostFocus, WindowMoved,
 		AppTick, AppUpdate, AppRender,
 		KeyPressed, KeyReleased, KeyTyped,
-		MouseButtonPressedOrReleased, MouseButtonPressed, MouseButtonReleased, MouseMoved, MouseScrolled
+		MouseButtonPressedOrReleased, MouseButtonPressed, MouseButtonReleased, MouseMoved, MouseScrolled,
+		GesturePinch, GestureRotate, GesturePan
 	};
 
 	enum EventCategory

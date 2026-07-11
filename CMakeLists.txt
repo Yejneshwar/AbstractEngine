@@ -355,6 +355,7 @@ set(APPLICATION_SRC
 "Application/Events/EventTypes/ApplicationEvent.h"
 "Application/Events/EventTypes/KeyEvent.h"
 "Application/Events/EventTypes/MouseEvent.h"
+"Application/Events/EventTypes/GestureEvent.h"
 "Application/Events/Input.cpp"
 "Application/Events/Input.h"
 "Application/Events/Event.h"

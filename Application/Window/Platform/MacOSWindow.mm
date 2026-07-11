@@ -9,7 +9,17 @@
 #include "Events/EventTypes/ApplicationEvent.h"
 #include "Events/EventTypes/MouseEvent.h"
 #include "Events/EventTypes/KeyEvent.h"
+#include "Events/EventTypes/GestureEvent.h"
 #include "Window/Platform/InputManager/InputManager.h"
+
+static Application::GesturePhase GesturePhaseFromNSEvent(NSEvent* event) {
+    switch (event.phase) {
+        case NSEventPhaseBegan:     return Application::GesturePhase::Began;
+        case NSEventPhaseEnded:     return Application::GesturePhase::Ended;
+        case NSEventPhaseCancelled: return Application::GesturePhase::Cancelled;
+        default:                    return Application::GesturePhase::Changed;
+    }
+}
 
 // A custom NSView subclass that tells macOS its backing layer should be a CAMetalLayer.
 @interface MetalView : NSView
@@ -156,13 +166,74 @@
 }
 
 
-// Handles scroll wheel, trackpad scrolling, and trackpad pinch-to-zoom gestures.
+// Handles scroll wheel and trackpad two-finger scrolling (with precision and
+// momentum metadata so consumers can distinguish wheel from trackpad).
 - (void)scrollWheel:(NSEvent *)event {
     float dx = [event scrollingDeltaX];
     float dy = [event scrollingDeltaY];
-    
-    Application::MouseScrolledEvent scrollEvent(dx, dy);
+
+    const bool precise = event.hasPreciseScrollingDeltas;
+    const bool momentum = event.momentumPhase != NSEventPhaseNone;
+
+    Application::MouseScrolledEvent scrollEvent(dx, dy, precise, momentum);
     [self dispatchEvent:scrollEvent];
+}
+
+#pragma mark - Trackpad Gestures
+
+- (void)magnifyWithEvent:(NSEvent *)event {
+    NSPoint location = [self convertPoint:[event locationInWindow] fromView:nil];
+    // magnification is the fractional change for this event; 1 + m is the
+    // multiplicative per-event scale delta the engine expects.
+    Application::PinchGestureEvent pinchEvent(1.0f + (float)event.magnification,
+        GesturePhaseFromNSEvent(event), (float)location.x, -(float)location.y);
+    [self dispatchEvent:pinchEvent];
+}
+
+- (void)rotateWithEvent:(NSEvent *)event {
+    NSPoint location = [self convertPoint:[event locationInWindow] fromView:nil];
+    // NSEvent rotation is degrees, counter-clockwise positive.
+    const float radians = (float)event.rotation * (float)M_PI / 180.0f;
+    Application::RotateGestureEvent rotateEvent(radians,
+        GesturePhaseFromNSEvent(event), (float)location.x, -(float)location.y);
+    [self dispatchEvent:rotateEvent];
+}
+
+#pragma mark - Middle Mouse
+
+- (void)otherMouseDown:(NSEvent *)event {
+    [self handleMouseMove:event];
+    Application::InputManager::OnMouseDown(2);
+    Application::MouseButtonPressedEvent pressEvent(2, (__bridge_retained void*)event);
+    [self dispatchEvent:pressEvent];
+}
+
+- (void)otherMouseUp:(NSEvent *)event {
+    [self handleMouseMove:event];
+    Application::InputManager::OnMouseUp(2);
+    Application::MouseButtonReleasedEvent releaseEvent(2, std::chrono::milliseconds(0), (__bridge_retained void*)event);
+    [self dispatchEvent:releaseEvent];
+}
+
+- (void)otherMouseDragged:(NSEvent *)event {
+    [self handleMouseMove:event];
+}
+
+#pragma mark - Hover tracking
+
+// Deliver buttonless mouse moves (hover) to the engine as well.
+- (void)updateTrackingAreas {
+    [super updateTrackingAreas];
+    for (NSTrackingArea* area in self.trackingAreas) {
+        [self removeTrackingArea:area];
+    }
+    NSTrackingAreaOptions options = NSTrackingMouseMoved | NSTrackingActiveInKeyWindow | NSTrackingInVisibleRect;
+    NSTrackingArea* area = [[NSTrackingArea alloc] initWithRect:NSZeroRect options:options owner:self userInfo:nil];
+    [self addTrackingArea:area];
+}
+
+- (void)mouseMoved:(NSEvent *)event {
+    [self handleMouseMove:event];
 }
 
 #pragma mark - Keyboard Handlers
@@ -188,8 +259,21 @@
 }
 
 - (void)flagsChanged:(NSEvent *)event {
-    // This handles modifier keys like Shift, Ctrl, Option, Command.
-    // You can add logic here if you need to track modifier key state changes independently.
+    // Track modifier key state in the InputManager so tools/cameras can poll
+    // Shift/Ctrl/Option/Command (kVK_* codes, matching keyDown's raw codes).
+    static const struct { NSEventModifierFlags flag; unsigned short keyCode; } kModifiers[] = {
+        { NSEventModifierFlagShift,   56 },  // kVK_Shift
+        { NSEventModifierFlagControl, 59 },  // kVK_Control
+        { NSEventModifierFlagOption,  58 },  // kVK_Option
+        { NSEventModifierFlagCommand, 55 },  // kVK_Command
+    };
+    for (const auto& modifier : kModifiers) {
+        if (event.modifierFlags & modifier.flag) {
+            Application::InputManager::OnKeyPress((Application::KeyCode)modifier.keyCode);
+        } else {
+            Application::InputManager::OnKeyRelease((Application::KeyCode)modifier.keyCode);
+        }
+    }
 }
 
 @end

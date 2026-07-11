@@ -65,6 +65,30 @@ void Graphics::TwoDCamera::OnEvent(Application::Event& event)
 	dispatcher.Dispatch<Application::MouseScrolledEvent>(APP_BIND_EVENT_FN(Graphics::TwoDCamera::OnMouseScroll));
 	dispatcher.Dispatch<Application::MouseMovedEvent>(APP_BIND_EVENT_FN(Graphics::TwoDCamera::OnMouseMove));
     dispatcher.Dispatch<Application::MouseButtonPressedEvent>(APP_BIND_EVENT_FN(Graphics::TwoDCamera::OnMousePressed));
+	dispatcher.Dispatch<Application::PinchGestureEvent>(APP_BIND_EVENT_FN(Graphics::TwoDCamera::OnPinch));
+	dispatcher.Dispatch<Application::PanGestureEvent>(APP_BIND_EVENT_FN(Graphics::TwoDCamera::OnPanGesture));
+}
+
+// Pinch = zoom, feel-matched to wheel zoom (yOffset-equivalent scaling).
+// 2D zoom lives in the ortho projection, so mirror OnMouseScroll exactly:
+// projection, view, and grid spacing must all be recomputed.
+bool Graphics::TwoDCamera::OnPinch(Application::PinchGestureEvent& e)
+{
+	MouseZoom((e.GetScaleDelta() - 1.0f) * 5.0f);
+	UpdateProjection();
+	UpdateView();
+	GetSpacing(m_ViewportWidth, worldXmin, worldXmax, gridMajorSpacing, gridMinorSpacing);
+	return false;
+}
+
+// Two-finger drag = pan the canvas; deltas are already view points, the same
+// units MousePan expects from mouse-move panning.
+bool Graphics::TwoDCamera::OnPanGesture(Application::PanGestureEvent& e)
+{
+	MousePan(glm::vec2(e.GetDeltaX(), e.GetDeltaY()));
+	UpdateProjection();
+	UpdateView();
+	return false;
 }
 
 glm::vec3 Graphics::TwoDCamera::GetUpDirection() const

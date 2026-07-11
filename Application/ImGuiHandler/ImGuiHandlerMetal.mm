@@ -192,28 +192,51 @@ void ImGuiHandler::OnDrawUpdate()
 {
 }
 
+#if TARGET_OS_IOS
+static ImGuiMouseSource ImGuiSourceFromPointerType(Application::PointerType pointerType)
+{
+    switch (pointerType) {
+        case Application::PointerType::Pencil: return ImGuiMouseSource_Pen;
+        case Application::PointerType::Touch:  return ImGuiMouseSource_TouchScreen;
+        default:                               return ImGuiMouseSource_Mouse;
+    }
+}
+#endif
+
 void ImGuiHandler::OnEvent(Application::Event& event)
 {
 #if TARGET_OS_IOS
-    // Pass events to imgui
-    std::cout << event.ToString() << std::endl;
-    UIEvent* uiEvent = (__bridge UIEvent*)event.m_NativeEvent;
-    UITouch *anyTouch = uiEvent.allTouches.anyObject;
-    CGPoint touchLocation = [anyTouch locationInView:nativeView];
-    ImGuiIO &io = ImGui::GetIO();
-    io.AddMouseSourceEvent(ImGuiMouseSource_TouchScreen);
-    io.AddMousePosEvent(touchLocation.x, touchLocation.y);
-    
-    BOOL hasActiveTouch = NO;
-    for (UITouch *touch in uiEvent.allTouches)
+    // Feed pointer input to ImGui from the engine's typed events (covers
+    // finger, Apple Pencil, hover, and the iPadOS trackpad pointer).
+    ImGuiIO& io = ImGui::GetIO();
+    switch (event.GetEventType())
     {
-        if (touch.phase != UITouchPhaseEnded && touch.phase != UITouchPhaseCancelled)
+        case Application::EventType::MouseMoved:
         {
-            hasActiveTouch = YES;
+            auto& moveEvent = static_cast<Application::MouseMovedEvent&>(event);
+            io.AddMouseSourceEvent(ImGuiSourceFromPointerType(moveEvent.GetPointerType()));
+            io.AddMousePosEvent(moveEvent.GetX(), moveEvent.GetY());
             break;
         }
+        case Application::EventType::MouseButtonPressed:
+        {
+            auto& pressEvent = static_cast<Application::MouseButtonPressedEvent&>(event);
+            const glm::vec2 position = Application::Input::GetMousePosition();
+            io.AddMouseSourceEvent(ImGuiSourceFromPointerType(pressEvent.GetPointerType()));
+            io.AddMousePosEvent(position.x, position.y);
+            io.AddMouseButtonEvent((int)pressEvent.GetMouseButton(), true);
+            break;
+        }
+        case Application::EventType::MouseButtonReleased:
+        {
+            auto& releaseEvent = static_cast<Application::MouseButtonReleasedEvent&>(event);
+            io.AddMouseSourceEvent(ImGuiSourceFromPointerType(releaseEvent.GetPointerType()));
+            io.AddMouseButtonEvent((int)releaseEvent.GetMouseButton(), false);
+            break;
+        }
+        default:
+            break;
     }
-    io.AddMouseButtonEvent(0, hasActiveTouch);
 #endif
 }
 

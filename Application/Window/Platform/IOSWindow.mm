@@ -8,13 +8,100 @@
 #include "Events/EventTypes/ApplicationEvent.h"
 #include "Events/EventTypes/MouseEvent.h"
 #include "Events/EventTypes/KeyEvent.h"
+#include "Events/EventTypes/GestureEvent.h"
 
 #include "Window/Platform/InputManager/InputManager.h"
 
+static Application::GesturePhase GesturePhaseFromRecognizer(UIGestureRecognizer* recognizer) {
+    switch (recognizer.state) {
+        case UIGestureRecognizerStateBegan:     return Application::GesturePhase::Began;
+        case UIGestureRecognizerStateEnded:     return Application::GesturePhase::Ended;
+        case UIGestureRecognizerStateCancelled:
+        case UIGestureRecognizerStateFailed:    return Application::GesturePhase::Cancelled;
+        default:                                return Application::GesturePhase::Changed;
+    }
+}
+
+static Application::PointerType PointerTypeFromTouch(UITouch* touch) {
+    switch (touch.type) {
+        case UITouchTypePencil:          return Application::PointerType::Pencil;
+        case UITouchTypeIndirectPointer: return Application::PointerType::IndirectPointer;
+        default:                         return Application::PointerType::Touch;
+    }
+}
+
+static float PressureFromTouch(UITouch* touch) {
+    if (touch.maximumPossibleForce > 0.0) {
+        return (float)(touch.force / touch.maximumPossibleForce);
+    }
+    return 1.0f;
+}
+
+// Map UIKeyboardHIDUsage codes to the macOS kVK_* codes the rest of the
+// engine (KeyCodes, DebugLayer shortcuts) already uses, so a hardware
+// keyboard behaves identically on iPad and Mac.
+static int KeyCodeFromHIDUsage(UIKeyboardHIDUsage usage) {
+    switch (usage) {
+        // Letters (HID A=4): kVK codes are scattered.
+        case UIKeyboardHIDUsageKeyboardA: return 0;   case UIKeyboardHIDUsageKeyboardB: return 11;
+        case UIKeyboardHIDUsageKeyboardC: return 8;   case UIKeyboardHIDUsageKeyboardD: return 2;
+        case UIKeyboardHIDUsageKeyboardE: return 14;  case UIKeyboardHIDUsageKeyboardF: return 3;
+        case UIKeyboardHIDUsageKeyboardG: return 5;   case UIKeyboardHIDUsageKeyboardH: return 4;
+        case UIKeyboardHIDUsageKeyboardI: return 34;  case UIKeyboardHIDUsageKeyboardJ: return 38;
+        case UIKeyboardHIDUsageKeyboardK: return 40;  case UIKeyboardHIDUsageKeyboardL: return 37;
+        case UIKeyboardHIDUsageKeyboardM: return 46;  case UIKeyboardHIDUsageKeyboardN: return 45;
+        case UIKeyboardHIDUsageKeyboardO: return 31;  case UIKeyboardHIDUsageKeyboardP: return 35;
+        case UIKeyboardHIDUsageKeyboardQ: return 12;  case UIKeyboardHIDUsageKeyboardR: return 15;
+        case UIKeyboardHIDUsageKeyboardS: return 1;   case UIKeyboardHIDUsageKeyboardT: return 17;
+        case UIKeyboardHIDUsageKeyboardU: return 32;  case UIKeyboardHIDUsageKeyboardV: return 9;
+        case UIKeyboardHIDUsageKeyboardW: return 13;  case UIKeyboardHIDUsageKeyboardX: return 7;
+        case UIKeyboardHIDUsageKeyboardY: return 16;  case UIKeyboardHIDUsageKeyboardZ: return 6;
+        // Digits
+        case UIKeyboardHIDUsageKeyboard1: return 18;  case UIKeyboardHIDUsageKeyboard2: return 19;
+        case UIKeyboardHIDUsageKeyboard3: return 20;  case UIKeyboardHIDUsageKeyboard4: return 21;
+        case UIKeyboardHIDUsageKeyboard5: return 23;  case UIKeyboardHIDUsageKeyboard6: return 22;
+        case UIKeyboardHIDUsageKeyboard7: return 26;  case UIKeyboardHIDUsageKeyboard8: return 28;
+        case UIKeyboardHIDUsageKeyboard9: return 25;  case UIKeyboardHIDUsageKeyboard0: return 29;
+        // Function keys
+        case UIKeyboardHIDUsageKeyboardF1: return 122;  case UIKeyboardHIDUsageKeyboardF2: return 120;
+        case UIKeyboardHIDUsageKeyboardF3: return 99;   case UIKeyboardHIDUsageKeyboardF4: return 118;
+        case UIKeyboardHIDUsageKeyboardF5: return 96;   case UIKeyboardHIDUsageKeyboardF6: return 97;
+        case UIKeyboardHIDUsageKeyboardF7: return 98;   case UIKeyboardHIDUsageKeyboardF8: return 100;
+        case UIKeyboardHIDUsageKeyboardF9: return 101;  case UIKeyboardHIDUsageKeyboardF10: return 109;
+        case UIKeyboardHIDUsageKeyboardF11: return 103; case UIKeyboardHIDUsageKeyboardF12: return 111;
+        // Navigation / editing
+        case UIKeyboardHIDUsageKeyboardLeftArrow: return 123;
+        case UIKeyboardHIDUsageKeyboardRightArrow: return 124;
+        case UIKeyboardHIDUsageKeyboardDownArrow: return 125;
+        case UIKeyboardHIDUsageKeyboardUpArrow: return 126;
+        case UIKeyboardHIDUsageKeyboardReturnOrEnter: return 36;
+        case UIKeyboardHIDUsageKeyboardEscape: return 53;
+        case UIKeyboardHIDUsageKeyboardDeleteOrBackspace: return 51;
+        case UIKeyboardHIDUsageKeyboardTab: return 48;
+        case UIKeyboardHIDUsageKeyboardSpacebar: return 49;
+        // Modifiers
+        case UIKeyboardHIDUsageKeyboardLeftShift:
+        case UIKeyboardHIDUsageKeyboardRightShift: return 56;
+        case UIKeyboardHIDUsageKeyboardLeftControl:
+        case UIKeyboardHIDUsageKeyboardRightControl: return 59;
+        case UIKeyboardHIDUsageKeyboardLeftAlt:
+        case UIKeyboardHIDUsageKeyboardRightAlt: return 58;
+        case UIKeyboardHIDUsageKeyboardLeftGUI:
+        case UIKeyboardHIDUsageKeyboardRightGUI: return 55;
+        default: return (int)usage; // fall through with the raw HID usage
+    }
+}
+
 // A custom UIView subclass that tells iOS its backing layer should be a CAMetalLayer.
-@interface MetalView : UIView
+@interface MetalView : UIView <UIGestureRecognizerDelegate>
 @property (nonatomic, assign) Application::WindowData* windowData;
 @property (nonatomic, strong) UIPinchGestureRecognizer* pinchGestureRecognizer;
+@property (nonatomic, strong) UIRotationGestureRecognizer* rotationGestureRecognizer;
+@property (nonatomic, strong) UIPanGestureRecognizer* twoFingerPanGestureRecognizer;
+@property (nonatomic, strong) UIPanGestureRecognizer* scrollGestureRecognizer;
+@property (nonatomic, strong) UIHoverGestureRecognizer* hoverGestureRecognizer;
+// The single touch (Pencil preferred) currently driving the pointer stream.
+@property (nonatomic, weak) UITouch* primaryTouch;
 @end
 
 @implementation MetalView
@@ -32,18 +119,61 @@
     if (self = [super initWithFrame:frame]) {
         // Crucial: Enable multi-touch for the view.
         self.multipleTouchEnabled = YES;
-        
-        // Initialize and add the pinch gesture recognizer
+
+        // Pinch-to-zoom
         _pinchGestureRecognizer = [[UIPinchGestureRecognizer alloc] initWithTarget:self action:@selector(handlePinch:)];
+        _pinchGestureRecognizer.delegate = self;
         [self addGestureRecognizer:_pinchGestureRecognizer];
+
+        // Two-finger rotation
+        _rotationGestureRecognizer = [[UIRotationGestureRecognizer alloc] initWithTarget:self action:@selector(handleRotation:)];
+        _rotationGestureRecognizer.delegate = self;
+        [self addGestureRecognizer:_rotationGestureRecognizer];
+
+        // Two-finger pan
+        _twoFingerPanGestureRecognizer = [[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(handleTwoFingerPan:)];
+        _twoFingerPanGestureRecognizer.minimumNumberOfTouches = 2;
+        _twoFingerPanGestureRecognizer.maximumNumberOfTouches = 2;
+        _twoFingerPanGestureRecognizer.delegate = self;
+        [self addGestureRecognizer:_twoFingerPanGestureRecognizer];
+
+        // Trackpad / mouse scroll (indirect pointer, zero-touch pan)
+        if (@available(iOS 13.4, *)) {
+            _scrollGestureRecognizer = [[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(handleScroll:)];
+            _scrollGestureRecognizer.allowedScrollTypesMask = UIScrollTypeMaskAll;
+            _scrollGestureRecognizer.maximumNumberOfTouches = 0;
+            _scrollGestureRecognizer.delegate = self;
+            [self addGestureRecognizer:_scrollGestureRecognizer];
+        }
+
+        // Hover: Apple Pencil hover and the iPadOS trackpad pointer.
+        _hoverGestureRecognizer = [[UIHoverGestureRecognizer alloc] initWithTarget:self action:@selector(handleHover:)];
+        [self addGestureRecognizer:_hoverGestureRecognizer];
     }
     return self;
+}
+
+// Let pinch/rotate/pan run together so e.g. a pinch that drifts also pans.
+- (BOOL)gestureRecognizer:(UIGestureRecognizer *)gestureRecognizer shouldRecognizeSimultaneouslyWithGestureRecognizer:(UIGestureRecognizer *)otherGestureRecognizer {
+    return YES;
 }
 
 // Also handle initialization from Storyboards or XIBs.
 - (void)awakeFromNib {
     [super awakeFromNib];
     self.multipleTouchEnabled = YES;
+}
+
+// Required for hardware-keyboard presses to be delivered to this view.
+- (BOOL)canBecomeFirstResponder {
+    return YES;
+}
+
+- (void)didMoveToWindow {
+    [super didMoveToWindow];
+    if (self.window) {
+        [self becomeFirstResponder];
+    }
 }
 
 - (void)layoutSubviews {
@@ -72,76 +202,121 @@
         self.windowData->EventCallback(event);
     }
 }
-#pragma mark - Pinch Gesture Handler
+#pragma mark - Gesture Handlers
 
-// The new handler for pinch gestures
 - (void)handlePinch:(UIPinchGestureRecognizer *)recognizer {
-    if (recognizer.state == UIGestureRecognizerStateBegan || recognizer.state == UIGestureRecognizerStateChanged) {
-        // The scale property gives the multiplicative zoom factor since the gesture started.
-        // We want the *change* in scale since the last frame, not the total.
-        // So we calculate a delta from the neutral 1.0 scale.
-        float zoomDelta = recognizer.scale - 1.0f;
-        
-        // We can map this zoom delta to the Y-axis of a mouse scroll event.
-        // The sensitivity can be adjusted by changing the multiplier.
-        const float zoomSensitivity = 50.0f;
-        Application::MouseScrolledEvent scrollEvent(0.0f, zoomDelta * zoomSensitivity);
-        [self dispatchMouseEvent:scrollEvent];
-        
-        // IMPORTANT: Reset the recognizer's scale to 1.0.
-        // This ensures that the next time this method is called, the scale value
-        // represents the change from *now* rather than from the beginning of the gesture.
-        // This effectively turns a cumulative scale into a per-frame delta.
-        recognizer.scale = 1.0f;
+    CGPoint center = [recognizer locationInView:self];
+    // Reset scale each callback so `scale` is the per-event multiplicative delta.
+    Application::PinchGestureEvent pinchEvent((float)recognizer.scale,
+        GesturePhaseFromRecognizer(recognizer), (float)center.x, (float)center.y);
+    recognizer.scale = 1.0;
+    [self dispatchMouseEvent:pinchEvent];
+}
+
+- (void)handleRotation:(UIRotationGestureRecognizer *)recognizer {
+    CGPoint center = [recognizer locationInView:self];
+    // UIKit rotation is radians, clockwise positive; the engine convention is
+    // counter-clockwise positive (matching AppKit).
+    Application::RotateGestureEvent rotateEvent(-(float)recognizer.rotation,
+        GesturePhaseFromRecognizer(recognizer), (float)center.x, (float)center.y);
+    recognizer.rotation = 0.0;
+    [self dispatchMouseEvent:rotateEvent];
+}
+
+- (void)handleTwoFingerPan:(UIPanGestureRecognizer *)recognizer {
+    CGPoint center = [recognizer locationInView:self];
+    CGPoint translation = [recognizer translationInView:self];
+    [recognizer setTranslation:CGPointMake(0, 0) inView:self];
+    Application::PanGestureEvent panEvent((float)translation.x, (float)translation.y,
+        GesturePhaseFromRecognizer(recognizer), (float)center.x, (float)center.y);
+    [self dispatchMouseEvent:panEvent];
+}
+
+// Trackpad / mouse-wheel scrolling on iPadOS (indirect pointer).
+- (void)handleScroll:(UIPanGestureRecognizer *)recognizer {
+    CGPoint translation = [recognizer translationInView:self];
+    [recognizer setTranslation:CGPointMake(0, 0) inView:self];
+    // Scale point deltas down to wheel-like offsets (consumers multiply up).
+    Application::MouseScrolledEvent scrollEvent((float)translation.x * 0.1f, (float)translation.y * 0.1f,
+        /*precise*/ true, /*momentum*/ false);
+    [self dispatchMouseEvent:scrollEvent];
+}
+
+// Pencil hover and iPadOS trackpad pointer moves (no button held).
+- (void)handleHover:(UIHoverGestureRecognizer *)recognizer {
+    if (recognizer.state == UIGestureRecognizerStateEnded ||
+        recognizer.state == UIGestureRecognizerStateCancelled) {
+        return;
     }
+    CGPoint location = [recognizer locationInView:self];
+    Application::InputManager::OnMouseMoved((float)location.x, (float)location.y);
+    Application::MouseMovedEvent moveEvent((float)location.x, (float)location.y, nullptr,
+        Application::PointerType::IndirectPointer);
+    [self dispatchMouseEvent:moveEvent];
 }
 
 #pragma mark - Touch Handlers
 
-// Called when a finger first touches the screen
+// A single tracked touch (Pencil preferred) drives the pointer/button stream;
+// multi-finger interaction is owned entirely by the gesture recognizers.
 - (void)touchesBegan:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
+    if (self.primaryTouch != nil) {
+        // A second finger while the primary is down: gestures take over.
+        return;
+    }
+
+    // Prefer the Pencil if it's among the new touches (palm rejection).
+    UITouch* chosen = nil;
+    for (UITouch* touch in touches) {
+        if (touch.type == UITouchTypePencil) { chosen = touch; break; }
+    }
+    if (!chosen) chosen = [touches anyObject];
+    self.primaryTouch = chosen;
+
     self.windowData->m_mousePressStartLeft = std::chrono::high_resolution_clock::now();
-    UITouch *touch = [touches anyObject];
-    CGPoint location = [touch locationInView:self];
-    NSLog(@"Tap count: %ld", [touch tapCount]);
-    NSLog(@"Number of touches: %ld", [touches count]);
-    // Update the C++ InputManager singleton for polling
-    Application::InputManager::OnTouchDown((float)location.x, (float)location.y, touches.count);
-    // We'll use '0' for the left mouse button equivalent.
-    Application::MouseButtonPressedEvent pressEvent((touches.count == 1) ? 0 : 1, (__bridge_retained void*)event);
+    CGPoint location = [chosen locationInView:self];
+
+    Application::InputManager::OnTouchDown((float)location.x, (float)location.y, 1);
+
+    Application::MouseButtonPressedEvent pressEvent(0, (__bridge_retained void*)event,
+        PointerTypeFromTouch(chosen), PressureFromTouch(chosen));
     [self dispatchMouseEvent:pressEvent];
 }
 
-// Called when a finger moves across the screen
 - (void)touchesMoved:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
-    UITouch *touch = [touches anyObject];
-    CGPoint location = [touch locationInView:self];
+    UITouch* primary = self.primaryTouch;
+    if (primary == nil || ![touches containsObject:primary]) {
+        return;
+    }
 
-    
-    // Flip the Y-coordinate if necessary
-    float yPos = self.bounds.size.height - location.y;
-    
-    // Update the C++ InputManager singleton for polling
+    CGPoint location = [primary locationInView:self];
     Application::InputManager::OnTouchMoved((float)location.x, (float)location.y);
 
-    Application::MouseMovedEvent moveEvent((float)location.x, (float)location.y, (__bridge_retained void*)event);
+    Application::MouseMovedEvent moveEvent((float)location.x, (float)location.y, (__bridge_retained void*)event,
+        PointerTypeFromTouch(primary), PressureFromTouch(primary));
     [self dispatchMouseEvent:moveEvent];
 }
 
-// Called when a finger is lifted from the screen
 - (void)touchesEnded:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
+    UITouch* primary = self.primaryTouch;
+    if (primary == nil || ![touches containsObject:primary]) {
+        return;
+    }
+    self.primaryTouch = nil;
+
     self.windowData->m_mousePressEndLeft = std::chrono::high_resolution_clock::now();
-    UITouch *touch = [touches anyObject];
-    CGPoint location = [touch locationInView:self];
-    
-    // Update the C++ InputManager singleton for polling
+    CGPoint location = [primary locationInView:self];
+
     Application::InputManager::OnTouchUp((float)location.x, (float)location.y);
 
-    Application::MouseButtonReleasedEvent releaseEvent(0,std::chrono::duration_cast<std::chrono::milliseconds>(self.windowData->m_mousePressEndLeft - self.windowData->m_mousePressStartLeft), (__bridge_retained void*)event);
+    Application::MouseButtonReleasedEvent releaseEvent(0,
+        std::chrono::duration_cast<std::chrono::milliseconds>(self.windowData->m_mousePressEndLeft - self.windowData->m_mousePressStartLeft),
+        (__bridge_retained void*)event, PointerTypeFromTouch(primary));
     [self dispatchMouseEvent:releaseEvent];
 }
 
-// Also handle touches being cancelled (e.g., by a system event)
+// Also handle touches being cancelled (e.g. when a gesture recognizer claims
+// them, or by a system event) — release the synthetic button so drags end.
 - (void)touchesCancelled:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
     [self touchesEnded:touches withEvent:event];
 }
@@ -150,16 +325,22 @@
 
 - (void)pressesBegan:(NSSet<UIPress *> *)presses withEvent:(UIPressesEvent *)event {
     for (UIPress *press in presses) {
-        Application::KeyCode keyCode = (Application::KeyCode)press.key.keyCode;
+        if (!press.key) continue;
+        Application::KeyCode keyCode = (Application::KeyCode)KeyCodeFromHIDUsage(press.key.keyCode);
         Application::InputManager::OnKeyPress(keyCode);
+        Application::KeyPressedEvent keyEvent(keyCode, 0);
+        [self dispatchMouseEvent:keyEvent];
     }
     [super pressesBegan:presses withEvent:event];
 }
 
 - (void)pressesEnded:(NSSet<UIPress *> *)presses withEvent:(UIPressesEvent *)event {
     for (UIPress *press in presses) {
-        Application::KeyCode keyCode = (Application::KeyCode)press.key.keyCode;
+        if (!press.key) continue;
+        Application::KeyCode keyCode = (Application::KeyCode)KeyCodeFromHIDUsage(press.key.keyCode);
         Application::InputManager::OnKeyRelease(keyCode);
+        Application::KeyReleasedEvent keyEvent(keyCode);
+        [self dispatchMouseEvent:keyEvent];
     }
     [super pressesEnded:presses withEvent:event];
 }
