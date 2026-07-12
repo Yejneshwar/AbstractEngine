@@ -167,6 +167,22 @@ namespace GUI {
 		const ApplicationSpecification& GetSpecification() const { return m_Specification; }
 
 		void SubmitToMainThread(const std::function<void()>& function);
+
+		//Programmatic selection: behaves exactly like clicking the object in
+		//a viewport - the selection outline appears and every layer receives
+		//OnSelection. Pass -1 to clear. Main thread only.
+		void SelectObject(int objectId);
+
+		//Center every 2D viewport on a world position (zoom preserved),
+		//creating a 2D viewport if none is open and raising its window.
+		//Main thread only.
+		void FocusViewportsOn(const glm::vec2& worldPosition);
+
+		//Guarantees a viewport of the given camera type exists (closed
+		//viewports are destroyed, so this may create a fresh one) and
+		//requests ImGui focus for it. Returns its id. Main thread only.
+		uint32_t EnsureViewportOpen(CameraType cameraType);
+
 		void Run();
         
         // Used for IOS
@@ -206,6 +222,9 @@ namespace GUI {
 
 		uint32_t m_viewPortCount = 0;
 		bool m_updateAllViewPorts = false;
+		//Viewport id whose ImGui window should be focused/raised on the
+		//next CoreUI pass (-1 = none); set by EnsureViewportOpen
+		int m_focusViewportId = -1;
 
 		Graphics::Ref<Graphics::UniformBuffer> m_CameraBuffer;
 

@@ -1,4 +1,6 @@
 #include "3DCamera.h"
+#include <algorithm>
+#include <cmath>
 #include <iostream>
 #include <Events/Input.h>
 #include <Logger.h>
@@ -165,12 +167,12 @@ void Graphics::ThreeDCamera::MouseRotate(const glm::vec2& delta)
 
 void Graphics::ThreeDCamera::MouseZoom(float delta)
 {
-	m_Distance -= delta * ZoomSpeed();
-	if (m_Distance < 0.01f)
-	{
-		m_FocalPoint += GetForwardDirection();
-		m_Distance = 1.0f;
-	}
+	//Multiplicative dolly: a constant RELATIVE step (~10% per wheel
+	//notch) at every distance. The old speed was proportional to
+	//distance squared, which stalled asymptotically as the camera
+	//approached the focal point - and teleported the focal point
+	//forward when the distance finally crossed 0.01.
+	m_Distance = std::clamp(m_Distance * std::exp(-delta), 0.05f, 5000.0f);
 }
 
 glm::vec3 Graphics::ThreeDCamera::CalculatePosition() const
@@ -192,13 +194,4 @@ std::pair<float, float> Graphics::ThreeDCamera::PanSpeed() const
 float Graphics::ThreeDCamera::RotationSpeed() const
 {
 	return 0.8f;
-}
-
-float Graphics::ThreeDCamera::ZoomSpeed() const
-{
-	float distance = m_Distance * 0.2f;
-	distance = std::max(distance, 0.0f);
-	float speed = distance * distance;
-	speed = std::min(speed, 100.0f); // max speed = 100
-	return speed;
 }

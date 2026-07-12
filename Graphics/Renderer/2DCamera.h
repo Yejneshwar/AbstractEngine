@@ -22,6 +22,12 @@ namespace Graphics {
 
 		inline void SetViewportSize(float width, float height) { m_ViewportWidth = width; m_ViewportHeight = height; UpdateProjection(); UpdateView(); }
 
+		//Zoom anchors at this point (zoom-to-cursor)
+		void SetPointerInViewport(const glm::vec2& normalized) override {
+			m_PointerInViewport = normalized;
+			m_PointerValid = true;
+		}
+
 		glm::mat4 GetViewMatrix() const { return m_ViewMatrix; }
 		glm::mat4 GetViewProjection() const { return m_Projection * m_ViewMatrix; }
 
@@ -90,8 +96,12 @@ namespace Graphics {
 
 		float m_Distance = 1.0f;
 		double m_zoom = 4.0;
-		double m_zoomLevel = 1.0;
 		float m_Pitch = 0.0f, m_Yaw = 0.0f;
+
+		//Zoom anchor (normalized viewport coords, y down); invalid until
+		//the app feeds the first pointer position
+		glm::vec2 m_PointerInViewport = { 0.5f, 0.5f };
+		bool m_PointerValid = false;
 
 		float m_ViewportWidth = 1280, m_ViewportHeight = 720;
 

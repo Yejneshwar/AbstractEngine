@@ -18,6 +18,12 @@ namespace Graphics {
 
 		virtual inline void SetViewportSize(float width, float height) = 0;
 
+		//Pointer position normalized to the camera's viewport ([0,1] x
+		//[0,1], y down), fed by the app before dispatching mouse events.
+		//Cameras that anchor zoom at the cursor override this; others
+		//ignore it.
+		virtual void SetPointerInViewport(const glm::vec2& normalized) {}
+
 		const glm::mat4& GetProjection() const { return m_Projection; }
 
 		virtual double getWorldXmin() const = 0;

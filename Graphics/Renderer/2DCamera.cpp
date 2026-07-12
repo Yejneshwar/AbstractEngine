@@ -1,4 +1,6 @@
 #include "2DCamera.h"
+#include <algorithm>
+#include <cmath>
 #include <iostream>
 #include <Events/Input.h>
 #include <array>
@@ -220,18 +222,34 @@ void Graphics::TwoDCamera::MouseRotate(const glm::vec2& delta)
 
 void Graphics::TwoDCamera::MouseZoom(float delta)
 {
-	//m_Distance -= delta * ZoomSpeed();
-	if ((m_zoom - (delta * m_zoomLevel)) <= 0.0) {
-		m_zoomLevel /= 10;
-	}
-	m_zoom -= delta * m_zoomLevel;
+	//Multiplicative zoom: a constant RELATIVE step at every scale (~10%
+	//per wheel notch), so it never crosses zero and never needs the old
+	//m_zoomLevel ratchet - which divided the step near zero but never
+	//grew it back, leaving zoom-out crawling after a deep zoom-in.
+	//Range: 0.002 (4 um view width - grid labels stay representable in
+	//the shader's 4 decimal digits) to 2000 (4 m view width - label
+	//values stay within the shader's 4 integer digits).
+	const double oldZoom = m_zoom;
+	m_zoom = std::clamp(m_zoom * std::exp(-static_cast<double>(delta)), 0.002, 2000.0);
 
-	//if (m_Distance < 0.01f)
-	//{
-	//	m_FocalPoint += GetForwardDirection();
-	//	m_Distance = 1.0f;
-	//}
-	//UpdateProjection();
+	//Zoom-to-cursor: keep the world point under the pointer stationary.
+	//worldX = focal.x + (u - 0.5) * width, so anchoring the point under
+	//(u, v) means shifting the focal by the extent change at that offset.
+	if (m_PointerValid) {
+		const double aspect = m_ViewportWidth / m_ViewportHeight;
+		const double oldWidth = 2.0 * oldZoom;
+		const double newWidth = 2.0 * m_zoom;
+		const double oldHeight = oldWidth / aspect;
+		const double newHeight = newWidth / aspect;
+		const double u = std::clamp(static_cast<double>(m_PointerInViewport.x), 0.0, 1.0);
+		const double v = std::clamp(static_cast<double>(m_PointerInViewport.y), 0.0, 1.0);
+		m_FocalPoint.x += static_cast<float>((u - 0.5) * (oldWidth - newWidth));
+#if BUILDING_METAL
+		m_FocalPoint.y += static_cast<float>((v - 0.5) * (oldHeight - newHeight));
+#else
+		m_FocalPoint.y += static_cast<float>((0.5 - v) * (oldHeight - newHeight));
+#endif
+	}
 }
 
 glm::vec3 Graphics::TwoDCamera::CalculatePosition() const

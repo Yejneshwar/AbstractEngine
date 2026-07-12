@@ -55,16 +55,27 @@ void main()
 	float Ystart = gMin.y + Yoffset - (mod(panYint,ubo.gridMajor));
 	float Yend = gMax.y;
 
-	for (float i = Ystart; i < Yend; i += stepSize){
-		vec2 position = vec2(0,i);
-		vec2 U = ( uv - position )*(32)/FontSize;
-		textColor += pFloat(U, position.y);
-	}
+	// Integer-indexed label placement with a hard cap. The old
+	// `for (float i = start; i < end; i += step)` stopped advancing once
+	// step fell below the float epsilon at the label position (deep zoom
+	// away from the origin): i += step left i unchanged, the fragment
+	// loop never terminated, and the GPU driver TDR-killed the app.
+	if (stepSize > 0.0) {
+		int yCount = int(clamp((Yend - Ystart) / stepSize, 0.0, 64.0));
+		for (int k = 0; k <= yCount; k++) {
+			float i = Ystart + float(k) * stepSize;
+			vec2 position = vec2(0,i);
+			vec2 U = ( uv - position )*(32)/FontSize;
+			textColor += pFloat(U, position.y);
+		}
 
-	for (float i = Xstart; i < Xend; i += stepSize){
-		vec2 position = vec2(i,0);
-		vec2 U = ( uv - position )*(32)/FontSize;
-		textColor += pFloat(U, position.x);
+		int xCount = int(clamp((Xend - Xstart) / stepSize, 0.0, 64.0));
+		for (int k = 0; k <= xCount; k++) {
+			float i = Xstart + float(k) * stepSize;
+			vec2 position = vec2(i,0);
+			vec2 U = ( uv - position )*(32)/FontSize;
+			textColor += pFloat(U, position.x);
+		}
 	}
 	out_FragColor = gridColor(uv, camPos) + textColor.xxxx;
 };

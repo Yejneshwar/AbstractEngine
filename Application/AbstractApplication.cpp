@@ -115,6 +115,44 @@ namespace GUI {
 		m_MainThreadQueue.emplace_back(function);
 	}
 
+	void AbstractApplication::SelectObject(int objectId)
+	{
+		//Mirrors the click path: the frame loop turns this into the
+		//selection outline and the OnSelection dispatch to every layer
+		m_ObjectSelection.objectID = objectId;
+		m_ObjectSelection.state = objectId != -1;
+		m_emitSelectionEvent = true;
+		m_updateAllViewPorts = true;
+	}
+
+	void AbstractApplication::FocusViewportsOn(const glm::vec2& worldPosition)
+	{
+		EnsureViewportOpen(CameraType::TwoD);
+		for (ViewPort& viewPort : m_ViewPorts) {
+			if (viewPort.cameraType != CameraType::TwoD) continue;
+			viewPort.ViewPortCamera->SetFocalPoint({ worldPosition.x, worldPosition.y, 0.0f });
+			viewPort.updateViewport = true;
+		}
+		m_updateAllViewPorts = true;
+	}
+
+	uint32_t AbstractApplication::EnsureViewportOpen(CameraType cameraType)
+	{
+		for (ViewPort& viewPort : m_ViewPorts) {
+			if (viewPort.cameraType == cameraType) {
+				m_focusViewportId = static_cast<int>(viewPort.id);
+				return viewPort.id;
+			}
+		}
+		//Closed viewports are erased outright - create a fresh one exactly
+		//like CoreUI's "Add 2D ViewPort" button does
+		m_ViewPorts.push_back(ViewPort(m_fbSpec, cameraType, m_viewPortCount));
+		m_focusViewportId = static_cast<int>(m_viewPortCount);
+		m_viewPortCount++;
+		m_updateAllViewPorts = true;
+		return m_ViewPorts.back().id;
+	}
+
 	void AbstractApplication::OnEvent(Application::Event& e)
 	{
 		HZ_PROFILE_FUNCTION();
@@ -138,8 +176,24 @@ namespace GUI {
 			// too meant the first click on an unfocused viewport did nothing
 			// (it only transferred focus).
 			if (!viewPort.ViewportHovered) continue;
-			if (viewPort.ViewportFocused)
-				viewPort.ViewPortCamera->OnEvent(e);
+
+			//Feed the camera the pointer position normalized to THIS
+			//viewport so zoom can anchor at the cursor
+			{
+				const auto mousePos = ImGui::GetMousePos();
+				const glm::vec2 boundsMin = viewPort.ViewportBounds[0];
+				const glm::vec2 boundsSize = glm::vec2(viewPort.ViewportBounds[1]) - boundsMin;
+				if (boundsSize.x > 0.0f && boundsSize.y > 0.0f) {
+					viewPort.ViewPortCamera->SetPointerInViewport({
+						(mousePos.x - boundsMin.x) / boundsSize.x,
+						(mousePos.y - boundsMin.y) / boundsSize.y });
+				}
+			}
+
+			//Hover is enough for camera input: requiring focus meant
+			//scrolling over an unfocused viewport did nothing until it
+			//was clicked first
+			viewPort.ViewPortCamera->OnEvent(e);
 
 			if (e.GetEventType() == Application::EventType::MouseButtonReleased) {
 
@@ -181,24 +235,10 @@ namespace GUI {
 			}
 		}
 
-		if (m_emitSelectionEvent) {
-
-			//set the seectedObject static var here.
-			if (m_ObjectSelection.state) {
-				ViewPort::s_selectedObject = m_ObjectSelection.objectID;
-			}
-			else
-				ViewPort::s_selectedObject = -1;
-
-			for (auto it = m_LayerStack.rbegin(); it != m_LayerStack.rend(); ++it)
-			{
-				(*it)->OnSelection(m_ObjectSelection.objectID, m_ObjectSelection.state);
-			}
-			m_emitSelectionEvent = false;
-
-			if (m_ObjectSelection.state == false)
-				m_ObjectSelection.objectID = -1;
-		}
+		//Selection emission moved to RunLoop: processing it here starved
+		//PROGRAMMATIC selection (SelectObject) - this code only ran for
+		//events that survived the WantCaptureMouse early-return above,
+		//i.e. only while a viewport was hovered.
 
 		//Finish all event processing and then update the vieports
 		for (ViewPort& viewPort : m_ViewPorts) {
@@ -242,6 +282,28 @@ namespace GUI {
 							m_updateAllViewPorts = true;
 						}
 					}
+
+					//Process pending selection once per frame - it used to
+					//live in OnEvent behind the WantCaptureMouse gate, which
+					//meant a programmatic SelectObject only took effect after
+					//the mouse happened to hover a viewport
+					if (m_emitSelectionEvent) {
+						if (m_ObjectSelection.state) {
+							ViewPort::s_selectedObject = m_ObjectSelection.objectID;
+						}
+						else
+							ViewPort::s_selectedObject = -1;
+
+						for (auto it = m_LayerStack.rbegin(); it != m_LayerStack.rend(); ++it)
+						{
+							(*it)->OnSelection(m_ObjectSelection.objectID, m_ObjectSelection.state);
+						}
+						m_emitSelectionEvent = false;
+
+						if (m_ObjectSelection.state == false)
+							m_ObjectSelection.objectID = -1;
+					}
+
                     Graphics::Renderer::BeginLoop();
 					Graphics::Renderer::ClearBuffers();
 
@@ -267,6 +329,16 @@ namespace GUI {
 						if (!v.ViewportHovered && !v.ViewportFocused && !v.updateViewport && !m_updateAllViewPorts) continue;
 						LOG_TRACE_STREAM << "Viewport: " << v.id << " Hovered: " << v.ViewportHovered << " Focused: " << v.ViewportFocused << " UpdateAll : " << m_updateAllViewPorts;
 
+						//One-shot dirty flag - without this clear a single
+						//programmatic focus made the viewport re-render
+						//every frame forever
+						v.updateViewport = false;
+
+						//Refresh the camera/selection UBO for every render:
+						//programmatic camera moves and selections otherwise
+						//drew with stale matrices until a mouse event over a
+						//viewport happened to rebuild them
+						v.update();
 
 						v.Framebuffer->Bind();
                         m_font->Bind();
@@ -584,6 +656,14 @@ namespace GUI {
 			if (!ViewPortIt->isOpen) { ViewPortIt = m_ViewPorts.erase(ViewPortIt); continue; }
 			ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2{ 0, 0 });
 			ImGui::Begin(std::format("Viewport {}", ViewPortIt->id).c_str(), &ViewPortIt->isOpen);
+
+			//Programmatic raise (EnsureViewportOpen): bring the window to
+			//the front of its dock tab bar and give it focus
+			if (m_focusViewportId == static_cast<int>(ViewPortIt->id)) {
+				ImGui::SetWindowFocus();
+				m_focusViewportId = -1;
+			}
+
 			ImDrawList* drawList = ImGui::GetWindowDrawList();
 
 			auto viewportMinRegion = ImGui::GetWindowContentRegionMin();
