@@ -14,6 +14,11 @@
 
 namespace Graphics {
 
+	//Anonymous namespace: BatchRenderer.cpp defines same-named structs with
+	//different layouts - see the note there (exit crash via COMDAT-folded
+	//~Renderer2DData). Internal linkage keeps this TU's types distinct.
+	namespace {
+
 	struct QuadVertex
 	{
 		glm::vec3 Position;
@@ -21,7 +26,7 @@ namespace Graphics {
 		glm::vec2 TexCoord;
 		float TexIndex;
 		float TilingFactor;
-		
+
 		// Editor-only
 		int EntityID;
 	};
@@ -121,6 +126,7 @@ namespace Graphics {
 	};
 
 	static Renderer2DData s_Data;
+	}
 
 	void Renderer2D::Init()
 	{

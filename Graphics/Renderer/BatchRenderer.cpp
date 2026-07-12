@@ -8,6 +8,13 @@
 #include <Logger.h>
 
 namespace Graphics {
+	//Anonymous namespace: Renderer2D.cpp defines structs with the SAME names
+	//(Renderer2DData, TriangleVertex, ...) but DIFFERENT layouts. With
+	//external-linkage types the identically-mangled inline members (notably
+	//~Renderer2DData) are COMDAT-folded across the two TUs, so one s_Data
+	//was destroyed with the OTHER struct's destructor - shared_ptr decrefs
+	//at wrong offsets crashed every exit. Internal linkage keeps them apart.
+	namespace {
 		struct UBODataFragment {
             GUI::DataType::vec4 triangleColor;
 		};
@@ -177,6 +184,7 @@ namespace Graphics {
 		};
 		
 		static Renderer2DData s_Data;
+	}
 
 		// Grow a CPU staging array (preserving the used prefix and the write
 		// cursor) so batch submission can never write out of bounds.
@@ -362,6 +370,7 @@ namespace Graphics {
 		// only when meshes are created/destroyed. Per-frame submission is a
 		// handle push; drawing is one indexed-range draw per visible mesh.
 		// -------------------------------------------------------------------
+		namespace {
 		struct RetainedMeshRange
 		{
 			uint32_t vertexOffset = 0;  // in vertices
@@ -389,6 +398,7 @@ namespace Graphics {
 		};
 
 		static RetainedMeshStorage s_Retained;
+		}
 
 		static void InitRetained()
 		{
