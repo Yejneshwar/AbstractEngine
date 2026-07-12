@@ -20,7 +20,8 @@ layout(location = 5) out flat int  FragID;
 void main()
 {
     FragID = aID;
-    FragNormal = mat3(transpose(inverse(ubo.viewMatrix))) * aNormal;
+    // World-space normal (matches the PBR mesh Debug Normals view).
+    FragNormal = aNormal;
     FragPosition = aPos;
     gl_Position = ubo.projViewMatrix * vec4(aPos, 1.0);
     CirclePosition = aCirclePos;
@@ -38,6 +39,8 @@ layout(location = 3) in vec4 Color;
 layout(location = 4) in float Radius;
 layout(location = 5) in flat int  FragID;
 
+#include <Resource/Shaders/GLBufferDeclarations.h>
+#include <Resource/Shaders/LightingDeclarations.h>
 
 layout(location = 0) out vec4 FragColor;
 layout(location = 1) out int FID;
@@ -59,6 +62,18 @@ void main()
     if (col == 0.0)
         discard;
 
-    FragColor = vec4(Color.xyz * vec3(col), Color.a * col);
     FID = FragID;
+
+    // Debug Normals viewport mode: show the disc's normal as color
+    // (zero-length normals from callers that don't set one render black).
+    if (int(lighting.params1.x + 0.5) == SHADING_NORMALS) {
+        vec3 n = dot(FragNormal, FragNormal) > 1e-8 ? normalize(FragNormal) : vec3(-1.0);
+        FragColor = vec4(srgbToLinear(n * 0.5 + 0.5), Color.a * col);
+        return;
+    }
+
+    FragColor = vec4(Color.xyz * vec3(col), Color.a * col);
+    // Linear-light viewports (HDR + tonemap): linearize sRGB-authored colors.
+    if (ubo.outputLinear != 0)
+        FragColor.rgb = pow(max(FragColor.rgb, vec3(0.0)), vec3(2.2));
 }

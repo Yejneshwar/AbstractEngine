@@ -5,6 +5,7 @@
 #include <iostream>
 #include <cassert>
 #include <string>
+#include <algorithm>
 
 //#define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
@@ -28,24 +29,32 @@ namespace Graphics {
     
     }
 
-    MetalTexture2D::MetalTexture2D(uint32_t width, uint32_t height, TextureFormat format) :
-        Texture2D(format), m_Width(width), m_Height(height), m_InternalFormat(Utils::TextureFormatToMTL(format))
+    MetalTexture2D::MetalTexture2D(uint32_t width, uint32_t height, TextureFormat format, uint32_t mipLevels) :
+        Texture2D(format), m_Width(width), m_Height(height), m_MipLevels(mipLevels ? mipLevels : 1), m_InternalFormat(Utils::TextureFormatToMTL(format))
     {
         MTL::TextureDescriptor* descriptor = MTL::TextureDescriptor::alloc()->init();
         descriptor->setPixelFormat(m_InternalFormat);
         descriptor->setWidth(width);
         descriptor->setHeight(height);
+        descriptor->setMipmapLevelCount(m_MipLevels);
         descriptor->setUsage(MTL::TextureUsageShaderRead | MTL::TextureUsageRenderTarget | MTL::TextureUsageShaderWrite);
-        
+
         MTL::SamplerDescriptor* samplerDescriptor = MTL::SamplerDescriptor::alloc()->init();
         samplerDescriptor->setMagFilter(MTL::SamplerMinMagFilterLinear);
         samplerDescriptor->setMinFilter(MTL::SamplerMinMagFilterLinear);
-        
+        if (m_MipLevels > 1) {
+            // Mipped textures are sampled with explicit LOD (prefiltered
+            // environment); wrap horizontally so equirect U seams filter.
+            samplerDescriptor->setMipFilter(MTL::SamplerMipFilterLinear);
+            samplerDescriptor->setSAddressMode(MTL::SamplerAddressModeRepeat);
+            samplerDescriptor->setLodMaxClamp((float)(m_MipLevels - 1));
+        }
+
         MTL::Device* device = MetalContext::GetCurrentDevice();
 
         m_RendererID = device->newTexture(descriptor);
         m_SamplerState = device->newSamplerState(samplerDescriptor);
-        
+
         descriptor->release();
         samplerDescriptor->release();
 
@@ -119,13 +128,36 @@ namespace Graphics {
         // No explicit delete required; Metal handles it.
     }
 
+    static uint32_t BytesPerPixel(MTL::PixelFormat format)
+    {
+        switch (format)
+        {
+            case MTL::PixelFormatRGBA32Float: return 16;
+            case MTL::PixelFormatRGBA16Float: return 8;
+            case MTL::PixelFormatRGBA8Unorm:  return 4;
+            default:                          return 4;
+        }
+    }
+
     void MetalTexture2D::SetData(void* data, uint32_t size)
     {
-        uint32_t bpp = (m_InternalFormat == MTL::PixelFormatRGBA8Unorm) ? 4 : 3;
+        uint32_t bpp = BytesPerPixel(m_InternalFormat);
         assert(size == m_Width * m_Height * bpp && "Data must be entire texture!");
 
         MTL::Region region = MTL::Region::Make2D(0, 0, m_Width, m_Height);
         m_RendererID->replaceRegion(region, 0, data, m_Width * bpp);
+    }
+
+    void MetalTexture2D::SetMipData(void* data, uint32_t size, uint32_t mip)
+    {
+        assert(mip < m_MipLevels);
+        const uint32_t mipWidth = std::max(1u, m_Width >> mip);
+        const uint32_t mipHeight = std::max(1u, m_Height >> mip);
+        const uint32_t bpp = BytesPerPixel(m_InternalFormat);
+        assert(size == mipWidth * mipHeight * bpp && "Data must be the entire mip level!");
+
+        MTL::Region region = MTL::Region::Make2D(0, 0, mipWidth, mipHeight);
+        m_RendererID->replaceRegion(region, mip, data, mipWidth * bpp);
     }
 
     void MetalTexture2D::Resize(uint32_t width, uint32_t height)
@@ -137,6 +169,7 @@ namespace Graphics {
         descriptor->setPixelFormat(m_InternalFormat);
         descriptor->setWidth(width);
         descriptor->setHeight(height);
+        descriptor->setMipmapLevelCount(m_MipLevels);
         descriptor->setUsage(MTL::TextureUsageShaderRead | MTL::TextureUsageRenderTarget | MTL::TextureUsageShaderWrite);
 
         MTL::SamplerDescriptor* samplerDescriptor = MTL::SamplerDescriptor::alloc()->init();
@@ -144,7 +177,7 @@ namespace Graphics {
         samplerDescriptor->setMinFilter(MTL::SamplerMinMagFilterLinear);
 
         MTL::Device* device = MetalContext::GetCurrentDevice();
-        
+
         m_RendererID->release();
         m_SamplerState->release();
 

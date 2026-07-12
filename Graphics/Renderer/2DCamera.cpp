@@ -158,6 +158,21 @@ void Graphics::TwoDCamera::UpdateView()
 
 bool Graphics::TwoDCamera::OnMouseScroll(Application::MouseScrolledEvent& e)
 {
+	// Trackpad two-finger scroll (precise, pixel deltas — includes the OS
+	// momentum tail): pan the canvas, like the touch pan gesture. Zooming
+	// stays on pinch / mouse wheel / Command|Ctrl+scroll.
+	if (e.IsPrecise()
+		&& !Application::Input::IsModifierDown(Application::Modifier::Command)
+		&& !Application::Input::IsModifierDown(Application::Modifier::Control)) {
+		// MousePan expects screen-pixel deltas; scrollingDelta already is
+		// (and with natural scrolling it follows the fingers, matching the
+		// iOS two-finger pan mapping).
+		MousePan(glm::vec2(e.GetXOffset(), e.GetYOffset()));
+		UpdateProjection();
+		UpdateView();
+		return false;
+	}
+
 	float delta = e.GetYOffset() * 0.1f;
 	MouseZoom(delta);
 	UpdateProjection();

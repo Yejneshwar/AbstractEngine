@@ -17,7 +17,7 @@ namespace Graphics {
 	class OpenGLTexture2D : public Texture2D
 	{
 	public:
-		OpenGLTexture2D(uint32_t width, uint32_t height, TextureFormat format);
+		OpenGLTexture2D(uint32_t width, uint32_t height, TextureFormat format, uint32_t mipLevels = 1);
 		OpenGLTexture2D(const std::string& path);
 		virtual ~OpenGLTexture2D();
 
@@ -28,6 +28,8 @@ namespace Graphics {
 		virtual const std::string& GetPath() const override { return m_Path; }
 
 		virtual void SetData(void* data, uint32_t size) override;
+
+		virtual void SetMipData(void* data, uint32_t size, uint32_t mip) override;
 
 		virtual void Resize(uint32_t width, uint32_t height) override;
 
@@ -45,6 +47,7 @@ namespace Graphics {
 		std::string m_Path;
 		bool m_IsLoaded = false;
 		uint32_t m_Width, m_Height;
+		uint32_t m_MipLevels = 1;
 		uint32_t m_RendererID;
 		GLenum m_InternalFormat, m_DataFormat;
 	};

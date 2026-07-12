@@ -6,6 +6,7 @@
 #include <string>
 #include <cassert>
 #include <iostream>
+#include <algorithm>
 
 #include "Logger.h"
 #include "stb_image.h"
@@ -26,19 +27,32 @@ namespace Graphics {
 		}
 	}
 
-	OpenGLTexture2D::OpenGLTexture2D(uint32_t width, uint32_t height, TextureFormat format)
-		: Texture2D(format), m_Width(width), m_Height(height), m_InternalFormat(Utils::TextureFormatToGLFormat(format))
+	OpenGLTexture2D::OpenGLTexture2D(uint32_t width, uint32_t height, TextureFormat format, uint32_t mipLevels)
+		: Texture2D(format), m_Width(width), m_Height(height), m_MipLevels(mipLevels ? mipLevels : 1), m_InternalFormat(Utils::TextureFormatToGLFormat(format))
 	{
 		m_DataFormat = GL_RGBA;
 
-		glCreateTextures(GL_TEXTURE_2D, 1, &m_RendererID);	
-		glTextureStorage2D(m_RendererID, 1, m_InternalFormat, m_Width, m_Height);
-		
-		glTextureParameteri(m_RendererID, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glCreateTextures(GL_TEXTURE_2D, 1, &m_RendererID);
+		glTextureStorage2D(m_RendererID, m_MipLevels, m_InternalFormat, m_Width, m_Height);
+
+		glTextureParameteri(m_RendererID, GL_TEXTURE_MIN_FILTER, m_MipLevels > 1 ? GL_LINEAR_MIPMAP_LINEAR : GL_LINEAR);
 		glTextureParameteri(m_RendererID, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
 		glTextureParameteri(m_RendererID, GL_TEXTURE_WRAP_S, GL_REPEAT);
 		glTextureParameteri(m_RendererID, GL_TEXTURE_WRAP_T, GL_REPEAT);
+	}
+
+	// Pixel upload type/size for our internal formats.
+	static GLenum GLDataTypeForInternalFormat(GLenum internalFormat)
+	{
+		return (internalFormat == GL_RGBA32F || internalFormat == GL_RGBA16F) ? GL_FLOAT : GL_UNSIGNED_BYTE;
+	}
+
+	static uint32_t GLBytesPerPixel(GLenum internalFormat, GLenum dataFormat)
+	{
+		const uint32_t channels = (dataFormat == GL_RGBA) ? 4 : 3;
+		// Float formats are uploaded from float client data (GL_FLOAT).
+		return (internalFormat == GL_RGBA32F || internalFormat == GL_RGBA16F) ? channels * 4 : channels;
 	}
 
 	OpenGLTexture2D::OpenGLTexture2D(const std::string& path)
@@ -102,10 +116,19 @@ namespace Graphics {
 
 	void OpenGLTexture2D::SetData(void* data, uint32_t size)
 	{
-
-		uint32_t bpp = m_DataFormat == GL_RGBA ? 4 : 3;
+		uint32_t bpp = GLBytesPerPixel(m_InternalFormat, m_DataFormat);
 		assert(size == m_Width * m_Height * bpp && "Data must be entire texture!");
-		glTextureSubImage2D(m_RendererID, 0, 0, 0, m_Width, m_Height, m_DataFormat, GL_UNSIGNED_BYTE, data);
+		glTextureSubImage2D(m_RendererID, 0, 0, 0, m_Width, m_Height, m_DataFormat, GLDataTypeForInternalFormat(m_InternalFormat), data);
+	}
+
+	void OpenGLTexture2D::SetMipData(void* data, uint32_t size, uint32_t mip)
+	{
+		assert(mip < m_MipLevels);
+		const uint32_t mipWidth = std::max(1u, m_Width >> mip);
+		const uint32_t mipHeight = std::max(1u, m_Height >> mip);
+		const uint32_t bpp = GLBytesPerPixel(m_InternalFormat, m_DataFormat);
+		assert(size == mipWidth * mipHeight * bpp && "Data must be the entire mip level!");
+		glTextureSubImage2D(m_RendererID, mip, 0, 0, mipWidth, mipHeight, m_DataFormat, GLDataTypeForInternalFormat(m_InternalFormat), data);
 	}
 
 	void OpenGLTexture2D::Resize(uint32_t width, uint32_t height)
@@ -140,5 +163,10 @@ namespace Graphics {
 	}
 	void OpenGLTexture2D::Blit(uintptr_t srcTexture)
 	{
+		// Same-size copy (used to fold the JFA composite back into the
+		// display texture, mirroring MetalTexture2D::Blit).
+		glCopyImageSubData((GLuint)srcTexture, GL_TEXTURE_2D, 0, 0, 0, 0,
+		                   m_RendererID, GL_TEXTURE_2D, 0, 0, 0, 0,
+		                   m_Width, m_Height, 1);
 	}
 }

@@ -50,18 +50,63 @@ namespace Graphics {
     // ---------------------------------------------------------------------
     // Pipeline-state cache.
     // newRenderPipelineState() is one of the most expensive Metal calls; it
-    // used to run on EVERY draw call, every frame. Pipeline states are fully
-    // determined here by (shader pipeline descriptor, vertex layout), both of
-    // which are stable objects that live for the whole run, so cache by
-    // pointer identity. Shader recreation allocates new descriptors (old ones
-    // are never freed), so stale keys can never alias a new descriptor.
+    // used to run on EVERY draw call, every frame. Pipeline states are
+    // determined by (shader pipeline descriptor, vertex layout, render-target
+    // formats). Descriptor/vertex-layout are stable objects that live for the
+    // whole run, so those key by pointer identity; the attachment formats of
+    // the currently-bound render pass are folded into the key as a hash so
+    // one shader can drive framebuffers with different formats (LDR vs HDR
+    // viewports, differing attachment counts).
     // ---------------------------------------------------------------------
-    static std::map<std::pair<const void*, const void*>, MTL::RenderPipelineState*> s_PipelineStateCache;
+    struct PipelineKey {
+        const void* descriptor;
+        const void* vertexDescriptor;
+        uint64_t formatKey;
+        bool operator<(const PipelineKey& o) const {
+            if (descriptor != o.descriptor) return descriptor < o.descriptor;
+            if (vertexDescriptor != o.vertexDescriptor) return vertexDescriptor < o.vertexDescriptor;
+            return formatKey < o.formatKey;
+        }
+    };
+    static std::map<PipelineKey, MTL::RenderPipelineState*> s_PipelineStateCache;
+
+    // Copy the attachment formats of the bound render pass onto the pipeline
+    // descriptor and return a hash of them for the cache key. Unused
+    // attachment slots hash/patch as PixelFormatInvalid (0).
+    static uint64_t PatchPipelineFormatsFromRenderPass(MTL::RenderPipelineDescriptor* descriptor)
+    {
+        MTL::RenderPassDescriptor* renderPass = MetalContext::GetCurrentRenderPassDescriptor();
+
+        uint64_t key = 1469598103934665603ull; // FNV-1a
+        auto mix = [&key](uint64_t v) { key ^= v; key *= 1099511628211ull; };
+
+        for (int i = 0; i < 8; ++i)
+        {
+            MTL::Texture* texture = renderPass->colorAttachments()->object(i)->texture();
+            MTL::PixelFormat format = texture ? texture->pixelFormat() : MTL::PixelFormatInvalid;
+            descriptor->colorAttachments()->object(i)->setPixelFormat(format);
+            mix((uint64_t)format);
+        }
+
+        MTL::Texture* depthTexture = renderPass->depthAttachment()->texture();
+        MTL::PixelFormat depthFormat = depthTexture ? depthTexture->pixelFormat() : MTL::PixelFormatInvalid;
+        descriptor->setDepthAttachmentPixelFormat(depthFormat);
+        mix((uint64_t)depthFormat);
+
+        MTL::Texture* stencilTexture = renderPass->stencilAttachment()->texture();
+        MTL::PixelFormat stencilFormat = stencilTexture ? stencilTexture->pixelFormat() : MTL::PixelFormatInvalid;
+        descriptor->setStencilAttachmentPixelFormat(stencilFormat);
+        mix((uint64_t)stencilFormat);
+
+        return key;
+    }
 
     static MTL::RenderPipelineState* GetOrCreatePipelineState(MTL::RenderPipelineDescriptor* descriptor,
                                                               MTL::VertexDescriptor* vertexDescriptor)
     {
-        const auto key = std::make_pair((const void*)descriptor, (const void*)vertexDescriptor);
+        const uint64_t formatKey = PatchPipelineFormatsFromRenderPass(descriptor);
+
+        const PipelineKey key { (const void*)descriptor, (const void*)vertexDescriptor, formatKey };
         auto it = s_PipelineStateCache.find(key);
         if (it != s_PipelineStateCache.end())
             return it->second;
@@ -101,25 +146,32 @@ namespace Graphics {
 	}
 
 	void MetalRendererAPI::DepthTest(bool enable) {
-        // Depth/stencil states are immutable; build the two variants once.
-        static MTL::DepthStencilState* s_DepthEnabledState = nullptr;
-        static MTL::DepthStencilState* s_DepthDisabledState = nullptr;
+        SetDepthState(enable ? DepthState::Default : DepthState::Disabled);
+	}
 
-        if (!s_DepthEnabledState) {
+	void MetalRendererAPI::SetDepthState(DepthState state) {
+        // Depth/stencil states are immutable; build the variants once.
+        static MTL::DepthStencilState* s_DepthStates[3] = { nullptr, nullptr, nullptr };
+
+        if (!s_DepthStates[0]) {
             MTL::DepthStencilDescriptor* desc = MTL::DepthStencilDescriptor::alloc()->init();
 
             desc->setDepthCompareFunction(MTL::CompareFunctionLess);
             desc->setDepthWriteEnabled(true);
-            s_DepthEnabledState = MetalContext::GetCurrentDevice()->newDepthStencilState(desc);
+            s_DepthStates[(int)DepthState::Default] = MetalContext::GetCurrentDevice()->newDepthStencilState(desc);
 
             desc->setDepthCompareFunction(MTL::CompareFunctionAlways);
             desc->setDepthWriteEnabled(false);
-            s_DepthDisabledState = MetalContext::GetCurrentDevice()->newDepthStencilState(desc);
+            s_DepthStates[(int)DepthState::Disabled] = MetalContext::GetCurrentDevice()->newDepthStencilState(desc);
+
+            desc->setDepthCompareFunction(MTL::CompareFunctionLessEqual);
+            desc->setDepthWriteEnabled(false);
+            s_DepthStates[(int)DepthState::ReadOnlyLessEqual] = MetalContext::GetCurrentDevice()->newDepthStencilState(desc);
 
             desc->release();
         }
 
-        MetalContext::GetCurrentRenderCommandEncoder()->setDepthStencilState(enable ? s_DepthEnabledState : s_DepthDisabledState);
+        MetalContext::GetCurrentRenderCommandEncoder()->setDepthStencilState(s_DepthStates[(int)state]);
 	}
 
 	void MetalRendererAPI::PolygonSmooth(bool enable) {
@@ -284,22 +336,10 @@ namespace Graphics {
 	}
 
 	void MetalRendererAPI::DrawGridTriangles(){
-        MTL::RenderPipelineDescriptor* pipelineDescriptor = MetalContext::GetCurrentPipelineStateDecsriptor();
-        MTL::RenderPassDescriptor* renderPassDescriptor = MetalContext::GetCurrentRenderPassDescriptor();
-
-        // Match the pipeline's attachment formats to the bound render pass.
-        // These are stable per framebuffer, so the resulting pipeline state is
-        // served from the cache after the first draw.
-        MTL::RenderPassColorAttachmentDescriptorArray* colorAttachments = renderPassDescriptor->colorAttachments();
-        for (int i = 0; i < 8; ++i)
-        {
-            MTL::RenderPassColorAttachmentDescriptor* attachment = colorAttachments->object(i);
-            pipelineDescriptor->colorAttachments()->object(i)->setPixelFormat(attachment->texture()->pixelFormat());
-        }
-        pipelineDescriptor->setDepthAttachmentPixelFormat(renderPassDescriptor->depthAttachment()->texture()->pixelFormat());
-        pipelineDescriptor->setStencilAttachmentPixelFormat(renderPassDescriptor->stencilAttachment()->texture()->pixelFormat());
-
-        MTL::RenderPipelineState* PipelineState = GetOrCreatePipelineState(pipelineDescriptor, nullptr);
+        // Attachment formats are matched to the bound render pass inside
+        // GetOrCreatePipelineState (as for every draw).
+        MTL::RenderPipelineState* PipelineState = GetOrCreatePipelineState(
+            MetalContext::GetCurrentPipelineStateDecsriptor(), nullptr);
 
         MTL::RenderCommandEncoder* pEncoder = MetalContext::GetCurrentRenderCommandEncoder();
 

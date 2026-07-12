@@ -10,11 +10,22 @@
 
 namespace Graphics {
 
+	// What a trackpad two-finger scroll does in a 3D viewport (Shift flips
+	// between Pan and Orbit; pinch always zooms, mouse wheel always zooms).
+	enum class TrackpadScrollAction : int {
+		Pan = 0,
+		Orbit = 1,
+		Zoom = 2,
+	};
+
 	class ThreeDCamera : public Camera
 	{
 	public:
 		ThreeDCamera() = default;
 		ThreeDCamera(float fov, float aspectRatio, float nearClip, float farClip);
+
+		// Global preference, surfaced in the app Settings UI.
+		static TrackpadScrollAction s_TrackpadScrollAction;
 
 		void OnEvent(Application::Event& event);
 

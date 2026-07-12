@@ -12,6 +12,7 @@
 #include <Logger.h>
 #include <imgui_internal.h>
 #include "Renderer/BatchRenderer.h"
+#include "Renderer/Environment.h"
 #include <Events/Input.h>
 
 // Upper bound for valid pick ids read back from the ID attachment (filters
@@ -59,7 +60,8 @@ namespace GUI {
 		m_viewPortCount++;
 
 		m_CameraBuffer = Graphics::UniformBuffer::Create(sizeof(SceneDataUBO), 0, "Camera Buffer");
-        
+		m_LightingBuffer = Graphics::UniformBuffer::Create(sizeof(Graphics::LightingUBOData), Graphics::kLightingUBOBinding, "Lighting Buffer");
+
 		this->CreateShaders();
 		Graphics::BatchRenderer::Init();
 
@@ -81,10 +83,59 @@ namespace GUI {
 		m_font = Graphics::Texture2D::Create("Resource/Textures/FontAtlas.png");
 		m_gridShader = Graphics::Shader::Create("./Resource/Shaders/Grid.glsl", true);
 		m_gridShader2D = Graphics::Shader::Create("./Resource/Shaders/Grid2D.glsl", true);
+		m_EnvBackgroundShader = Graphics::Shader::Create("./Resource/Shaders/EnvBackground.glsl", true);
         m_JFAComputeSeed = Graphics::ComputeShader::Create(std::filesystem::path("./Resource/ComputeShaders/JFASeed.glsl"));
         m_JFAComputeShader = Graphics::ComputeShader::Create(std::filesystem::path("./Resource/ComputeShaders/JFAPass.glsl"));
         m_JFAComputeVisualize = Graphics::ComputeShader::Create(std::filesystem::path("./Resource/ComputeShaders/JFAVisualize.glsl"));
         m_JFAComposite = Graphics::ComputeShader::Create(std::filesystem::path("./Resource/ComputeShaders/JFAComposite.glsl"));
+        m_GTAOCompute = Graphics::ComputeShader::Create(std::filesystem::path("./Resource/ComputeShaders/GTAO.glsl"));
+        m_TonemapCompute = Graphics::ComputeShader::Create(std::filesystem::path("./Resource/ComputeShaders/Tonemap.glsl"));
+	}
+
+	// Fill the per-viewport lighting UBO: key light (headlight follows the
+	// camera), environment SH + intensity, and the shading/post flags the
+	// shared shaders read.
+	void AbstractApplication::UpdateLighting(ViewPort& viewPort)
+	{
+		Graphics::LightingUBOData& lighting = viewPort.uboLighting;
+		const Graphics::RenderSettings& settings = viewPort.renderSettings;
+		const bool threeD = viewPort.cameraType == CameraType::ThreeD;
+
+		int dirCount = 0;
+		if (threeD && settings.keyIntensity > 0.0f) {
+			glm::vec3 direction;
+			if (settings.headlight) {
+				// Camera axes from the inverse view matrix; tilt the light a
+				// little off-axis so facets facing the camera still shade.
+				const glm::mat4& viewInverse = viewPort.uboDataScene.viewMatrixInverse;
+				const glm::vec3 right = glm::normalize(glm::vec3(viewInverse[0]));
+				const glm::vec3 up = glm::normalize(glm::vec3(viewInverse[1]));
+				const glm::vec3 forward = -glm::normalize(glm::vec3(viewInverse[2]));
+				direction = glm::normalize(forward - 0.35f * up + 0.25f * right);
+			} else {
+				direction = glm::normalize(settings.keyDirection);
+			}
+			lighting.dirLights[0].direction = glm::vec4(direction, 0.0f);
+			lighting.dirLights[0].color = glm::vec4(settings.keyColor * settings.keyIntensity, 0.0f);
+			dirCount = 1;
+		}
+
+		const glm::vec4* sh = Graphics::EnvironmentIBL::GetIrradianceSH();
+		for (int i = 0; i < 9; ++i)
+			lighting.shIrradiance[i] = sh[i];
+
+		lighting.params0 = {
+			(float)dirCount,
+			0.0f, // point lights: none yet (UBO slots reserved)
+			threeD ? settings.envIntensity : 0.0f,
+			(float)Graphics::EnvironmentIBL::GetSpecularMipCount(),
+		};
+		lighting.params1 = {
+			threeD ? (float)(int)settings.shading : (float)(int)Graphics::SceneShading::Unlit,
+			threeD ? 1.0f : 0.0f, // outputLinear: the HDR->tonemap post chain runs
+			settings.backgroundBlur,
+			0.0f,
+		};
 	}
 
 	void AbstractApplication::PushLayer(Layer* layer)
@@ -262,15 +313,30 @@ namespace GUI {
                             v.JFATextureB->Resize(xSize, ySize);
                             v.JFAResultTexture->Resize(xSize, ySize);
                             v.JFACompositeTexture->Resize(xSize, ySize);
+                            v.AOTexture->Resize(std::max(1u, xSize / 2), std::max(1u, ySize / 2));
+                            v.DisplayTexture->Resize(xSize, ySize);
 							v.update();
 						}
 						if (!v.ViewportHovered && !v.ViewportFocused && !v.updateViewport && !m_updateAllViewPorts) continue;
 						LOG_TRACE_STREAM << "Viewport: " << v.id << " Hovered: " << v.ViewportHovered << " Focused: " << v.ViewportFocused << " UpdateAll : " << m_updateAllViewPorts;
 
 
+						const bool threeD = v.cameraType == CameraType::ThreeD;
+
+						// The 3D background clear is in linear light (the post
+						// chain tonemaps + gamma-encodes it back).
+						const glm::vec4 backgroundColor = threeD
+							? glm::vec4(glm::pow(glm::vec3(v.renderSettings.backgroundColor), glm::vec3(2.2f)), 1.0f)
+							: glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
+						v.Framebuffer->SetAttachmentClearColor(0, backgroundColor.r, backgroundColor.g, backgroundColor.b, backgroundColor.a); // Metal load-action clear
+						Graphics::Renderer::SetClearColor(backgroundColor); // GL glClear path
+
 						v.Framebuffer->Bind();
                         m_font->Bind();
                         m_CameraBuffer->SetData(&v.uboDataScene, sizeof(v.uboDataScene));
+                        UpdateLighting(v);
+                        m_LightingBuffer->SetData(&v.uboLighting, sizeof(v.uboLighting));
+                        Graphics::BatchRenderer::BindSceneResources(); // material table + IBL textures
 						v.Framebuffer->ClearAttachment(1, -1); // Clear ID buffer
 						Graphics::Renderer::DepthTest(true);
 
@@ -279,6 +345,16 @@ namespace GUI {
 						v.Framebuffer->SetDrawBuffer(2); // Clear just the selection buffer to full transparent
 						Graphics::Renderer::Clear(0.0);
 						v.Framebuffer->DrawToAllColorBuffers();
+
+						// Environment background (3D): fullscreen pass that
+						// also resets the pick-ID/selection attachments.
+						if (threeD && v.renderSettings.environmentBackground) {
+							Graphics::Renderer::SetDepthState(Graphics::DepthState::Disabled);
+							m_EnvBackgroundShader->Bind();
+							Graphics::Renderer::DrawGridTriangles();
+							m_EnvBackgroundShader->Unbind();
+							Graphics::Renderer::SetDepthState(Graphics::DepthState::Default);
+						}
 
 							for (Layer* layer : m_LayerStack)
 								layer->OnDrawUpdate();
@@ -315,6 +391,52 @@ namespace GUI {
 
 
 						v.Framebuffer->Unbind();
+
+						// ---- HDR post chain (3D viewports): GTAO + tonemap
+						// into the LDR DisplayTexture the UI shows. ----
+						if (threeD) {
+							const Graphics::RenderSettings& settings = v.renderSettings;
+							const uint32_t halfW = std::max(1u, v.ViewportSize.x / 2);
+							const uint32_t halfH = std::max(1u, v.ViewportSize.y / 2);
+#if BUILDING_METAL
+							// Metal dispatch takes total threads; GL takes 8x8 workgroup counts.
+							const int dispatchFullX = (int)v.ViewportSize.x, dispatchFullY = (int)v.ViewportSize.y;
+							const int dispatchHalfX = (int)halfW, dispatchHalfY = (int)halfH;
+							const float depthRange01 = 1.0f;
+#else
+							const int dispatchFullX = ((int)v.ViewportSize.x + 7) / 8, dispatchFullY = ((int)v.ViewportSize.y + 7) / 8;
+							const int dispatchHalfX = ((int)halfW + 7) / 8, dispatchHalfY = ((int)halfH + 7) / 8;
+							const float depthRange01 = 0.0f;
+#endif
+
+							if (settings.aoEnabled) {
+								const glm::mat4& projection = v.uboDataScene.projectionMatrix;
+								struct { glm::vec4 proj; glm::vec4 params; glm::vec4 dims; } gtaoParams = {
+									{ projection[0][0], std::abs(projection[1][1]), projection[2][2], projection[3][2] },
+									{ settings.aoRadius, settings.aoIntensity, depthRange01, 0.0f },
+									{ (float)halfW, (float)halfH, (float)v.ViewportSize.x, (float)v.ViewportSize.y },
+								};
+								m_GTAOCompute->Bind();
+								m_GTAOCompute->BindTexture(v.AOTexture->GetRendererID(), 0);          // [[texture(0)]] AO out
+								m_GTAOCompute->BindSampledTexture(v.Framebuffer->GetDepthAttachmentRendererID(), 1); // [[texture(1)]] depth
+								m_GTAOCompute->SetData(&gtaoParams, sizeof(gtaoParams), 0);           // [[buffer(0)]]
+								m_GTAOCompute->Dispatch(dispatchHalfX, dispatchHalfY, 1);
+								m_GTAOCompute->Unbind();
+							}
+
+							struct { glm::vec4 p0; glm::vec4 dims; } tonemapParams = {
+								{ settings.exposure, (float)(int)settings.tonemap, settings.aoEnabled ? 1.0f : 0.0f, settings.aoIntensity },
+								{ (float)v.ViewportSize.x, (float)v.ViewportSize.y, (float)halfW, (float)halfH },
+							};
+							m_TonemapCompute->Bind();
+							m_TonemapCompute->BindTexture(v.DisplayTexture->GetRendererID(), 0);                  // [[texture(0)]] LDR out
+							m_TonemapCompute->BindTexture(v.Framebuffer->GetColorAttachmentRendererID(0), 1);     // [[texture(1)]] HDR in
+							m_TonemapCompute->BindTexture(v.AOTexture->GetRendererID(), 2);                       // [[texture(2)]] AO
+							m_TonemapCompute->SetData(&tonemapParams, sizeof(tonemapParams), 0);                  // [[buffer(0)]]
+							m_TonemapCompute->Dispatch(dispatchFullX, dispatchFullY, 1);
+							m_TonemapCompute->Unbind();
+						}
+
                         if (m_ObjectSelection.objectID > -1 && m_ObjectSelection.objectID < MAX_SELECTED_OBJECT_ID) {
 #if BUILDING_METAL
                             int numGroupsX = v.ViewportSize.x;
@@ -381,14 +503,24 @@ namespace GUI {
 								m_JFAComputeVisualize->Unbind();
 							}
 
+							// 3D viewports composite the outline over the
+							// tonemapped LDR display texture; 2D viewports
+							// still composite over the framebuffer directly.
+							const uintptr_t sceneTexture = threeD
+								? v.DisplayTexture->GetRendererID()
+								: v.Framebuffer->GetColorAttachmentRendererID();
+
 							m_JFAComposite->Bind();
 							m_JFAComposite->BindTexture(v.JFACompositeTexture->GetRendererID(), 0); // [[texture(0)]]
 							m_JFAComposite->BindTexture(JFAResult->GetRendererID(), 1); // [[texture(1)]]
-							m_JFAComposite->BindTexture(v.Framebuffer->GetColorAttachmentRendererID(), 2); // [[texture(2)]]
+							m_JFAComposite->BindTexture(sceneTexture, 2); // [[texture(2)]]
                             m_JFAComposite->Dispatch(numGroupsX, numGroupsY, 1);
                             m_JFAComposite->Unbind();
-                            
-                            v.Framebuffer->BlitToColorAttachment(0, v.JFACompositeTexture->GetRendererID());
+
+							if (threeD)
+								v.DisplayTexture->Blit(v.JFACompositeTexture->GetRendererID());
+							else
+								v.Framebuffer->BlitToColorAttachment(0, v.JFACompositeTexture->GetRendererID());
                         }
                         
 					}
@@ -507,6 +639,65 @@ namespace GUI {
 		ImGui::PopID();
 	}
 
+	// Per-viewport rendering controls (3D viewports only — 2D stays on the
+	// legacy unlit path).
+	void AbstractApplication::RenderSettingsUI(ViewPort& viewPort)
+	{
+		if (viewPort.cameraType != CameraType::ThreeD)
+			return;
+
+		Graphics::RenderSettings& settings = viewPort.renderSettings;
+		bool changed = false;
+
+		ImGui::PushID((int)viewPort.id);
+		if (ImGui::CollapsingHeader(std::format("Rendering (Viewport {})", viewPort.id).c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
+			const char* shadingModes[] = { "Unlit", "Lit (PBR)", "Matcap", "Debug Normals" };
+			int shading = (int)settings.shading;
+			if (ImGui::Combo("Shading", &shading, shadingModes, 4)) {
+				settings.shading = (Graphics::SceneShading)shading;
+				changed = true;
+			}
+
+			ImGui::SeparatorText("Key Light");
+			changed |= ImGui::Checkbox("Headlight (follows camera)", &settings.headlight);
+			changed |= ImGui::SliderFloat("Intensity", &settings.keyIntensity, 0.0f, 10.0f);
+			if (!settings.headlight) {
+				if (ImGui::SliderFloat3("Direction", &settings.keyDirection.x, -1.0f, 1.0f)) {
+					if (glm::length(settings.keyDirection) < 1e-3f)
+						settings.keyDirection = { 0.0f, -1.0f, 0.0f };
+					changed = true;
+				}
+			}
+			changed |= ImGui::ColorEdit3("Color", &settings.keyColor.x, ImGuiColorEditFlags_Float);
+
+			ImGui::SeparatorText("Environment");
+			changed |= ImGui::SliderFloat("Env Intensity", &settings.envIntensity, 0.0f, 4.0f);
+			changed |= ImGui::Checkbox("Environment Background", &settings.environmentBackground);
+			if (settings.environmentBackground)
+				changed |= ImGui::SliderFloat("Background Blur", &settings.backgroundBlur, 0.0f, 5.0f);
+			else
+				changed |= ImGui::ColorEdit3("Background Color", &settings.backgroundColor.x, ImGuiColorEditFlags_Float);
+
+			ImGui::SeparatorText("Post");
+			const char* tonemapOps[] = { "Linear", "ACES", "AgX" };
+			int tonemap = (int)settings.tonemap;
+			if (ImGui::Combo("Tonemap", &tonemap, tonemapOps, 3)) {
+				settings.tonemap = (Graphics::TonemapOperator)tonemap;
+				changed = true;
+			}
+			changed |= ImGui::SliderFloat("Exposure", &settings.exposure, 0.1f, 4.0f);
+			changed |= ImGui::Checkbox("Ambient Occlusion (GTAO)", &settings.aoEnabled);
+			if (settings.aoEnabled) {
+				changed |= ImGui::SliderFloat("AO Radius", &settings.aoRadius, 0.05f, 10.0f);
+				changed |= ImGui::SliderFloat("AO Intensity", &settings.aoIntensity, 0.0f, 2.0f);
+			}
+		}
+		ImGui::PopID();
+
+		if (changed)
+			m_updateAllViewPorts = true;
+	}
+
 	void AbstractApplication::CoreUI() {
 		{
 			ImGui::Begin("Hello, world!");
@@ -602,7 +793,11 @@ namespace GUI {
 			// TODO: Make this more efficient by marking individual viewports as dirty
 			if (tmp != ViewPortIt->ViewportSize) { m_updateAllViewPorts = true; }
 
-			uint64_t textureID = ViewPortIt->Framebuffer->GetColorAttachmentRendererID();
+			// 3D viewports show the tonemapped LDR output of the post chain;
+			// 2D viewports show the framebuffer directly (legacy path).
+			uint64_t textureID = ViewPortIt->cameraType == CameraType::ThreeD
+				? (uint64_t)ViewPortIt->DisplayTexture->GetRendererID()
+				: (uint64_t)ViewPortIt->Framebuffer->GetColorAttachmentRendererID();
 
 			ImGui::Image(reinterpret_cast<void*>(textureID), ImVec2{ (float)ViewPortIt->ViewportSize.x, (float)ViewPortIt->ViewportSize.y }, ImVec2{ 0, 1 }, ImVec2{ 1, 0 });
 			auto rectMin = ImVec2{ ViewPortIt->ViewportBounds[0].x, ViewPortIt->ViewportBounds[0].y };
@@ -699,8 +894,19 @@ namespace GUI {
 				ImGui::SameLine();
 				if (ImGui::Button("Polygon Smooth")) { m_Window->SetPolygonSmooth(!m_Window->IsPolygonSmooth()); m_updateAllViewPorts = true; };
 
+				{
+					// Trackpad two-finger scroll behavior in 3D viewports
+					// (Shift temporarily flips Pan<->Orbit; pinch zooms).
+					const char* scrollActions[] = { "Pan", "Orbit", "Zoom" };
+					int action = (int)Graphics::ThreeDCamera::s_TrackpadScrollAction;
+					if (ImGui::Combo("Trackpad Scroll (3D)", &action, scrollActions, 3))
+						Graphics::ThreeDCamera::s_TrackpadScrollAction = (Graphics::TrackpadScrollAction)action;
+				}
+
 
 			for (ViewPort& v : m_ViewPorts) {
+				RenderSettingsUI(v);
+
 				auto camerPosition = v.ViewPortCamera->GetPosition();
 				ImGui::Text("Camera Position : %.3f %.3f %.3f", camerPosition.x, camerPosition.y, camerPosition.z);
 

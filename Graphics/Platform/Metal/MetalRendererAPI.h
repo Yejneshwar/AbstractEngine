@@ -13,12 +13,13 @@ namespace Graphics {
 		virtual void SetClearColor(const glm::vec4& color) override;
 		virtual void Clear(float alpha = 1.0) override;
 		virtual void DepthTest(bool enable) override;
+		virtual void SetDepthState(DepthState state) override;
 		virtual void PolygonSmooth(bool enable) override;
 
 		virtual void ClearStencil() override;
 
 		virtual void ClearBuffers() override;
-        
+
         virtual void BeginLoop() override;
         virtual void EndLoop() override;
 

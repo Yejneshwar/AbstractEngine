@@ -84,9 +84,17 @@ namespace Graphics {
         m_ComputeCommandEncoder->setTexture((MTL::Texture*)texture, slot);
     }
 
+    void MetalComputeShader::BindSampledTexture(uintptr_t texture, int slot) {
+        // Metal does not distinguish sampled vs storage bindings.
+        m_ComputeCommandEncoder->setTexture((MTL::Texture*)texture, slot);
+    }
 
     void MetalComputeShader::SetInt(int* ptr, int slot) {
         m_ComputeCommandEncoder->setBytes(ptr, sizeof(int), slot);
+    }
+
+    void MetalComputeShader::SetData(const void* data, uint32_t size, int slot) {
+        m_ComputeCommandEncoder->setBytes(data, size, slot);
     }
 
     void MetalComputeShader::Dispatch(uint32_t width, uint32_t height, uint32_t depth) {

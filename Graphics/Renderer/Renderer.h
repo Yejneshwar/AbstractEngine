@@ -29,6 +29,7 @@ namespace Graphics {
 		static void SetClearColor(glm::vec4 color);
 		static void Clear(float alpha = 1.0);
 		static void DepthTest(bool enable);
+		static void SetDepthState(DepthState state);
 		
 		static void PolygonSmooth(bool enable);
 

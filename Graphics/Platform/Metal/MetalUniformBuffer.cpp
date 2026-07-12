@@ -52,4 +52,15 @@ namespace Graphics {
         pEncoder->setFragmentBuffer(buffer, 0, m_Binding);
     }
 
+    void MetalUniformBuffer::Bind()
+    {
+        MTL::RenderCommandEncoder* pEncoder = MetalContext::GetCurrentRenderCommandEncoder();
+        if (!pEncoder)
+            return;
+
+        MTL::Buffer* buffer = m_Buffers[m_Slot];
+        pEncoder->setVertexBuffer(buffer, 0, m_Binding);
+        pEncoder->setFragmentBuffer(buffer, 0, m_Binding);
+    }
+
 }

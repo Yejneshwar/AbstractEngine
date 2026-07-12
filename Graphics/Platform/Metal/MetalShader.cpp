@@ -32,12 +32,12 @@ namespace Graphics {
             
             newPipelineDescriptor->setVertexFunction(m_VertexFunction);
             newPipelineDescriptor->setFragmentFunction(m_FragmentFunction);
-            newPipelineDescriptor->colorAttachments()->object(0)->setPixelFormat(MTL::PixelFormatRGBA8Unorm);
-            newPipelineDescriptor->colorAttachments()->object(1)->setPixelFormat(MTL::PixelFormatR32Sint);
-            newPipelineDescriptor->colorAttachments()->object(2)->setPixelFormat(MTL::PixelFormatRGBA8Unorm);
-            newPipelineDescriptor->setDepthAttachmentPixelFormat(MTL::PixelFormatDepth32Float_Stencil8);
-            newPipelineDescriptor->setStencilAttachmentPixelFormat(MTL::PixelFormatDepth32Float_Stencil8);
-            
+
+            // NOTE: attachment pixel formats are NOT set here — they are
+            // patched from the bound render pass at draw time (see
+            // MetalRendererAPI::GetOrCreatePipelineState), so one shader can
+            // serve framebuffers with different formats.
+
             // Get the descriptor for the first color attachment.
             MTL::RenderPipelineColorAttachmentDescriptor* colorAttachment = newPipelineDescriptor->colorAttachments()->object(0);
 

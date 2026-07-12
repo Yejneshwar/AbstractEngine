@@ -16,6 +16,9 @@ layout(std140, binding = UBO_SCENE) uniform SceneDataUBO {
 	float gridMinor;
 	float gridZoom;
 	int selectedObject;
+	// 1 when the viewport renders linear HDR and the tonemap post chain
+	// runs (3D viewports): shaders must linearize their sRGB-authored colors.
+	int outputLinear;
 
 
 	//ivec3 viewport;  // (width, height, width*height)
@@ -28,19 +31,6 @@ layout(std140, binding = UBO_SCENE) uniform SceneDataUBO {
 	//vec2  _pad1;
 } ubo;
 
-struct Vertex
-{
-	float p[3];
-	float n[3];
-	float tc[2];
-};
-
-layout(std430, binding = 1) restrict readonly buffer Vertices
-{
-	Vertex in_Vertices[];
-};
-
-layout(std430, binding = 2) restrict readonly buffer Matrices
-{
-	mat4 in_ModelMatrices[];
-};
+// NOTE: the old unused Vertices/Matrices SSBO declarations (std430 bindings
+// 1/2) were removed — on Metal, SSBOs and UBOs share the [[buffer(n)]] index
+// space and they aliased the fragment UBO (1) and lighting UBO (2).

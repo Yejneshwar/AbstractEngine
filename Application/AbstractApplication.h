@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <algorithm>
 #include "Core/Base.h"
 #include "Core/Layer.h"
 #include "Core/LayerStack.h"
@@ -13,6 +14,7 @@
 #include <Renderer/UniformBuffer.h>
 #include <Renderer/FrameBuffer.h>
 #include <Renderer/ComputeShader.h>
+#include <Renderer/Lighting.h>
 #include "glm/gtc/matrix_inverse.hpp"
 #include <Logger.h>
 #include <Renderer/Shader.h>
@@ -36,9 +38,11 @@ namespace GUI {
 			glm::f32 gridMinor;
 			glm::f32 gridZoom;
 			int selectedObject;
+			// 1 when the viewport renders linear HDR (tonemap post runs).
+			int outputLinear;
 #if BUILDING_METAL
 			// Padding for Metal API
-            int _padding[3];
+            int _padding[2];
 #endif
 
 
@@ -67,8 +71,13 @@ namespace GUI {
 		CameraType cameraType = CameraType::ThreeD;
 		Graphics::Ref<Graphics::Framebuffer> Framebuffer;
         Graphics::Ref<Graphics::Texture> JFATextureA, JFATextureB, JFAResultTexture, JFACompositeTexture;
+        // HDR post chain (3D viewports): half-res GTAO target + the LDR
+        // tonemapped texture that is actually displayed.
+        Graphics::Ref<Graphics::Texture> AOTexture, DisplayTexture;
 		Graphics::Ref<Graphics::Camera> ViewPortCamera;
 		SceneDataUBO uboDataScene;
+		Graphics::RenderSettings renderSettings;
+		Graphics::LightingUBOData uboLighting;
 		bool ViewportFocused = true, ViewportHovered = false;
 		glm::u32vec2 ViewportSize = { 1.0f, 1.0f };
 		glm::vec2 ViewportBounds[2];
@@ -78,12 +87,19 @@ namespace GUI {
 		static int s_selectedObject;
 
 		explicit ViewPort(Graphics::FramebufferSpecification fbSpec, CameraType camera, uint32_t _id) : cameraType(camera), id(_id) {
+			// 3D viewports render linear HDR and get tonemapped by the post
+			// chain; 2D viewports keep the legacy direct-LDR path.
+			if (cameraType == CameraType::ThreeD && !fbSpec.Attachments.Attachments.empty())
+				fbSpec.Attachments.Attachments[0].TextureFormat = Graphics::FramebufferTextureFormat::RGBA16F;
+
 			Framebuffer = Graphics::Framebuffer::Create(fbSpec);
-        
+
             JFATextureA = Graphics::Texture2D::Create(fbSpec.Width, fbSpec.Height, Graphics::TextureFormat::RGBA32FLOAT);
             JFATextureB = Graphics::Texture2D::Create(fbSpec.Width, fbSpec.Height, Graphics::TextureFormat::RGBA32FLOAT);
             JFAResultTexture = Graphics::Texture2D::Create(fbSpec.Width, fbSpec.Height, Graphics::TextureFormat::RGBA8);
             JFACompositeTexture = Graphics::Texture2D::Create(fbSpec.Width, fbSpec.Height, Graphics::TextureFormat::RGBA8);
+            AOTexture = Graphics::Texture2D::Create(std::max(1u, fbSpec.Width / 2), std::max(1u, fbSpec.Height / 2), Graphics::TextureFormat::RGBA8);
+            DisplayTexture = Graphics::Texture2D::Create(fbSpec.Width, fbSpec.Height, Graphics::TextureFormat::RGBA8);
 
 			//Note: It gets weird when near plane is set to 0.0f
 			if(camera == CameraType::ThreeD)
@@ -120,6 +136,7 @@ namespace GUI {
 			uboDataScene.viewport = ViewPortCamera->getViewport();
 			uboDataScene.aspectRatio = static_cast<float>(ViewPortCamera->getAspectRatio());
 			uboDataScene.selectedObject = s_selectedObject;
+			uboDataScene.outputLinear = (cameraType == CameraType::ThreeD) ? 1 : 0;
 			SetGridValues();
 		}
 	};
@@ -175,6 +192,9 @@ namespace GUI {
 		bool OnWindowClose(Application::WindowCloseEvent& e);
 		bool OnWindowResize(Application::WindowResizeEvent& e);
 
+		void UpdateLighting(ViewPort& viewPort);
+		void RenderSettingsUI(ViewPort& viewPort);
+
 		void CoreUI();
 
 		void ExecuteMainThreadQueue();
@@ -194,8 +214,10 @@ namespace GUI {
 
 		Graphics::Ref<Graphics::Shader> m_gridShader;
 		Graphics::Ref<Graphics::Shader> m_gridShader2D;
+		Graphics::Ref<Graphics::Shader> m_EnvBackgroundShader;
 
         Graphics::Ref<Graphics::ComputeShader> m_JFAComputeSeed, m_JFAComputeShader, m_JFAComputeVisualize, m_JFAComposite;
+        Graphics::Ref<Graphics::ComputeShader> m_GTAOCompute, m_TonemapCompute;
 
 		Graphics::Ref<Graphics::Texture> m_font;
 
@@ -203,6 +225,7 @@ namespace GUI {
 		bool m_updateAllViewPorts = false;
 
 		Graphics::Ref<Graphics::UniformBuffer> m_CameraBuffer;
+		Graphics::Ref<Graphics::UniformBuffer> m_LightingBuffer;
 
 		std::vector<std::function<void()>> m_MainThreadQueue;
 		std::mutex m_MainThreadQueueMutex;

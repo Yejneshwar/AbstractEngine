@@ -32,4 +32,8 @@ void main()
 {
     FID = FragID;
     FragColor = vColor;
+    // HDR viewports work in linear light; linearize the sRGB-authored color
+    // so the tonemap pass round-trips it.
+    if (ubo.outputLinear != 0)
+        FragColor.rgb = pow(max(FragColor.rgb, vec3(0.0)), vec3(2.2));
 }

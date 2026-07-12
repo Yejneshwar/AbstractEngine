@@ -2,6 +2,7 @@
 #include <cstdint>
 #include <vector>
 #include <Renderer/FrameBuffer.h>
+#include <Renderer/Lighting.h>
 
 #include "DataTypes.h"
 
@@ -38,6 +39,21 @@ namespace Graphics {
 			// of re-drawing the whole scene into the mask attachment.
 			static void SetSelectionActive(bool active);
 
+			// ---- Materials ------------------------------------------------
+			// Materials live in a GPU table (see Lighting.h); meshes reference
+			// them by handle. Handle 0 is the built-in default (white, rough
+			// dielectric, tinted by the per-vertex color).
+			using MaterialHandle = uint32_t;
+
+			static MaterialHandle CreateMaterial(const MaterialDesc& desc);
+			static void UpdateMaterial(MaterialHandle handle, const MaterialDesc& desc);
+			static MaterialDesc GetMaterial(MaterialHandle handle);
+
+			// Attach the material table, lighting textures (environment,
+			// matcap) and other scene-wide GPU resources to the current
+			// render target. Call once per viewport, after Framebuffer::Bind.
+			static void BindSceneResources();
+
 			static void addData(const std::vector<double>& vertices, const std::vector<double>& vertexNormals, const std::vector<uint32_t>& indices, const int id = -1);
 
 			static void DrawMesh(const std::vector<double>& vertices, const std::vector<uint32_t>& indices, const GUI::DataType::vec4& color, const int id = -1);
@@ -47,15 +63,26 @@ namespace Graphics {
 			// frame by handle — no per-frame CPU walk or re-upload. Use this
 			// for meshes that don't change every frame (CAD/PCB geometry);
 			// use DrawMesh(vertices, ...) only for genuinely dynamic data.
+			//
+			// Retained meshes render through the lit (PBR) pipeline. When no
+			// normals are supplied they are generated (area-weighted smooth);
+			// use a material with flatShading for faceted looks instead of
+			// duplicating vertices.
 			using MeshHandle = uint32_t; // 0 = invalid
 
-			static MeshHandle CreateMesh(const std::vector<double>& vertices, const std::vector<uint32_t>& indices, const GUI::DataType::vec4& color, const int id = -1);
+			static MeshHandle CreateMesh(const std::vector<double>& vertices, const std::vector<uint32_t>& indices, const GUI::DataType::vec4& color, const int id = -1,
+				MaterialHandle material = 0, const std::vector<double>& normals = {});
 			static void DestroyMesh(MeshHandle handle);
 			static void DrawMesh(MeshHandle handle);
 
-			static void DrawCircle(const GUI::DataType::vec3& position, float radius, const GUI::DataType::vec4& color, const int id = -1);
+			// Circles are billboard-expanded discs; `normal` is the disc's
+			// world-space facing (defaults to +Z — the 2D/PCB plane) and is
+			// what the Debug Normals view displays.
+			static void DrawCircle(const GUI::DataType::vec3& position, float radius, const GUI::DataType::vec4& color, const int id = -1,
+				const GUI::DataType::vec3& normal = GUI::DataType::vec3(0.0f, 0.0f, 1.0f));
 
-			static void DrawCircle(const GUI::DataType::vec2& position, float radius, const GUI::DataType::vec4& color, const int id = -1);
+			static void DrawCircle(const GUI::DataType::vec2& position, float radius, const GUI::DataType::vec4& color, const int id = -1,
+				const GUI::DataType::vec3& normal = GUI::DataType::vec3(0.0f, 0.0f, 1.0f));
 
 			static void DrawLine(const GUI::DataType::vec3& from, const GUI::DataType::vec3& to, const GUI::DataType::vec4& color, const int id = -1);
 

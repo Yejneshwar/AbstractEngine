@@ -821,8 +821,13 @@ endif()
 if (NOT DEFINED CMAKE_MACOSX_BUNDLE)
   set(CMAKE_MACOSX_BUNDLE YES)
 endif()
-set(CMAKE_XCODE_ATTRIBUTE_CODE_SIGNING_REQUIRED "NO")
-set(CMAKE_XCODE_ATTRIBUTE_CODE_SIGNING_ALLOWED "NO")
+# Device installs need real signing; simulator/CI builds don't. When the
+# build opts in (ENABLE_CODE_SIGNING=ON, see the IOS-device preset), leave
+# Xcode's defaults so per-target DEVELOPMENT_TEAM/identity settings apply.
+if(NOT ENABLE_CODE_SIGNING)
+  set(CMAKE_XCODE_ATTRIBUTE_CODE_SIGNING_REQUIRED "NO")
+  set(CMAKE_XCODE_ATTRIBUTE_CODE_SIGNING_ALLOWED "NO")
+endif()
 set(CMAKE_SHARED_LIBRARY_PREFIX "lib")
 set(CMAKE_SHARED_LIBRARY_SUFFIX ".dylib")
 set(CMAKE_EXTRA_SHARED_LIBRARY_SUFFIXES ".tbd" ".so")

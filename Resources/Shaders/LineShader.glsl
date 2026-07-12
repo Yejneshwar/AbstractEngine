@@ -22,6 +22,8 @@ void main()
 layout(location = 0) in vec4 vColor;
 layout(location = 1) in flat int  FragID;
 
+#include <Resource/Shaders/GLBufferDeclarations.h>
+
 layout(location = 0) out vec4 FragColor;
 layout(location = 1) out int  FID;
 
@@ -30,4 +32,7 @@ void main()
 {
     FID = FragID;
     FragColor = vColor;
+    // Linear-light viewports (HDR + tonemap): linearize sRGB-authored colors.
+    if (ubo.outputLinear != 0)
+        FragColor.rgb = pow(max(FragColor.rgb, vec3(0.0)), vec3(2.2));
 }

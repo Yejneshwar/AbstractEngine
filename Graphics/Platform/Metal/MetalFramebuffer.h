@@ -5,6 +5,7 @@
 #include <cassert>
 
 #include <Metal/Metal.hpp>
+#include <simd/simd.h>
 
 namespace Graphics {
 
@@ -23,6 +24,8 @@ namespace Graphics {
         virtual int ReadPixel(uint32_t attachmentIndex, int x, int y) override;
 
         virtual void ClearAttachment(uint32_t attachmentIndex, int value) override;
+
+        virtual void SetAttachmentClearColor(uint32_t attachmentIndex, float r, float g, float b, float a) override;
 
         virtual void DrawToAllColorBuffers() override;
 
@@ -59,6 +62,7 @@ namespace Graphics {
         FramebufferTextureSpecification m_DepthAttachmentSpecification = FramebufferTextureFormat::DEPTH32FLOAT;
 
         std::vector<MTL::Texture*> m_ColorAttachments = {};
+        std::vector<simd_float4> m_ClearColors;
         MTL::Texture* m_DepthAttachment = nullptr;
         MTL::Texture* m_StencilAttachment = nullptr;
         

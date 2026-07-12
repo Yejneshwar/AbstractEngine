@@ -13,6 +13,8 @@ namespace Graphics {
 
         virtual void SetData(const void* data, uint32_t size, uint32_t offset = 0) override;
 
+        virtual void Bind() override;
+
     private:
         // Each SetData writes a fresh slot and binds it, so earlier draws in
         // flight (or in the same frame, e.g. per-viewport camera data) keep

@@ -118,6 +118,30 @@
                     "sourceDir": "$env{HOME}/.vs/$ms{projectDirName}"
                 }
             }
+        },
+                {
+            "name": "IOS-device",
+            "displayName": "IOS Device (signed)",
+            "generator": "Xcode",
+            "binaryDir": "${sourceDir}/out/build/${presetName}",
+            "installDir": "${sourceDir}/out/install/${presetName}",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "PLATFORM": "OS64",
+                "GUI_BUILD_TESTING": "ON",
+                "ENABLE_CODE_SIGNING": "ON",
+                "CMAKE_XCODE_ATTRIBUTE_DEVELOPMENT_TEAM": "WW4KXG3STP"
+            },
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Darwin"
+            },
+            "vendor": {
+                "microsoft.com/VisualStudioRemoteSettings/CMake/1.0": {
+                    "sourceDir": "$env{HOME}/.vs/$ms{projectDirName}"
+                }
+            }
         }
     ]
 }

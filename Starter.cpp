@@ -13,6 +13,7 @@
 #include <Renderer/Texture.h>
 #include <Renderer/BatchRenderer.h>
 #include "MetalTestLayer.h"
+#include "ShowcaseLayer.h"
 
 
 #include "DataTypes.h"
@@ -216,7 +217,8 @@ namespace GUI {
     TestGUI::TestGUI(const ApplicationSpecification& spec, void* nativeWindow)
 		:AbstractApplication(spec, nativeWindow)
 	{
-         PushLayer(new ObjectLayer());
+         PushLayer(new ShowcaseLayer());
+//        PushLayer(new ObjectLayer());   // legacy primitives demo
 //        PushLayer(new MetalTestLayer());
 	}
 

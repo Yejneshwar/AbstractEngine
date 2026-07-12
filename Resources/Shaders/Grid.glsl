@@ -24,6 +24,7 @@ void main()
 #type fragment
 #version 460 core
 
+#include <Resource/Shaders/GLBufferDeclarations.h>
 #include <Resource/Shaders/GridParameters.h>
 #include <Resource/Shaders/GridCalculation.h>
 
@@ -34,4 +35,7 @@ layout (location=0) out vec4 out_FragColor;
 void main()
 {
 	out_FragColor = gridColor(uv, camPos);
+	// Linear-light viewports (HDR + tonemap): linearize the grid color.
+	if (ubo.outputLinear != 0)
+		out_FragColor.rgb = pow(max(out_FragColor.rgb, vec3(0.0)), vec3(2.2));
 };

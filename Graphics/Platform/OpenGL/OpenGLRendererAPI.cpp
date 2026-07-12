@@ -75,10 +75,27 @@ namespace Graphics {
 	}
 
 	void OpenGLRendererAPI::DepthTest(bool enable) {
-		if (enable)
+		SetDepthState(enable ? DepthState::Default : DepthState::Disabled);
+	}
+
+	void OpenGLRendererAPI::SetDepthState(DepthState state) {
+		switch (state)
+		{
+		case DepthState::Default:
 			glEnable(GL_DEPTH_TEST);
-		else
+			glDepthFunc(GL_LESS);
+			glDepthMask(GL_TRUE);
+			break;
+		case DepthState::Disabled:
 			glDisable(GL_DEPTH_TEST);
+			glDepthMask(GL_FALSE);
+			break;
+		case DepthState::ReadOnlyLessEqual:
+			glEnable(GL_DEPTH_TEST);
+			glDepthFunc(GL_LEQUAL);
+			glDepthMask(GL_FALSE);
+			break;
+		}
 	}
 
 	void OpenGLRendererAPI::PolygonSmooth(bool enable) {

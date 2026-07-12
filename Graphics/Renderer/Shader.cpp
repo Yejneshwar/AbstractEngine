@@ -24,6 +24,13 @@ namespace Graphics {
         
         spirv_cross::CompilerMSL::Options msl_options;
         msl_options.platform = spirv_cross::CompilerMSL::Options::iOS;
+        // Use the GLSL binding decorations as the MSL resource indices
+        // verbatim. Without this SPIRV-Cross allocates indices sequentially
+        // per resource class, which only coincidentally matched while every
+        // shader used dense bindings starting at 0 — the lighting (2) /
+        // material (3) UBOs and the env/matcap textures (4/5) would silently
+        // land on different indices than the C++ side binds to.
+        msl_options.enable_decoration_binding = true;
         compiler.set_msl_options(msl_options);
         
         try{

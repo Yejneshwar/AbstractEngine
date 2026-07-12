@@ -36,7 +36,12 @@ namespace Graphics {
 		{
 			s_RendererAPI->DepthTest(enable);
 		}
-		
+
+		static void SetDepthState(DepthState state)
+		{
+			s_RendererAPI->SetDepthState(state);
+		}
+
 		static void PolygonSmooth(bool enable)
 		{
 			s_RendererAPI->PolygonSmooth(enable);

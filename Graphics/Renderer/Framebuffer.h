@@ -10,6 +10,7 @@ namespace Graphics {
 
 		// Color
 		RGBA8,
+		RGBA16F, // linear HDR intermediate
 		RED_INTEGER,
 		BLUE_INTEGER,
 
@@ -63,6 +64,11 @@ namespace Graphics {
 		virtual int ReadPixel(uint32_t attachmentIndex, int x, int y) = 0;
 
 		virtual void ClearAttachment(uint32_t attachmentIndex, int value) = 0;
+
+		// Per-attachment clear color, honored where clears happen at pass
+		// start (Metal load actions). GL clears via glClear/SetClearColor, so
+		// the default is a no-op there.
+		virtual void SetAttachmentClearColor(uint32_t attachmentIndex, float r, float g, float b, float a) {}
 
 		virtual void DrawToAllColorBuffers() = 0;
 

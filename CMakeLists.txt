@@ -3,6 +3,14 @@
 #
 cmake_minimum_required (VERSION 3.20)
 
+# CMake 4 removed compatibility with the <3.5 cmake_minimum_required calls in
+# pinned deps (SPIRV-Cross sdk-1.3.261.1 etc.). Give every FetchContent
+# sub-configure a policy floor; the env var covers any nested cmake processes.
+if(NOT DEFINED CMAKE_POLICY_VERSION_MINIMUM)
+    set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
+endif()
+set(ENV{CMAKE_POLICY_VERSION_MINIMUM} "3.5")
+
 if(NOT DEFINED GUI_BUILD_TESTING)
    set(GUI_BUILD_TESTING OFF CACHE BOOL "")
 endif()
@@ -289,10 +297,11 @@ set(GRAPHICS_SRC "Graphics/GraphicsCore.h"
 "Graphics/Renderer/RenderCommand.cpp"
 "Graphics/Renderer/Renderer.h"
 "Graphics/Renderer/Renderer.cpp"
-"Graphics/Renderer/Renderer2D.h"
-"Graphics/Renderer/Renderer2D.cpp"
 "Graphics/Renderer/RendererAPI.h"
 "Graphics/Renderer/RendererAPI.cpp"
+"Graphics/Renderer/Lighting.h"
+"Graphics/Renderer/Environment.h"
+"Graphics/Renderer/Environment.cpp"
 "Graphics/Renderer/Shader.h"
 "Graphics/Renderer/Shader.cpp"
 "Graphics/Renderer/ComputeShader.h"
@@ -425,10 +434,10 @@ if(GUI_BUILD_TESTING)
             XCODE_ATTRIBUTE_TARGETED_DEVICE_FAMILY "1,2"
             MACOSX_BUNDLE_GUI_IDENTIFIER "\$\{PRODUCT_BUNDLE_IDENTIFIER\}"
         )
-        target_sources(AbstractEngine-TestGUI PRIVATE "MainApple.mm" "Starter.cpp" "Starter.h" "MetalTestLayer.mm" "MetalTestLayer.h")
+        target_sources(AbstractEngine-TestGUI PRIVATE "MainApple.mm" "Starter.cpp" "Starter.h" "ShowcaseLayer.cpp" "ShowcaseLayer.h" "MetalTestLayer.mm" "MetalTestLayer.h")
         codesign(AbstractEngine-TestGUI)
     else()
-        target_sources(AbstractEngine-TestGUI PRIVATE "MainWindows.cpp" "Starter.cpp" "Starter.h")
+        target_sources(AbstractEngine-TestGUI PRIVATE "MainWindows.cpp" "Starter.cpp" "Starter.h" "ShowcaseLayer.cpp" "ShowcaseLayer.h")
         if(NOT USE_STB_IMAGE_IMPLEMENTATION)
             # When the engine library ships without the stb_image
             # implementation (combined builds: the host app provides one,

@@ -19,9 +19,13 @@ namespace Graphics {
         virtual void Unbind() override;
         
         virtual void BindTexture(uintptr_t texture, int slot) override;
-        
+
+        virtual void BindSampledTexture(uintptr_t texture, int slot) override;
+
         virtual void SetInt(int* ptr, int slot) override;
-        
+
+        virtual void SetData(const void* data, uint32_t size, int slot) override;
+
         virtual void Dispatch(uint32_t width, uint32_t height, uint32_t depth) override;
         
         virtual void SetIntArray(const std::string &name, int *values, uint32_t count) override {};

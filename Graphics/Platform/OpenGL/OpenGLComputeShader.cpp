@@ -139,11 +139,27 @@ namespace Graphics {
 		);
 	}
 
+	void OpenGLComputeShader::BindSampledTexture(uintptr_t texture, int slot)
+	{
+		// Sampler binding (texture unit), unlike BindTexture's image unit —
+		// needed for depth textures, which cannot be bound as images.
+		glBindTextureUnit(slot, (GLuint)texture);
+	}
+
 	void OpenGLComputeShader::SetInt(int* ptr, int slot)
 	{
 		// Set an integer uniform value at a specific location.
 		// The program must be bound before this call.
 		glUniform1i(slot, *ptr);
+	}
+
+	void OpenGLComputeShader::SetData(const void* data, uint32_t size, int slot)
+	{
+		uint32_t& buffer = m_ParamBuffers[slot];
+		if (!buffer)
+			glCreateBuffers(1, &buffer);
+		glNamedBufferData(buffer, size, data, GL_DYNAMIC_DRAW);
+		glBindBufferBase(GL_UNIFORM_BUFFER, slot, buffer);
 	}
 
 	void OpenGLComputeShader::Dispatch(uint32_t width, uint32_t height, uint32_t depth)

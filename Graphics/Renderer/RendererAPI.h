@@ -6,6 +6,16 @@
 
 namespace Graphics {
 
+	// Depth test/write configuration for a draw. Default is the classic
+	// Less-compare + write pair; ReadOnlyLessEqual is for full-screen passes
+	// that must respect existing depth without disturbing it (sky background).
+	enum class DepthState
+	{
+		Default = 0,       // compare Less, write on
+		Disabled,          // compare Always, write off
+		ReadOnlyLessEqual, // compare LessEqual, write off
+	};
+
 	class RendererAPI
 	{
 	public:
@@ -22,6 +32,7 @@ namespace Graphics {
 		virtual void Clear(float alpha = 1.0) = 0;
 		virtual void ClearStencil() = 0;
 		virtual void DepthTest(bool enable) = 0;
+		virtual void SetDepthState(DepthState state) = 0;
 		virtual void PolygonSmooth(bool enable) = 0;
 		virtual void ClearBuffers() = 0;
         

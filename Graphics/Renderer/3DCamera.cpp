@@ -112,8 +112,31 @@ void Graphics::ThreeDCamera::UpdateView()
 }
 
 
+Graphics::TrackpadScrollAction Graphics::ThreeDCamera::s_TrackpadScrollAction = Graphics::TrackpadScrollAction::Pan;
+
 bool Graphics::ThreeDCamera::OnMouseScroll(Application::MouseScrolledEvent& e)
 {
+	// Trackpad two-finger scroll (precise, pixel deltas — includes the OS
+	// momentum tail): pan by default (CAD convention), Shift flips to orbit
+	// (or back to pan when orbit is the configured primary action).
+	// Command/Ctrl+scroll always zooms for wheel muscle-memory.
+	if (e.IsPrecise()
+		&& !Application::Input::IsModifierDown(Application::Modifier::Command)
+		&& !Application::Input::IsModifierDown(Application::Modifier::Control)) {
+		TrackpadScrollAction action = s_TrackpadScrollAction;
+		if (Application::Input::IsModifierDown(Application::Modifier::Shift))
+			action = (action == TrackpadScrollAction::Pan) ? TrackpadScrollAction::Orbit : TrackpadScrollAction::Pan;
+
+		const glm::vec2 delta = glm::vec2(e.GetXOffset(), e.GetYOffset()) * 0.003f;
+		switch (action) {
+			case TrackpadScrollAction::Pan:   MousePan(delta); break;
+			case TrackpadScrollAction::Orbit: MouseRotate(delta); break;
+			case TrackpadScrollAction::Zoom:  MouseZoom(e.GetYOffset() * 0.01f); break;
+		}
+		UpdateView();
+		return false;
+	}
+
 	float delta = e.GetYOffset() * 0.1f;
 	MouseZoom(delta);
 	UpdateView();

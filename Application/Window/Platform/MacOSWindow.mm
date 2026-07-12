@@ -199,6 +199,15 @@ static Application::GesturePhase GesturePhaseFromNSEvent(NSEvent* event) {
     [self dispatchEvent:rotateEvent];
 }
 
+// Two-finger double-tap ("smart zoom"): dispatch a one-shot pinch step so it
+// zooms in wherever the cameras map pinch.
+- (void)smartMagnifyWithEvent:(NSEvent *)event {
+    NSPoint location = [self convertPoint:[event locationInWindow] fromView:nil];
+    Application::PinchGestureEvent pinchEvent(1.6f,
+        Application::GesturePhase::Ended, (float)location.x, -(float)location.y);
+    [self dispatchEvent:pinchEvent];
+}
+
 #pragma mark - Middle Mouse
 
 - (void)otherMouseDown:(NSEvent *)event {

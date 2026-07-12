@@ -19,6 +19,7 @@ namespace Graphics {
             switch (format)
             {
                 case FramebufferTextureFormat::RGBA8:           return MTL::PixelFormatRGBA8Unorm;
+                case FramebufferTextureFormat::RGBA16F:         return MTL::PixelFormatRGBA16Float;
                 case FramebufferTextureFormat::RED_INTEGER:     return MTL::PixelFormatR32Sint;
                 // Note: Metal does not have a single-channel blue integer format.
                 // This would require custom handling, possibly using an RGBA format and ignoring other channels.
@@ -260,10 +261,17 @@ namespace Graphics {
         return pixelData;
     }
 
+    void MetalFramebuffer::SetAttachmentClearColor(uint32_t attachmentIndex, float r, float g, float b, float a)
+    {
+        if (m_ClearColors.size() <= attachmentIndex)
+            m_ClearColors.resize(attachmentIndex + 1, simd_make_float4(0.0f, 0.0f, 0.0f, 1.0f));
+        m_ClearColors[attachmentIndex] = simd_make_float4(r, g, b, a);
+    }
+
     // --- ClearAttachment ---
-    // In Metal, clearing is typically done via the `loadAction` of a render pass.
-    // This implementation simulates an immediate clear by creating and running a
-    // dedicated render pass just for the clear operation.
+    // In Metal, clearing happens via the `loadAction` of the render pass built
+    // in GetRenderPassDescriptor (integer attachments clear to -1 there), so
+    // this immediate-clear entry point is a no-op.
     void MetalFramebuffer::ClearAttachment(uint32_t attachmentIndex, int value)
     {
         assert(attachmentIndex < m_ColorAttachments.size());
@@ -315,7 +323,15 @@ namespace Graphics {
             MTL::RenderPassColorAttachmentDescriptor* colorAttachment = descriptor->colorAttachments()->object(i);
             colorAttachment->setTexture(m_ColorAttachments[i]);
             colorAttachment->setLoadAction(MTL::LoadActionClear);
-            colorAttachment->setClearColor(MTL::ClearColor::Make(0.0, 0.0, 0.0, 1.0));
+            // Integer pick-ID attachments must clear to -1 ("nothing here"):
+            // clearing to 0 made object id 0 indistinguishable from empty
+            // space. Other attachments use their configurable clear color.
+            if (m_ColorAttachmentSpecifications[i].TextureFormat == FramebufferTextureFormat::RED_INTEGER)
+                colorAttachment->setClearColor(MTL::ClearColor::Make(-1.0, -1.0, -1.0, -1.0));
+            else if (i < m_ClearColors.size())
+                colorAttachment->setClearColor(MTL::ClearColor::Make(m_ClearColors[i].x, m_ClearColors[i].y, m_ClearColors[i].z, m_ClearColors[i].w));
+            else
+                colorAttachment->setClearColor(MTL::ClearColor::Make(0.0, 0.0, 0.0, 1.0));
 
             if (multisample) {
                 colorAttachment->setStoreAction(MTL::StoreActionMultisampleResolve);
@@ -330,7 +346,10 @@ namespace Graphics {
             MTL::RenderPassDepthAttachmentDescriptor* depthAttachment = descriptor->depthAttachment();
             depthAttachment->setTexture(m_DepthAttachment);
             depthAttachment->setLoadAction(MTL::LoadActionClear);
-            depthAttachment->setStoreAction(MTL::StoreActionDontCare);
+            // The GTAO post pass reads depth after the pass ends, so the
+            // contents must survive (DontCare handed it undefined/zero depth
+            // and blacked out the whole viewport through the AO multiply).
+            depthAttachment->setStoreAction(MTL::StoreActionStore);
             depthAttachment->setClearDepth(1.0);
         }
         

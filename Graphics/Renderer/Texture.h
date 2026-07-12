@@ -31,6 +31,11 @@ namespace Graphics {
 
 		virtual void SetData(void* data, uint32_t size) = 0;
 
+		// Upload one mip level (for textures created with mipLevels > 1,
+		// e.g. the prefiltered environment). `size` is the byte size of the
+		// level being uploaded.
+		virtual void SetMipData(void* data, uint32_t size, uint32_t mip) = 0;
+
 		virtual void Resize(uint32_t width, uint32_t height) = 0;
 
 		virtual void Bind(uint32_t slot = 0) const = 0;
@@ -46,7 +51,10 @@ namespace Graphics {
 	{
 	public:
 		Texture2D() = delete;
-		static Ref<Texture2D> Create(uint32_t width, uint32_t height, TextureFormat format);
+		// mipLevels > 1 allocates a mip chain (uploaded via SetMipData) with a
+		// trilinear sampler and horizontal wrap (equirect environment maps
+		// need the U seam to filter across).
+		static Ref<Texture2D> Create(uint32_t width, uint32_t height, TextureFormat format, uint32_t mipLevels = 1);
 		static Ref<Texture2D> Create(const std::string& path);
 
 	protected:

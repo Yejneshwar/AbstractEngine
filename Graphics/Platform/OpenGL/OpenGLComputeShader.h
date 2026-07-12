@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Renderer/ComputeShader.h"
+#include <map>
 
 namespace Graphics {
 
@@ -20,7 +21,11 @@ namespace Graphics {
 
         virtual void BindTexture(uintptr_t texture, int slot) override;
 
+        virtual void BindSampledTexture(uintptr_t texture, int slot) override;
+
         virtual void SetInt(int* ptr, int slot) override;
+
+        virtual void SetData(const void* data, uint32_t size, int slot) override;
 
         virtual void Dispatch(uint32_t width, uint32_t height, uint32_t depth) override;
 
@@ -52,6 +57,8 @@ namespace Graphics {
         uint32_t m_RendererID;
         bool m_IsLoaded = false;
         std::string m_Path;
+        // Lazily-created scratch UBOs for SetData, one per binding slot.
+        std::map<int, uint32_t> m_ParamBuffers;
     };
 
 }

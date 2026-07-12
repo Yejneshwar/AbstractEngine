@@ -4,16 +4,16 @@
 #include <Renderer/VertexArray.h>
 #include <Renderer/UniformBuffer.h>
 #include <Renderer/Texture.h>
+#include <Renderer/Environment.h>
 
 #include <Logger.h>
 
+#include <glm/glm.hpp>
+
 namespace Graphics {
-	//Anonymous namespace: Renderer2D.cpp defines structs with the SAME names
-	//(Renderer2DData, TriangleVertex, ...) but DIFFERENT layouts. With
-	//external-linkage types the identically-mangled inline members (notably
-	//~Renderer2DData) are COMDAT-folded across the two TUs, so one s_Data
-	//was destroyed with the OTHER struct's destructor - shared_ptr decrefs
-	//at wrong offsets crashed every exit. Internal linkage keeps them apart.
+	//Anonymous namespace: keeps these types internal-linkage so no other TU
+	//can COMDAT-fold identically-named structs onto them (the old
+	//Renderer2D.cpp did exactly that and corrupted s_Data's destructor).
 	namespace {
 		struct UBODataFragment {
             GUI::DataType::vec4 triangleColor;
@@ -32,6 +32,17 @@ namespace Graphics {
             GUI::DataType::int1 aID;
             GUI::DataType::vec3 Position;
             GUI::DataType::vec4 Color;
+		};
+
+		// Lit mesh vertex (retained meshes / PBRMesh.glsl): adds a normal and
+		// a material-table index.
+		struct MeshVertex
+		{
+            GUI::DataType::int1 aID;
+            GUI::DataType::vec3 Position;
+            GUI::DataType::vec3 Normal;
+            GUI::DataType::vec4 Color;
+            GUI::DataType::int1 aMaterial;
 		};
 		
 		struct QuadVertex
@@ -133,7 +144,8 @@ namespace Graphics {
 			Graphics::Ref<Graphics::Shader> LineShader;
 
 			Graphics::Ref<Graphics::Shader> SelectedObjectShader;
-	
+			Graphics::Ref<Graphics::Shader> PBRMeshShader;
+
 			uint32_t QuadIndexCount = 0;
 			QuadVertex* QuadVertexBufferBase = nullptr;
 			QuadVertex* QuadVertexBufferPtr = nullptr;
@@ -233,6 +245,104 @@ namespace Graphics {
 			s_Data.CircleShader = Graphics::Shader::Create("./Resource/Shaders/CircleShader.glsl", false);
 			s_Data.LineShader = Graphics::Shader::Create("./Resource/Shaders/LineShader.glsl", false);
 			s_Data.SelectedObjectShader = Graphics::Shader::Create("./Resource/Shaders/SelectedObject.glsl", false);
+			s_Data.PBRMeshShader = Graphics::Shader::Create("./Resource/Shaders/PBRMesh.glsl", false);
+		}
+
+		// ------------------------------------------------------------------
+		// Material table: CPU copy + GPU UBO (binding 3), uploaded when dirty.
+		// Entry 0 is the built-in default material.
+		// ------------------------------------------------------------------
+		namespace {
+			struct MaterialStorage {
+				std::vector<Graphics::GpuMaterial> materials;
+				std::vector<Graphics::MaterialDesc> descs;
+				Graphics::Ref<Graphics::UniformBuffer> buffer;
+				bool dirty = true;
+			};
+			static MaterialStorage s_MaterialData;
+
+			Graphics::GpuMaterial ToGpuMaterial(const Graphics::MaterialDesc& desc)
+			{
+				Graphics::GpuMaterial material;
+				material.baseColor = desc.baseColor;
+				int flags = 0;
+				if (desc.flatShading) flags |= Graphics::MaterialFlag_FlatNormals;
+				if (desc.vertexColorTint) flags |= Graphics::MaterialFlag_VertexTint;
+				material.mrfx = { desc.metallic, desc.roughness, (float)flags, 0.0f };
+				material.emissive = glm::vec4(desc.emissive, 0.0f);
+				return material;
+			}
+
+			void InitMaterials()
+			{
+				if (s_MaterialData.buffer)
+					return;
+				// Entry 0: white rough dielectric, tinted by vertex color —
+				// what untouched CreateMesh callers get.
+				Graphics::MaterialDesc defaultDesc;
+				defaultDesc.roughness = 0.6f;
+				s_MaterialData.descs.push_back(defaultDesc);
+				s_MaterialData.materials.push_back(ToGpuMaterial(defaultDesc));
+				s_MaterialData.buffer = Graphics::UniformBuffer::Create(
+					sizeof(Graphics::GpuMaterial) * Graphics::kMaxMaterials, Graphics::kMaterialUBOBinding, "Material Table");
+				s_MaterialData.dirty = true;
+			}
+		}
+
+		BatchRenderer::MaterialHandle BatchRenderer::CreateMaterial(const MaterialDesc& desc)
+		{
+			InitMaterials();
+			if (s_MaterialData.materials.size() >= (size_t)Graphics::kMaxMaterials) {
+				LOG_WARN_STREAM << "Material table full (" << Graphics::kMaxMaterials << "), returning default material";
+				return 0;
+			}
+			s_MaterialData.descs.push_back(desc);
+			s_MaterialData.materials.push_back(ToGpuMaterial(desc));
+			s_MaterialData.dirty = true;
+			return (MaterialHandle)(s_MaterialData.materials.size() - 1);
+		}
+
+		void BatchRenderer::UpdateMaterial(MaterialHandle handle, const MaterialDesc& desc)
+		{
+			InitMaterials();
+			if (handle >= s_MaterialData.materials.size())
+				return;
+			s_MaterialData.descs[handle] = desc;
+			s_MaterialData.materials[handle] = ToGpuMaterial(desc);
+			s_MaterialData.dirty = true;
+		}
+
+		MaterialDesc BatchRenderer::GetMaterial(MaterialHandle handle)
+		{
+			InitMaterials();
+			if (handle >= s_MaterialData.descs.size())
+				return MaterialDesc{};
+			return s_MaterialData.descs[handle];
+		}
+
+		void BatchRenderer::BindSceneResources()
+		{
+			// The static-triangle (BasicShader) fragment UBO is uploaded once
+			// at Init — re-attach it to this viewport's encoder (Metal
+			// encoders start with empty bindings).
+			if (s_Data.FragmentBuffer)
+				s_Data.FragmentBuffer->Bind();
+
+			InitMaterials();
+			if (s_MaterialData.dirty) {
+				// Upload the whole (fixed-capacity) table; rare.
+				std::vector<Graphics::GpuMaterial> table(Graphics::kMaxMaterials);
+				std::copy(s_MaterialData.materials.begin(), s_MaterialData.materials.end(), table.begin());
+				s_MaterialData.buffer->SetData(table.data(), (uint32_t)(table.size() * sizeof(Graphics::GpuMaterial)));
+				s_MaterialData.dirty = false;
+			} else {
+				s_MaterialData.buffer->Bind();
+			}
+
+			if (Graphics::EnvironmentIBL::IsInitialized()) {
+				Graphics::EnvironmentIBL::GetSpecularMap()->Bind(Graphics::kEnvSpecularTextureSlot);
+				Graphics::EnvironmentIBL::GetMatcap()->Bind(Graphics::kMatcapTextureSlot);
+			}
 		}
 
 		void BatchRenderer::Init()
@@ -340,6 +450,10 @@ namespace Graphics {
 
 			s_Data.FragmentBuffer = Graphics::UniformBuffer::Create(sizeof(UBODataFragment), 1);
 			s_Data.FragmentBuffer->SetData(&uboDataFragment, sizeof(UBODataFragment));
+
+			// Lit-pipeline resources: material table + procedural IBL.
+			InitMaterials();
+			Graphics::EnvironmentIBL::Init();
 		}
 
 		void BatchRenderer::ReCreateShaders() {
@@ -382,7 +496,7 @@ namespace Graphics {
 
 		struct RetainedMeshStorage
 		{
-			std::vector<TriangleVertex> vertices;   // CPU arena (kept for growth re-uploads)
+			std::vector<MeshVertex> vertices;       // CPU arena (kept for growth re-uploads)
 			std::vector<uint32_t> indices;          // baked with the mesh's vertex offset
 			std::vector<RetainedMeshRange> meshes;  // handle - 1 indexes this
 			std::vector<BatchRenderer::MeshHandle> visible; // this scene's submissions
@@ -409,11 +523,13 @@ namespace Graphics {
 			constexpr uint32_t kInitialIndices = 8192;
 
 			s_Retained.MeshVertexArray = Graphics::VertexArray::Create();
-			s_Retained.MeshVertexBuffer = Graphics::VertexBuffer::CreateRetained(kInitialVertices * sizeof(TriangleVertex), "RetainedMeshVB");
+			s_Retained.MeshVertexBuffer = Graphics::VertexBuffer::CreateRetained(kInitialVertices * sizeof(MeshVertex), "RetainedMeshVB");
 			s_Retained.MeshVertexBuffer->SetLayout({
 				{ Graphics::ShaderDataType::Int, "aID"},
 				{ Graphics::ShaderDataType::Float3, "aPos"},
+				{ Graphics::ShaderDataType::Float3, "aNormal"},
 				{ Graphics::ShaderDataType::Float4, "aColor"},
+				{ Graphics::ShaderDataType::Int, "aMaterial"},
 			});
 			s_Retained.MeshVertexArray->AddVertexBuffer(s_Retained.MeshVertexBuffer);
 			s_Retained.MeshIndexBuffer = Graphics::IndexBuffer::CreateRetained(kInitialIndices, "RetainedMeshIB");
@@ -424,13 +540,52 @@ namespace Graphics {
 			s_Retained.initialized = true;
 		}
 
-		BatchRenderer::MeshHandle BatchRenderer::CreateMesh(const std::vector<double>& vertices, const std::vector<uint32_t>& indices, const GUI::DataType::vec4& color, const int id)
+		// Area-weighted smooth vertex normals from shared-index topology.
+		// (Faceted meshes with duplicated vertices come out flat naturally;
+		// for forced facets use a flatShading material instead.)
+		static std::vector<glm::vec3> GenerateSmoothNormals(const std::vector<double>& vertices, const std::vector<uint32_t>& indices)
+		{
+			const size_t vertexCount = vertices.size() / 3;
+			std::vector<glm::vec3> normals(vertexCount, glm::vec3(0.0f));
+
+			auto position = [&](uint32_t index) {
+				return glm::vec3((float)vertices[(size_t)index * 3 + 0],
+				                 (float)vertices[(size_t)index * 3 + 1],
+				                 (float)vertices[(size_t)index * 3 + 2]);
+			};
+
+			for (size_t i = 0; i + 2 < indices.size(); i += 3) {
+				const uint32_t i0 = indices[i], i1 = indices[i + 1], i2 = indices[i + 2];
+				if (i0 >= vertexCount || i1 >= vertexCount || i2 >= vertexCount)
+					continue;
+				// Cross product magnitude = 2x triangle area: bigger faces
+				// weigh more, exactly what we want.
+				const glm::vec3 faceNormal = glm::cross(position(i1) - position(i0), position(i2) - position(i0));
+				normals[i0] += faceNormal;
+				normals[i1] += faceNormal;
+				normals[i2] += faceNormal;
+			}
+
+			for (glm::vec3& n : normals) {
+				const float len = glm::length(n);
+				// Leave degenerate normals at zero — the shader falls back to
+				// screen-space derivative normals for those.
+				n = len > 1e-12f ? n / len : glm::vec3(0.0f);
+			}
+			return normals;
+		}
+
+		BatchRenderer::MeshHandle BatchRenderer::CreateMesh(const std::vector<double>& vertices, const std::vector<uint32_t>& indices, const GUI::DataType::vec4& color, const int id,
+			MaterialHandle material, const std::vector<double>& normals)
 		{
 			assert(vertices.size() % 3 == 0);
 			if (vertices.empty() || indices.empty())
 				return 0;
 
 			InitRetained();
+			InitMaterials();
+			if (material >= s_MaterialData.materials.size())
+				material = 0;
 
 			RetainedMeshRange range;
 			range.vertexOffset = (uint32_t)s_Retained.vertices.size();
@@ -439,12 +594,22 @@ namespace Graphics {
 			range.indexCount = (uint32_t)indices.size();
 			range.alive = true;
 
+			const bool haveNormals = normals.size() == vertices.size();
+			std::vector<glm::vec3> generatedNormals;
+			if (!haveNormals)
+				generatedNormals = GenerateSmoothNormals(vertices, indices);
+
 			s_Retained.vertices.reserve(s_Retained.vertices.size() + range.vertexCount);
 			for (size_t i = 0; i < vertices.size(); i += 3) {
-				TriangleVertex vertex;
+				MeshVertex vertex;
 				vertex.aID = id;
 				vertex.Position = GUI::DataType::vec3(vertices.at(i), vertices.at(i + 1), vertices.at(i + 2));
+				if (haveNormals)
+					vertex.Normal = GUI::DataType::vec3(normals[i], normals[i + 1], normals[i + 2]);
+				else
+					vertex.Normal = GUI::DataType::vec3(generatedNormals[i / 3]);
 				vertex.Color = color;
+				vertex.aMaterial = (GUI::DataType::int1)material;
 				s_Retained.vertices.push_back(vertex);
 			}
 
@@ -470,7 +635,7 @@ namespace Graphics {
 
 			// Compact the arenas; handles stay valid because ranges are
 			// looked up through the (stable) meshes table.
-			std::vector<TriangleVertex> newVertices;
+			std::vector<MeshVertex> newVertices;
 			std::vector<uint32_t> newIndices;
 			newVertices.reserve(s_Retained.vertices.size());
 			newIndices.reserve(s_Retained.indices.size());
@@ -520,7 +685,7 @@ namespace Graphics {
 				if (neededVertices > s_Retained.gpuVertexCapacity) {
 					uint32_t newCapacity = s_Retained.gpuVertexCapacity;
 					while (newCapacity < neededVertices) newCapacity *= 2;
-					s_Retained.MeshVertexBuffer->ResizeBuffer(newCapacity * sizeof(TriangleVertex));
+					s_Retained.MeshVertexBuffer->ResizeBuffer(newCapacity * sizeof(MeshVertex));
 					s_Retained.gpuVertexCapacity = newCapacity;
 				}
 				if (neededIndices > s_Retained.gpuIndexCapacity) {
@@ -530,7 +695,7 @@ namespace Graphics {
 					s_Retained.gpuIndexCapacity = newCapacity;
 				}
 				if (neededVertices)
-					s_Retained.MeshVertexBuffer->SetData(s_Retained.vertices.data(), neededVertices * sizeof(TriangleVertex), 0);
+					s_Retained.MeshVertexBuffer->SetData(s_Retained.vertices.data(), neededVertices * sizeof(MeshVertex), 0);
 				if (neededIndices)
 					s_Retained.MeshIndexBuffer->SetData(s_Retained.indices.data(), neededIndices, 0);
 				s_Retained.gpuDirty = false;
@@ -721,8 +886,10 @@ namespace Graphics {
 				s_Data.LineShader->Unbind();
 			}
 
-			// Retained meshes: uploaded once, drawn by handle.
-			FlushRetained(s_Data.TriangleShader);
+			// Retained meshes: uploaded once, drawn by handle through the lit
+			// pipeline (PBRMesh.glsl honors the viewport's shading mode,
+			// including Unlit, via the lighting UBO).
+			FlushRetained(s_Data.PBRMeshShader);
 
 			// The selection-mask pass re-draws every batch; only pay for it
 			// when something is actually selected.
@@ -765,8 +932,10 @@ namespace Graphics {
 
 				for (size_t i = 0; i < s_Data.storage.vertices.size(); i += 3) {
 					s_Data.StaticTriangleVertexBufferPtr->aID = 1;
-                    s_Data.StaticTriangleVertexBufferPtr->Position = GUI::DataType::vec3(s_Data.storage.vertices.at(i), s_Data.storage.vertices.at(i + 1), s_Data.storage.vertices.at(i + 2));                   
-                    s_Data.StaticTriangleVertexBufferPtr->Normal = GUI::DataType::vec3( 1.0f,0.0f,0.0f );
+                    s_Data.StaticTriangleVertexBufferPtr->Position = GUI::DataType::vec3(s_Data.storage.vertices.at(i), s_Data.storage.vertices.at(i + 1), s_Data.storage.vertices.at(i + 2));
+                    // Use the normals addData() stored (they were previously
+                    // ignored in favor of a hardcoded (1,0,0)).
+                    s_Data.StaticTriangleVertexBufferPtr->Normal = GUI::DataType::vec3(s_Data.storage.normals.at(i), s_Data.storage.normals.at(i + 1), s_Data.storage.normals.at(i + 2));
                     s_Data.StaticTriangleVertexBufferPtr->Color = GUI::DataType::vec4( 1.0f, 1.0f, 1.0f, 1.0f );
 					s_Data.StaticTriangleVertexBufferPtr++;
 				}
@@ -836,7 +1005,7 @@ namespace Graphics {
 			s_Data.TriangleVertexBufferOffset += (vertices.size() / 3);
 		}
 
-		void BatchRenderer::DrawCircle(const GUI::DataType::vec3& position, float radius ,const GUI::DataType::vec4& color, const int id) {
+		void BatchRenderer::DrawCircle(const GUI::DataType::vec3& position, float radius ,const GUI::DataType::vec4& color, const int id, const GUI::DataType::vec3& normal) {
 			assert(s_Data.inScene);
 
 			const uint32_t circleVerticesUsed = (uint32_t)(s_Data.CircleVertexBufferPtr - s_Data.CircleVertexBufferBase);
@@ -851,7 +1020,7 @@ namespace Graphics {
 				s_Data.CircleVertexBufferPtr->aID = id;
 				s_Data.CircleVertexBufferPtr->Position = s_Data.quadVertices[i];
 				s_Data.CircleVertexBufferPtr->CirclePosition = GUI::DataType::vec3(static_cast<float>(position._X_), static_cast<float>(position._Y_), static_cast<float>(position._Z_));
-				s_Data.CircleVertexBufferPtr->Normal = GUI::DataType::vec3(static_cast <float>(0.0));
+				s_Data.CircleVertexBufferPtr->Normal = normal;
 				s_Data.CircleVertexBufferPtr->Color = color;
 				s_Data.CircleVertexBufferPtr->Radius = radius;
 				s_Data.CircleVertexBufferPtr++;
@@ -862,10 +1031,10 @@ namespace Graphics {
 			//s_Data.Stats.QuadCount++;
 		}
 
-		void BatchRenderer::DrawCircle(const GUI::DataType::vec2& position, float radius, const GUI::DataType::vec4& color, const int id) {
+		void BatchRenderer::DrawCircle(const GUI::DataType::vec2& position, float radius, const GUI::DataType::vec4& color, const int id, const GUI::DataType::vec3& normal) {
 			assert(s_Data.inScene);
 
-			DrawCircle(GUI::DataType::vec3(position._X_, position._Y_ ,0.0), radius, color, id);
+			DrawCircle(GUI::DataType::vec3(position._X_, position._Y_ ,0.0), radius, color, id, normal);
 		}
 
 
