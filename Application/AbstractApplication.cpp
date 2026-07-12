@@ -433,12 +433,17 @@ namespace GUI {
 
 	void AbstractApplication::ExecuteMainThreadQueue()
 	{
-		std::scoped_lock<std::mutex> lock(m_MainThreadQueueMutex);
+		//Drain first, execute after: queued functions may re-enter the run
+		//loop (progress pumping) or submit more work - executing under the
+		//lock deadlocked on both
+		std::vector<std::function<void()>> queue;
+		{
+			std::scoped_lock<std::mutex> lock(m_MainThreadQueueMutex);
+			queue.swap(m_MainThreadQueue);
+		}
 
-		for (auto& func : m_MainThreadQueue)
+		for (auto& func : queue)
 			func();
-
-		m_MainThreadQueue.clear();
 	}
 
 	void DrawVec3Control(const std::string& label, glm::vec3& values, float resetValue = 0.0f, float columnWidth = 100.0f)

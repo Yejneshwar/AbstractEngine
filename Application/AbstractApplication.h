@@ -184,6 +184,11 @@ namespace GUI {
 		ImGuiHandler* m_ImGuiHandler;
 		bool m_Running = true;
 		bool m_Minimized = false;
+		//Declared BEFORE the layer stack so it is destroyed AFTER it:
+		//layers joining worker threads in OnDetach may still receive
+		//SubmitToMainThread calls from those workers until the join returns
+		std::vector<std::function<void()>> m_MainThreadQueue;
+		std::mutex m_MainThreadQueueMutex;
 		Application::LayerStack m_LayerStack;
 		float m_LastFrameTime = 0.0f;
 		bool showBuffers = false;
@@ -203,10 +208,6 @@ namespace GUI {
 		bool m_updateAllViewPorts = false;
 
 		Graphics::Ref<Graphics::UniformBuffer> m_CameraBuffer;
-
-		std::vector<std::function<void()>> m_MainThreadQueue;
-		std::mutex m_MainThreadQueueMutex;
-
 
 		//TODO : Move to application event bus
 		ObjectSelection m_ObjectSelection = {-1, false};
