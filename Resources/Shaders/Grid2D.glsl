@@ -34,37 +34,49 @@ layout (location=0) out vec4 out_FragColor;
 
 void main()
 {
-	mat4 transform = inverse(ubo.viewMatrix);
-	float FontSize = ubo.gridMajor * 2;
-	vec4 textColor = vec4(0.0,0.0,0.0,0.0);
-	float zoom = ubo.gridZoom;
-	vec4 GMin = vec4(ubo.gridMinMax.x,ubo.gridMinMax.z * ubo.aspectRatio,0.0,1.0);
-	vec4 GMax = vec4(ubo.gridMinMax.y,ubo.gridMinMax.w * ubo.aspectRatio,0.0,1.0);
-	float panXint = 0.0;
-	float panXFrac = modf(camPos.x, panXint);
-	float panYint = 0.0;
-	float panYFrac = modf(camPos.y, panYint);
-	vec2 gMin = (transform * GMin).xy;
-	vec2 gMax = (transform * GMax).xy;
-	float Xoffset = mod(zoom-panXFrac,ubo.gridMajor);
-	float Yoffset = mod(zoom-panYFrac,ubo.gridMajor);
+	// ubo.gridMinMax now holds the TRUE world-space bounds of the view
+	// (pan-inclusive, from the 2D camera) — labels iterate the visible
+	// gridline values directly; no pan/zoom re-phasing needed.
+	float xMin = ubo.gridMinMax.x;
+	float xMax = ubo.gridMinMax.y;
+	float yMin = ubo.gridMinMax.z;
+	float yMax = ubo.gridMinMax.w;
 
 	float stepSize = ubo.gridMajor;
-    float Xstart = gMin.x + Xoffset - (mod(panXint,ubo.gridMajor));
-    float Xend = gMax.x;
-	float Ystart = gMin.y + Yoffset - (mod(panYint,ubo.gridMajor));
-	float Yend = gMax.y;
+	vec4 textColor = vec4(0.0);
 
-	for (float i = Ystart; i < Yend; i += stepSize){
-		vec2 position = vec2(0,i);
-		vec2 U = ( uv - position )*(32)/FontSize;
-		textColor += pFloat(U, position.y);
+	// Ruler behavior: numbers sit exactly on their gridline ALONG the ruler
+	// axis; the transverse position rides the world axes when visible and
+	// otherwise clamps smoothly to the viewport edge (no lattice snapping —
+	// that popped a whole cell at a time while panning).
+	// (stepSize guard: spacing is 0 until the camera computes it.)
+	if (stepSize > 1e-30) {
+		// Screen-constant glyph size (~12 pt) so labels stay readable at any
+		// zoom (tying them to gridMajor made them breathe 10x per LOD decade).
+		float worldPerPixel = (xMax - xMin) / max(ubo.viewport.x, 1.0);
+		float glyphSize = 12.0 * worldPerPixel;
+		// pFloat's U space is 32 units per glyph cell.
+		float FontSize = 32.0 * glyphSize;
+
+		float rowLo = yMin + 0.5 * glyphSize;
+		float rowHi = max(rowLo, yMax - 2.0 * glyphSize);
+		float labelRowY = clamp(0.0, rowLo, rowHi);
+
+		float colLo = xMin + 0.5 * glyphSize;
+		float colHi = max(colLo, xMax - 6.0 * glyphSize);
+		float labelColX = clamp(0.0, colLo, colHi);
+
+		for (float i = ceil(yMin / stepSize) * stepSize; i <= yMax; i += stepSize){
+			vec2 U = ( uv - vec2(labelColX, i) )*(32)/FontSize;
+			textColor += pFloat(U, i);
+		}
+
+		for (float i = ceil(xMin / stepSize) * stepSize; i <= xMax; i += stepSize){
+			vec2 U = ( uv - vec2(i, labelRowY) )*(32)/FontSize;
+			textColor += pFloat(U, i);
+		}
 	}
 
-	for (float i = Xstart; i < Xend; i += stepSize){
-		vec2 position = vec2(i,0);
-		vec2 U = ( uv - position )*(32)/FontSize;
-		textColor += pFloat(U, position.x);
-	}
-	out_FragColor = gridColor(uv, camPos) + textColor.xxxx;
+	// Fade radius scales with the view so the canvas grid never runs out.
+	out_FragColor = gridColor(uv, camPos, 4.0 * (xMax - xMin)) + textColor.xxxx;
 };

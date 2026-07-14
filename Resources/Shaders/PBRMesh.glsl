@@ -133,9 +133,11 @@ void main()
         N = -N;
 
     if (shadingMode == SHADING_NORMALS) {
-        // Debug view: world normals mapped to [0,1]. Encoded as sRGB-linear
-        // so the tonemap pass displays the raw values faithfully.
-        FragColor = vec4(srgbToLinear(N * 0.5 + 0.5), base.a);
+        // Debug view: world normals mapped to [0,1]. When the HDR post chain
+        // runs it re-encodes to sRGB, so pre-linearize; without it (2D
+        // viewports) output display-referred directly.
+        vec3 shown = N * 0.5 + 0.5;
+        FragColor = vec4(lighting.params1.y > 0.5 ? srgbToLinear(shown) : shown, base.a);
         return;
     }
 
@@ -144,7 +146,11 @@ void main()
     if (shadingMode == SHADING_MATCAP) {
         vec3 nView = normalize(mat3(ubo.viewMatrix) * N);
         vec3 matcap = srgbToLinear(texture(matcapTex, nView.xy * 0.5 + 0.5).rgb);
-        FragColor = vec4(matcap * albedo * 2.0, base.a);
+        vec3 solid = matcap * albedo * 2.0;
+        // Without the tonemap pass (2D viewports), gamma-encode here.
+        if (lighting.params1.y <= 0.5)
+            solid = pow(clamp(solid, 0.0, 1.0), vec3(1.0 / 2.2));
+        FragColor = vec4(solid, base.a);
         return;
     }
 

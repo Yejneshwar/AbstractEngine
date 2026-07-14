@@ -130,12 +130,25 @@ namespace GUI {
 			threeD ? settings.envIntensity : 0.0f,
 			(float)Graphics::EnvironmentIBL::GetSpecularMipCount(),
 		};
+		// Map the viewport pipeline to the shader-side shading branch (the
+		// Wireframe pipeline skips the fill pass, so its value is moot).
+		// PBR needs the HDR post chain, which only 3D viewports run.
+		Graphics::SceneShading shading = Graphics::SceneShading::Unlit;
+		switch (settings.pipeline) {
+			case Graphics::ViewportPipeline::Wireframe:    shading = Graphics::SceneShading::Unlit; break;
+			case Graphics::ViewportPipeline::Solid:        shading = Graphics::SceneShading::Matcap; break;
+			case Graphics::ViewportPipeline::PBR:          shading = threeD ? Graphics::SceneShading::Lit : Graphics::SceneShading::Unlit; break;
+			case Graphics::ViewportPipeline::DebugNormals: shading = Graphics::SceneShading::Normals; break;
+			case Graphics::ViewportPipeline::Unlit:        shading = Graphics::SceneShading::Unlit; break;
+		}
+
 		lighting.params1 = {
-			threeD ? (float)(int)settings.shading : (float)(int)Graphics::SceneShading::Unlit,
+			(float)(int)shading,
 			threeD ? 1.0f : 0.0f, // outputLinear: the HDR->tonemap post chain runs
 			settings.backgroundBlur,
 			0.0f,
 		};
+		lighting.params2 = glm::vec4(settings.wireframeColor, 0.0f);
 	}
 
 	void AbstractApplication::PushLayer(Layer* layer)
@@ -189,6 +202,20 @@ namespace GUI {
 			// too meant the first click on an unfocused viewport did nothing
 			// (it only transferred focus).
 			if (!viewPort.ViewportHovered) continue;
+
+			// Input landing on the viewport's render-options overlay belongs
+			// to those widgets — not to the camera or picking. Deliberately a
+			// position test (not ImGui hover state): on touch devices the
+			// virtual cursor parks on the last-tapped widget and events
+			// arrive before ImGui sees the new finger position, so hover
+			// queries are stale there and swallowed touch/Pencil input.
+			{
+				auto [overlayX, overlayY] = ImGui::GetMousePos();
+				if (overlayX >= viewPort.OverlayRectMin.x && overlayX <= viewPort.OverlayRectMax.x &&
+					overlayY >= viewPort.OverlayRectMin.y && overlayY <= viewPort.OverlayRectMax.y)
+					continue;
+			}
+
 			if (viewPort.ViewportFocused)
 				viewPort.ViewPortCamera->OnEvent(e);
 
@@ -337,6 +364,14 @@ namespace GUI {
                         UpdateLighting(v);
                         m_LightingBuffer->SetData(&v.uboLighting, sizeof(v.uboLighting));
                         Graphics::BatchRenderer::BindSceneResources(); // material table + IBL textures
+
+						// Wireframe pass mode for this viewport's retained meshes.
+						Graphics::BatchRenderer::WireframeMode wireframeMode = Graphics::BatchRenderer::WireframeMode::Off;
+						if (v.renderSettings.pipeline == Graphics::ViewportPipeline::Wireframe)
+							wireframeMode = Graphics::BatchRenderer::WireframeMode::Only;
+						else if (v.renderSettings.pipeline == Graphics::ViewportPipeline::Solid && v.renderSettings.wireframeOverlay)
+							wireframeMode = Graphics::BatchRenderer::WireframeMode::Overlay;
+						Graphics::BatchRenderer::SetWireframeMode(wireframeMode);
 						v.Framebuffer->ClearAttachment(1, -1); // Clear ID buffer
 						Graphics::Renderer::DepthTest(true);
 
@@ -639,25 +674,24 @@ namespace GUI {
 		ImGui::PopID();
 	}
 
-	// Per-viewport rendering controls (3D viewports only — 2D stays on the
-	// legacy unlit path).
+	// Detailed rendering + camera controls for a viewport — shown in the
+	// "Options" popup of the viewport's own overlay (the pipeline combo
+	// lives directly on the overlay).
 	void AbstractApplication::RenderSettingsUI(ViewPort& viewPort)
 	{
-		if (viewPort.cameraType != CameraType::ThreeD)
-			return;
-
+		const bool threeD = viewPort.cameraType == CameraType::ThreeD;
 		Graphics::RenderSettings& settings = viewPort.renderSettings;
 		bool changed = false;
 
-		ImGui::PushID((int)viewPort.id);
-		if (ImGui::CollapsingHeader(std::format("Rendering (Viewport {})", viewPort.id).c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
-			const char* shadingModes[] = { "Unlit", "Lit (PBR)", "Matcap", "Debug Normals" };
-			int shading = (int)settings.shading;
-			if (ImGui::Combo("Shading", &shading, shadingModes, 4)) {
-				settings.shading = (Graphics::SceneShading)shading;
-				changed = true;
-			}
+		if (settings.pipeline == Graphics::ViewportPipeline::Solid) {
+			changed |= ImGui::Checkbox("Wireframe Overlay", &settings.wireframeOverlay);
+			if (settings.wireframeOverlay)
+				changed |= ImGui::ColorEdit3("Wire Color", &settings.wireframeColor.x, ImGuiColorEditFlags_Float);
+		}
+		if (settings.pipeline == Graphics::ViewportPipeline::Wireframe)
+			changed |= ImGui::ColorEdit3("Wire Color", &settings.wireframeColor.x, ImGuiColorEditFlags_Float);
 
+		if (threeD && settings.pipeline == Graphics::ViewportPipeline::PBR) {
 			ImGui::SeparatorText("Key Light");
 			changed |= ImGui::Checkbox("Headlight (follows camera)", &settings.headlight);
 			changed |= ImGui::SliderFloat("Intensity", &settings.keyIntensity, 0.0f, 10.0f);
@@ -669,7 +703,9 @@ namespace GUI {
 				}
 			}
 			changed |= ImGui::ColorEdit3("Color", &settings.keyColor.x, ImGuiColorEditFlags_Float);
+		}
 
+		if (threeD) {
 			ImGui::SeparatorText("Environment");
 			changed |= ImGui::SliderFloat("Env Intensity", &settings.envIntensity, 0.0f, 4.0f);
 			changed |= ImGui::Checkbox("Environment Background", &settings.environmentBackground);
@@ -692,7 +728,38 @@ namespace GUI {
 				changed |= ImGui::SliderFloat("AO Intensity", &settings.aoIntensity, 0.0f, 2.0f);
 			}
 		}
-		ImGui::PopID();
+
+		if (changed)
+			m_updateAllViewPorts = true;
+	}
+
+	// Camera controls for a viewport — shown in the "Camera" popup of the
+	// viewport's own overlay.
+	void AbstractApplication::CameraSettingsUI(ViewPort& viewPort)
+	{
+		bool changed = false;
+
+		const auto cameraPosition = viewPort.ViewPortCamera->GetPosition();
+		ImGui::Text("Position : %.3f %.3f %.3f", cameraPosition.x, cameraPosition.y, cameraPosition.z);
+
+		auto focalPoint = viewPort.ViewPortCamera->GetFocalPoint();
+		const auto previousFocalPoint = focalPoint;
+		DrawVec3Control("Focus", focalPoint);
+		if (previousFocalPoint != focalPoint) {
+			viewPort.ViewPortCamera->SetFocalPoint(focalPoint);
+			viewPort.update();
+			changed = true;
+		}
+
+		const auto viewDirection = viewPort.ViewPortCamera->GetViewDirection();
+		ImGui::Text("View Direction : %.3f %.3f %.3f", viewDirection.x, viewDirection.y, viewDirection.z);
+		ImGui::Text("Zoom : %.9f", viewPort.ViewPortCamera->getZoom());
+
+		if (ImGui::Button("Reset Camera")) {
+			viewPort.ViewPortCamera->ResetFocalPoint();
+			viewPort.update();
+			changed = true;
+		}
 
 		if (changed)
 			m_updateAllViewPorts = true;
@@ -726,11 +793,9 @@ namespace GUI {
 				float screenHeight = v.ViewportSize.y;
 
 				//ToDo: account for the vieport position.
+				// worldX/Ymin/max are true world bounds (pan-inclusive) now —
+				// no focal-point compensation needed.
 				glm::vec2 world = { ((pos.x / screenWidth) * (worldXmax - worldXmin)) + worldXmin , worldYmax - ((pos.y / screenHeight) * (worldYmax - worldYmin)) };
-
-				//Note: The mouse coordinates lose precision because of the below two lines
-				world.x += v.ViewPortCamera->GetFocalPoint().x;
-				world.y += v.ViewPortCamera->GetFocalPoint().y;
 
 
 				ImGui::Text("WorldX : %f -> %f", worldXmin, worldXmax);
@@ -803,6 +868,66 @@ namespace GUI {
 			auto rectMin = ImVec2{ ViewPortIt->ViewportBounds[0].x, ViewPortIt->ViewportBounds[0].y };
 			auto rectMax = ImVec2{ ViewPortIt->ViewportBounds[1].x, ViewPortIt->ViewportBounds[1].y };
 			//ImGui::GetForegroundDrawList()->AddRect(rectMin, rectMax, IM_COL32(255, 255, 0, 255));
+
+			// Viewport overlay (Blender-style): pipeline switch + rendering
+			// and camera options, floating over the top-left of the image.
+			{
+				ImGui::SetCursorPos(ImVec2(viewportMinRegion.x + 8.0f, viewportMinRegion.y + 8.0f));
+
+				Graphics::RenderSettings& settings = ViewPortIt->renderSettings;
+
+				// 2D viewports have no HDR post chain, so no PBR there; they
+				// get the legacy Unlit default plus the debug/solid modes.
+				static const char* kPipelines3D[] = { "Wireframe", "Solid", "PBR (Rendered)", "Debug Normals" };
+				static const Graphics::ViewportPipeline kPipelineMap3D[] = {
+					Graphics::ViewportPipeline::Wireframe, Graphics::ViewportPipeline::Solid,
+					Graphics::ViewportPipeline::PBR, Graphics::ViewportPipeline::DebugNormals };
+				static const char* kPipelines2D[] = { "Unlit", "Wireframe", "Solid", "Debug Normals" };
+				static const Graphics::ViewportPipeline kPipelineMap2D[] = {
+					Graphics::ViewportPipeline::Unlit, Graphics::ViewportPipeline::Wireframe,
+					Graphics::ViewportPipeline::Solid, Graphics::ViewportPipeline::DebugNormals };
+
+				const bool overlayThreeD = ViewPortIt->cameraType == CameraType::ThreeD;
+				const char* const* pipelineNames = overlayThreeD ? kPipelines3D : kPipelines2D;
+				const Graphics::ViewportPipeline* pipelineMap = overlayThreeD ? kPipelineMap3D : kPipelineMap2D;
+
+				int pipeline = 0;
+				for (int i = 0; i < 4; ++i)
+					if (pipelineMap[i] == settings.pipeline)
+						pipeline = i;
+
+				ImGui::SetNextItemWidth(150.0f);
+				if (ImGui::Combo("##pipeline", &pipeline, pipelineNames, 4)) {
+					settings.pipeline = pipelineMap[pipeline];
+					m_updateAllViewPorts = true;
+				}
+				const ImVec2 comboMin = ImGui::GetItemRectMin();
+				ImGui::SameLine();
+				if (ImGui::Button("Options"))
+					ImGui::OpenPopup("viewport_render_options");
+				ImGui::SameLine();
+				if (ImGui::Button("Camera"))
+					ImGui::OpenPopup("viewport_camera_options");
+				const ImVec2 buttonMax = ImGui::GetItemRectMax();
+
+				// Screen-space overlay rect (small margin) used by OnEvent to
+				// keep overlay input away from camera/picking.
+				constexpr float kOverlayMargin = 4.0f;
+				ViewPortIt->OverlayRectMin = { comboMin.x - kOverlayMargin, comboMin.y - kOverlayMargin };
+				ViewPortIt->OverlayRectMax = { buttonMax.x + kOverlayMargin, buttonMax.y + kOverlayMargin };
+				// The viewport window runs with zero WindowPadding (for the
+				// image); give the popups normal padding back.
+				ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(10.0f, 10.0f));
+				if (ImGui::BeginPopup("viewport_render_options")) {
+					RenderSettingsUI(*ViewPortIt);
+					ImGui::EndPopup();
+				}
+				if (ImGui::BeginPopup("viewport_camera_options")) {
+					CameraSettingsUI(*ViewPortIt);
+					ImGui::EndPopup();
+				}
+				ImGui::PopStyleVar();
+			}
 
 			ImGui::End();
 
@@ -903,32 +1028,8 @@ namespace GUI {
 						Graphics::ThreeDCamera::s_TrackpadScrollAction = (Graphics::TrackpadScrollAction)action;
 				}
 
-
-			for (ViewPort& v : m_ViewPorts) {
-				RenderSettingsUI(v);
-
-				auto camerPosition = v.ViewPortCamera->GetPosition();
-				ImGui::Text("Camera Position : %.3f %.3f %.3f", camerPosition.x, camerPosition.y, camerPosition.z);
-
-    			auto cameraFocalPoint = v.ViewPortCamera->GetFocalPoint();
-    			ImGui::Text("Camera Focus point : %.3f %.3f %.3f", cameraFocalPoint.x, cameraFocalPoint.y, cameraFocalPoint.z);
-
-				auto tmp = cameraFocalPoint;
-				DrawVec3Control("Transform", cameraFocalPoint);
-				if (tmp != cameraFocalPoint) {
-					v.ViewPortCamera->SetFocalPoint(cameraFocalPoint);
-					v.update();
-				}
-
-
-				auto viewDirection = v.ViewPortCamera->GetViewDirection();
-				ImGui::Text("Camera View Direction : %.3f %.3f %.3f", viewDirection.x, viewDirection.y, viewDirection.z);
-				//auto fragNormal = glm::inverseTranspose(m_ApplicationCamera.GetViewMatrix()) * glm::vec3(0.0,0.0,1.0);
-				if (ImGui::Button(std::format("Reset Camera {}", v.id).c_str())) { v.ViewPortCamera->ResetFocalPoint(); v.update(); v.updateViewport = true; };
-				auto zoom = v.ViewPortCamera->getZoom();
-				ImGui::Text("Camera Zoom : %.20f", zoom);
-			}
-
+			// Per-viewport camera controls live in each viewport's Options
+			// popup now (RenderSettingsUI).
 
     		ImGui::End();
     	}

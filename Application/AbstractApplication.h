@@ -81,6 +81,9 @@ namespace GUI {
 		bool ViewportFocused = true, ViewportHovered = false;
 		glm::u32vec2 ViewportSize = { 1.0f, 1.0f };
 		glm::vec2 ViewportBounds[2];
+		// Screen-space rect of the render-options overlay drawn on the
+		// viewport; input inside it is ignored by camera/picking.
+		glm::vec2 OverlayRectMin = { 0.0f, 0.0f }, OverlayRectMax = { 0.0f, 0.0f };
 		bool isOpen = true;
 		bool updateViewport = false;
 
@@ -88,9 +91,12 @@ namespace GUI {
 
 		explicit ViewPort(Graphics::FramebufferSpecification fbSpec, CameraType camera, uint32_t _id) : cameraType(camera), id(_id) {
 			// 3D viewports render linear HDR and get tonemapped by the post
-			// chain; 2D viewports keep the legacy direct-LDR path.
+			// chain; 2D viewports keep the legacy direct-LDR path (and
+			// default to the Unlit pipeline — no PBR/post there).
 			if (cameraType == CameraType::ThreeD && !fbSpec.Attachments.Attachments.empty())
 				fbSpec.Attachments.Attachments[0].TextureFormat = Graphics::FramebufferTextureFormat::RGBA16F;
+			if (cameraType == CameraType::TwoD)
+				renderSettings.pipeline = Graphics::ViewportPipeline::Unlit;
 
 			Framebuffer = Graphics::Framebuffer::Create(fbSpec);
 
@@ -194,6 +200,7 @@ namespace GUI {
 
 		void UpdateLighting(ViewPort& viewPort);
 		void RenderSettingsUI(ViewPort& viewPort);
+		void CameraSettingsUI(ViewPort& viewPort);
 
 		void CoreUI();
 

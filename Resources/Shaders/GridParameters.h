@@ -3,7 +3,10 @@ float gridSize = 100.0;
 
 // size of one cell
 float gridCellSize = 0.025;
-float gridMajorSize = 0.000000005;
+// Decade anchor for the LOD cells (cells are gridMajorSize * 10^k). The old
+// 5e-9 value only existed to keep the LOD positive under its max(0,...)
+// clamp — with unclamped LODs a unit-scale anchor is correct.
+float gridMajorSize = 5.0;
 float gridMinorSize = 10.0;
 
 // color of thin lines

@@ -302,6 +302,8 @@ set(GRAPHICS_SRC "Graphics/GraphicsCore.h"
 "Graphics/Renderer/Lighting.h"
 "Graphics/Renderer/Environment.h"
 "Graphics/Renderer/Environment.cpp"
+"Graphics/Renderer/MaterialLibrary.h"
+"Graphics/Renderer/MaterialLibrary.cpp"
 "Graphics/Renderer/Shader.h"
 "Graphics/Renderer/Shader.cpp"
 "Graphics/Renderer/ComputeShader.h"
@@ -429,6 +431,11 @@ if(GUI_BUILD_TESTING)
             MACOSX_BUNDLE_LAUNCH_SCREEN_NAME "LaunchScreen"
             MACOSX_BUNDLE_BUNDLE_VERSION "1"
             MACOSX_BUNDLE_LONG_VERSION_STRING "1.0"
+            # App icon: the AppIcon.icon set inherited from the engine's
+            # resource sources, compiled by actool (the attributes must be on
+            # the app target — on the library they do nothing).
+            MACOSX_BUNDLE_ICON_FILE "AppIcon"
+            XCODE_ATTRIBUTE_ASSETCATALOG_COMPILER_APPICON_NAME "AppIcon"
             XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY "Apple Development"
             XCODE_ATTRIBUTE_CODE_SIGNING_REQUIRED "YES"
             XCODE_ATTRIBUTE_TARGETED_DEVICE_FAMILY "1,2"
@@ -457,9 +464,17 @@ target_compile_definitions(${ENGINE_PROJECT_NAME} PUBLIC BUILDING_METAL=1)
 SET(RESOURCES_PATH "${CMAKE_CURRENT_SOURCE_DIR}/Resources")
 message(STATUS "Resources path for APPLE ${RESOURCES_PATH}")
 SET(APP_ASSETS "${CMAKE_CURRENT_SOURCE_DIR}/AppIcon.icon")
+# Icon Composer icon set: mark the file type so Xcode compiles it with
+# actool (into Assets.car + CFBundleIconName) instead of copying the .icon
+# folder verbatim into the bundle.
+set_source_files_properties("${CMAKE_CURRENT_SOURCE_DIR}/AppIcon.icon" PROPERTIES
+    XCODE_EXPLICIT_FILE_TYPE "folder.iconcomposer.icon-package")
 
 if(IOS)
     list(APPEND APP_ASSETS "${CMAKE_CURRENT_SOURCE_DIR}/LaunchScreen.storyboard")
+    # Photo shown by LaunchScreen.storyboard (referenced by file name, so it
+    # must sit at the bundle root).
+    list(APPEND APP_ASSETS "${CMAKE_CURRENT_SOURCE_DIR}/SplashImage.jpg")
 endif(IOS)
 
 resource(RESOURCE_FILES ${RESOURCES_PATH} "Resources/Resource" *)

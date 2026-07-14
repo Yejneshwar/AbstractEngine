@@ -94,10 +94,15 @@ glm::vec3 Graphics::ThreeDCamera::GetViewDirection() const
 void Graphics::ThreeDCamera::UpdateProjection()
 {
 	m_AspectRatio = m_ViewportWidth / m_ViewportHeight;
-	m_Projection = glm::perspective(glm::radians(m_FOV), m_AspectRatio, m_NearClip, m_FarClip);
 #if BUILDING_METAL
-//    Flip Y-axis to match coordinate system
-    m_Projection[1][1] *= -1.0f;
+	// Metal clips NDC z to [0,1]: the GL-convention perspective matrix
+	// ([-1,1]) silently pushed the effective near plane out (the near half
+	// of the depth range was clipped). Use the zero-to-one variant.
+	m_Projection = glm::perspectiveZO(glm::radians(m_FOV), m_AspectRatio, m_NearClip, m_FarClip);
+	// Flip Y-axis to match coordinate system
+	m_Projection[1][1] *= -1.0f;
+#else
+	m_Projection = glm::perspective(glm::radians(m_FOV), m_AspectRatio, m_NearClip, m_FarClip);
 #endif
 }
 

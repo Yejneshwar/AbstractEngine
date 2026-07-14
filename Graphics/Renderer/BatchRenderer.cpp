@@ -145,6 +145,7 @@ namespace Graphics {
 
 			Graphics::Ref<Graphics::Shader> SelectedObjectShader;
 			Graphics::Ref<Graphics::Shader> PBRMeshShader;
+			Graphics::Ref<Graphics::Shader> WireframeShader;
 
 			uint32_t QuadIndexCount = 0;
 			QuadVertex* QuadVertexBufferBase = nullptr;
@@ -246,6 +247,7 @@ namespace Graphics {
 			s_Data.LineShader = Graphics::Shader::Create("./Resource/Shaders/LineShader.glsl", false);
 			s_Data.SelectedObjectShader = Graphics::Shader::Create("./Resource/Shaders/SelectedObject.glsl", false);
 			s_Data.PBRMeshShader = Graphics::Shader::Create("./Resource/Shaders/PBRMesh.glsl", false);
+			s_Data.WireframeShader = Graphics::Shader::Create("./Resource/Shaders/Wireframe.glsl", false);
 		}
 
 		// ------------------------------------------------------------------
@@ -479,6 +481,13 @@ namespace Graphics {
 			s_SelectionActive = active;
 		}
 
+		static BatchRenderer::WireframeMode s_WireframeMode = BatchRenderer::WireframeMode::Off;
+
+		void BatchRenderer::SetWireframeMode(WireframeMode mode)
+		{
+			s_WireframeMode = mode;
+		}
+
 		// -------------------------------------------------------------------
 		// Retained meshes: geometry lives in a persistent GPU arena, uploaded
 		// only when meshes are created/destroyed. Per-frame submission is a
@@ -701,12 +710,29 @@ namespace Graphics {
 				s_Retained.gpuDirty = false;
 			}
 
-			shader->Bind();
-			for (const BatchRenderer::MeshHandle& handle : s_Retained.visible) {
-				const RetainedMeshRange& mesh = s_Retained.meshes[handle - 1];
-				Graphics::RenderCommand::DrawIndexedRange(s_Retained.MeshVertexArray, mesh.indexCount, mesh.indexOffset * (uint32_t)sizeof(uint32_t));
+			// Fill pass (skipped in wire-only viewports).
+			if (s_WireframeMode != BatchRenderer::WireframeMode::Only) {
+				shader->Bind();
+				for (const BatchRenderer::MeshHandle& handle : s_Retained.visible) {
+					const RetainedMeshRange& mesh = s_Retained.meshes[handle - 1];
+					Graphics::RenderCommand::DrawIndexedRange(s_Retained.MeshVertexArray, mesh.indexCount, mesh.indexOffset * (uint32_t)sizeof(uint32_t));
+				}
+				shader->Unbind();
 			}
-			shader->Unbind();
+
+			// Wireframe pass: same geometry with line polygon/fill mode (the
+			// wire shader adds a small depth bias so overlay edges show).
+			if (s_WireframeMode != BatchRenderer::WireframeMode::Off) {
+				constexpr int kPolygonModeLine = 0x1B01; // GL_LINE
+				s_Data.WireframeShader->Bind();
+				Graphics::RenderCommand::SetRenderMode(kPolygonModeLine);
+				for (const BatchRenderer::MeshHandle& handle : s_Retained.visible) {
+					const RetainedMeshRange& mesh = s_Retained.meshes[handle - 1];
+					Graphics::RenderCommand::DrawIndexedRange(s_Retained.MeshVertexArray, mesh.indexCount, mesh.indexOffset * (uint32_t)sizeof(uint32_t));
+				}
+				Graphics::RenderCommand::SetRenderModeToDefault();
+				s_Data.WireframeShader->Unbind();
+			}
 		}
 
 		void BatchRenderer::setUpdateRequired(bool _state)

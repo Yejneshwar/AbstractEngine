@@ -74,6 +74,7 @@ namespace Graphics {
 		void MousePan(const glm::vec2& delta);
 		void MouseRotate(const glm::vec2& delta);
 		void MouseZoom(float delta);
+		void ZoomByFactor(double factor);
 
 		glm::vec3 CalculatePosition() const;
 
@@ -89,8 +90,7 @@ namespace Graphics {
 		glm::vec2 m_InitialMousePosition = { 0.0f, 0.0f };
 
 		float m_Distance = 1.0f;
-		double m_zoom = 4.0;
-		double m_zoomLevel = 1.0;
+		double m_zoom = 4.0; // ortho half-width in world units (see ZoomByFactor)
 		float m_Pitch = 0.0f, m_Yaw = 0.0f;
 
 		float m_ViewportWidth = 1280, m_ViewportHeight = 720;

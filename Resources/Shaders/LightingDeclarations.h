@@ -36,6 +36,7 @@ layout(std140, binding = UBO_LIGHTING) uniform LightingUBO {
 	vec4 shIrradiance[9];
 	vec4 params0; // x = dirLightCount, y = pointLightCount, z = envIntensity, w = envSpecularMipCount
 	vec4 params1; // x = shadingMode, y = outputLinear (1 = HDR->tonemap post runs), z = background blur lod, w unused
+	vec4 params2; // rgb = wireframe overlay color, w unused
 } lighting;
 
 struct GpuMaterial {

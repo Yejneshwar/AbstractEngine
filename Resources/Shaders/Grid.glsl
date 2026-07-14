@@ -34,7 +34,7 @@ layout (location=0) out vec4 out_FragColor;
 
 void main()
 {
-	out_FragColor = gridColor(uv, camPos);
+	out_FragColor = gridColor(uv, camPos, gridSize);
 	// Linear-light viewports (HDR + tonemap): linearize the grid color.
 	if (ubo.outputLinear != 0)
 		out_FragColor.rgb = pow(max(out_FragColor.rgb, vec3(0.0)), vec3(2.2));

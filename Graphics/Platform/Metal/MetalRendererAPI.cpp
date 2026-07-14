@@ -354,12 +354,14 @@ namespace Graphics {
 
 	void MetalRendererAPI::SetRendererMode(int mode)
 	{
-
+        // Mirrors the GL glPolygonMode call sites: 0x1B01 == GL_LINE.
+        MetalContext::GetCurrentRenderCommandEncoder()->setTriangleFillMode(
+            mode == 0x1B01 ? MTL::TriangleFillModeLines : MTL::TriangleFillModeFill);
 	}
 
 	void MetalRendererAPI::SetRendererModeToDefault()
 	{
-        
+        MetalContext::GetCurrentRenderCommandEncoder()->setTriangleFillMode(MTL::TriangleFillModeFill);
     }
 
     void MetalRendererAPI::DrawLinesInstancedBaseInstance(const Ref<VertexArray> &vertexArray, uint32_t filrst, uint32_t vertexCount, uint32_t instanceCount, uint32_t baseInstance) {

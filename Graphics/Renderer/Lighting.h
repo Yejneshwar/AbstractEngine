@@ -21,11 +21,23 @@ namespace Graphics {
 	constexpr uint32_t kEnvSpecularTextureSlot = 4;
 	constexpr uint32_t kMatcapTextureSlot = 5;
 
+	// Shader-side shading branch (LightingUBO params1.x) — what PBRMesh.glsl
+	// does per fragment.
 	enum class SceneShading : int {
 		Unlit = 0,
 		Lit = 1,
 		Matcap = 2,
 		Normals = 3, // debug view: world-space normals as color
+	};
+
+	// Per-viewport render pipeline (Blender-style). Maps onto SceneShading +
+	// the wireframe pass in the BatchRenderer.
+	enum class ViewportPipeline : int {
+		Wireframe = 0,    // meshes as wires only
+		Solid = 1,        // matcap studio shading, optional wireframe overlay
+		PBR = 2,          // lit/rendered mode (IBL, GTAO, tonemap) — 3D viewports only
+		DebugNormals = 3, // world-space normals as color
+		Unlit = 4,        // legacy flat colors (2D viewport default)
 	};
 
 	enum class TonemapOperator : int {
@@ -50,6 +62,7 @@ namespace Graphics {
 		glm::vec4 shIrradiance[9] = {};
 		glm::vec4 params0 = { 0.0f, 0.0f, 1.0f, 1.0f }; // dirCount, pointCount, envIntensity, envSpecularMipCount
 		glm::vec4 params1 = { 0.0f, 0.0f, 0.0f, 0.0f }; // shadingMode, outputLinear, backgroundBlurLod, unused
+		glm::vec4 params2 = { 0.1f, 0.1f, 0.12f, 0.0f }; // rgb = wireframe color, unused
 	};
 
 	// std140 mirror of one MaterialUBO entry (binding 3).
@@ -78,7 +91,11 @@ namespace Graphics {
 	// Per-viewport rendering options surfaced in the UI. Only meaningful for
 	// 3D viewports; 2D viewports stay on the unlit/legacy path.
 	struct RenderSettings {
-		SceneShading shading = SceneShading::Lit;
+		ViewportPipeline pipeline = ViewportPipeline::PBR;
+
+		// Solid mode only: draw mesh edges over the shaded surface.
+		bool wireframeOverlay = false;
+		glm::vec3 wireframeColor = { 0.10f, 0.10f, 0.12f };
 
 		// Key light. Headlight mode keeps it locked to the camera so models
 		// are always lit no matter how you orbit.

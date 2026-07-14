@@ -18,14 +18,20 @@ float max2(vec2 v)
 	return max(v.x, v.y);
 }
 
-vec4 gridColor(vec2 uv, vec2 camPos)
+// fadeRadius: distance from the camera at which the grid fades out. The 3D
+// ground plane passes its fixed extent; the 2D canvas passes a multiple of
+// the visible extent so the grid never runs out ("infinite" at any zoom).
+vec4 gridColor(vec2 uv, vec2 camPos, float fadeRadius)
 {
 	vec2 dudv = vec2(
 		length(vec2(dFdx(uv.x), dFdy(uv.x))),
 		length(vec2(dFdx(uv.y), dFdy(uv.y)))
 	);
 
-	float lodLevel = max(0.0, log10Calc((length(dudv) * gridMinPixelsBetweenCells) / gridMajorSize) + 1.0);
+	// NOTE: deliberately NOT clamped at 0: negative LOD levels subdivide the
+	// base decade so zooming IN keeps revealing finer cells indefinitely
+	// (the old max(0.0, ...) froze the grid at the base cell size).
+	float lodLevel = log10Calc((length(dudv) * gridMinPixelsBetweenCells) / gridMajorSize) + 1.0;
 	float lodFade = fract(lodLevel);
 
 	// cell sizes for lod0, lod1 and lod2
@@ -57,7 +63,7 @@ vec4 gridColor(vec2 uv, vec2 camPos)
 	vec4 c = min(c1, c2);
 
 	// calculate opacity falloff based on distance to grid extents
-	float opacityFalloff = (1.0 - satf(length(uv) / gridSize));
+	float opacityFalloff = (1.0 - satf(length(uv) / fadeRadius));
 
 	// blend between LOD level alphas and scale with opacity falloff
 	c1.a *= (lodA2a > 0.0 ? lodA2a : lodA1a > 0.0 ? lodA1a : (lod0a * (1.0 - lodFade)));

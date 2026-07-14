@@ -1,5 +1,7 @@
 #include "ShowcaseLayer.h"
 
+#include <Renderer/MaterialLibrary.h>
+
 #include <Logger.h>
 #include <imgui.h>
 
@@ -176,12 +178,10 @@ namespace {
 			AddMesh("Ground", plane.vertices, plane.indices, white, material);
 		}
 
-		// Wireframe demo (BasicShader / static-triangle path): an open
-		// half-tube so both the barycentric wireframe (front) and the
-		// diagnostic back-face coloring are visible at once.
+		// Open half-tube: shows the wireframe pipelines nicely and, being an
+		// open surface, exercises the double-sided shading.
 		{
 			MeshData shell;
-			std::vector<double> shellNormals;
 			constexpr int kSegments = 24;
 			constexpr int kRings = 8;
 			const double radius = 1.1;
@@ -193,7 +193,6 @@ namespace {
 					const double a = glm::pi<double>() * s / kSegments; // half circle
 					const glm::dvec3 n(0.0, std::sin(a), std::cos(a));
 					shell.vertices.insert(shell.vertices.end(), { x, center.y + n.y * radius, center.z + n.z * radius });
-					shellNormals.insert(shellNormals.end(), { n.x, n.y, n.z });
 				}
 			}
 			const int stride = kSegments + 1;
@@ -206,10 +205,14 @@ namespace {
 					shell.indices.insert(shell.indices.end(), { i0, i2, i1, i1, i2, i3 });
 				}
 			}
-			Graphics::BatchRenderer::addData(shell.vertices, shellNormals, shell.indices, 1);
+			Graphics::MaterialDesc material;
+			material.baseColor = { 0.90f, 0.55f, 0.20f, 1.0f };
+			material.roughness = 0.5f;
+			material.vertexColorTint = false;
+			AddMesh("Half Tube", shell.vertices, shell.indices, white, material);
 		}
 
-		LOG_INFO_STREAM << "ShowcaseLayer: created " << m_Objects.size() << " objects (+ wireframe shell)";
+		LOG_INFO_STREAM << "ShowcaseLayer: created " << m_Objects.size() << " objects";
 	}
 
 	void ShowcaseLayer::OnDetach()
@@ -264,6 +267,19 @@ namespace {
 		if (selected && selected->editable) {
 			Graphics::MaterialDesc material = Graphics::BatchRenderer::GetMaterial(selected->material);
 			bool changed = false;
+
+			// Material library: applying a preset overwrites the object's
+			// material values (still editable afterwards).
+			if (ImGui::BeginCombo("Preset", "Apply preset...")) {
+				for (const Graphics::MaterialPreset& preset : Graphics::MaterialLibrary::Presets()) {
+					if (ImGui::Selectable(preset.name)) {
+						material = preset.desc;
+						changed = true;
+					}
+				}
+				ImGui::EndCombo();
+			}
+
 			changed |= ImGui::ColorEdit4("Base Color", &material.baseColor.x, ImGuiColorEditFlags_Float);
 			changed |= ImGui::SliderFloat("Metallic", &material.metallic, 0.0f, 1.0f);
 			changed |= ImGui::SliderFloat("Roughness", &material.roughness, 0.0f, 1.0f);

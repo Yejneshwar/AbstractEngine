@@ -39,6 +39,13 @@ namespace Graphics {
 			// of re-drawing the whole scene into the mask attachment.
 			static void SetSelectionActive(bool active);
 
+			// Wireframe pass for retained meshes, set per viewport before the
+			// layers draw (Blender-style pipelines: wire-only viewport, or an
+			// edge overlay on Solid shading). Wire color comes from the
+			// lighting UBO (params2).
+			enum class WireframeMode { Off = 0, Overlay, Only };
+			static void SetWireframeMode(WireframeMode mode);
+
 			// ---- Materials ------------------------------------------------
 			// Materials live in a GPU table (see Lighting.h); meshes reference
 			// them by handle. Handle 0 is the built-in default (white, rough

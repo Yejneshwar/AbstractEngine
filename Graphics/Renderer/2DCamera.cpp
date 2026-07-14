@@ -1,7 +1,9 @@
 #include "2DCamera.h"
 #include <iostream>
 #include <Events/Input.h>
+#include <algorithm>
 #include <array>
+#include <cmath>
 #include <Logger.h>
 
 #define LABEL_PIXELS 80
@@ -56,6 +58,9 @@ void GetSpacing(double viewPortWidth, double xMin, double xMax, float& gridMajor
 Graphics::TwoDCamera::TwoDCamera(float nearClip, float farClip)
 	: m_NearClip(nearClip), m_FarClip(farClip), Camera(glm::ortho(-5.0f, 5.0f, -5.0f, 5.0f, nearClip, farClip))
 {
+	// Establish valid world bounds + grid spacing immediately (the default
+	// viewport size is refined by SetViewportSize on the first frame).
+	UpdateProjection();
 	UpdateView();
 }
 
@@ -69,15 +74,16 @@ void Graphics::TwoDCamera::OnEvent(Application::Event& event)
 	dispatcher.Dispatch<Application::PanGestureEvent>(APP_BIND_EVENT_FN(Graphics::TwoDCamera::OnPanGesture));
 }
 
-// Pinch = zoom, feel-matched to wheel zoom (yOffset-equivalent scaling).
+// Pinch = zoom. The pinch scale maps to the ortho extents exactly (spread
+// fingers 2x -> content 2x larger), so the content tracks the fingers.
 // 2D zoom lives in the ortho projection, so mirror OnMouseScroll exactly:
 // projection, view, and grid spacing must all be recomputed.
 bool Graphics::TwoDCamera::OnPinch(Application::PinchGestureEvent& e)
 {
-	MouseZoom((e.GetScaleDelta() - 1.0f) * 5.0f);
+	if (e.GetScaleDelta() > 0.0f)
+		ZoomByFactor(1.0 / (double)e.GetScaleDelta());
 	UpdateProjection();
 	UpdateView();
-	GetSpacing(m_ViewportWidth, worldXmin, worldXmax, gridMajorSpacing, gridMinorSpacing);
 	return false;
 }
 
@@ -113,30 +119,42 @@ glm::quat Graphics::TwoDCamera::GetOrientation() const
 
 glm::vec3 Graphics::TwoDCamera::GetViewDirection() const
 {
-	// Calculate the view direction from the camera position
-	return glm::normalize(m_Position - glm::vec3(m_ViewMatrix[3]));
+	// The 2D camera always looks straight down -Z (the old formula
+	// normalized position - (-position), which was meaningless).
+	return GetForwardDirection();
 }
 
 void Graphics::TwoDCamera::UpdateProjection()
 {
-	float n = m_zoom; // Align 14 units horizontally in the screen.
+	const double aspectRatio = (double)m_ViewportWidth / (double)m_ViewportHeight;
+	m_AspectRatio = (float)aspectRatio;
 
-	const float aspectRatio = m_ViewportWidth / m_ViewportHeight;
-	m_AspectRatio = aspectRatio;
-	float left = -n * 1.0f, right = n * 1.0f, down = -n * 1.0f / aspectRatio, up = n * 1.0f / aspectRatio;
+	// Camera-relative ortho extents (the view matrix supplies the pan).
+	const double halfWidth = m_zoom;
+	const double halfHeight = m_zoom / aspectRatio;
 
-	this->worldXmin = left;
-	this->worldXmax = right;
-	this->worldYmin = down;
-	this->worldYmax = up;
+	// True world-space bounds of the visible area, in double so labels and
+	// mouse-world mapping stay exact at deep zoom. These INCLUDE the pan —
+	// consumers must not add the focal point on top.
+	this->worldXmin = (double)m_FocalPoint.x - halfWidth;
+	this->worldXmax = (double)m_FocalPoint.x + halfWidth;
+	this->worldYmin = (double)m_FocalPoint.y - halfHeight;
+	this->worldYmax = (double)m_FocalPoint.y + halfHeight;
 
-	m_Projection = glm::ortho(left, right, down, up, m_NearClip, m_FarClip);
-    
 #if BUILDING_METAL
-//    Flip Y-axis to match coordinate system
-    m_Projection[1][1] *= -1.0f;
+	// Metal clips NDC z to [0,1]; the GL-convention matrix maps depth to
+	// [-1,1], silently clipping the NEAR HALF of the ortho volume (anything
+	// above world z ~ +1 vanished). Use the zero-to-one variant.
+	m_Projection = glm::orthoZO((float)-halfWidth, (float)halfWidth, (float)-halfHeight, (float)halfHeight, m_NearClip, m_FarClip);
+	// Flip Y-axis to match coordinate system
+	m_Projection[1][1] *= -1.0f;
+#else
+	m_Projection = glm::ortho((float)-halfWidth, (float)halfWidth, (float)-halfHeight, (float)halfHeight, m_NearClip, m_FarClip);
 #endif
 
+	// Grid spacing follows the visible extent; computing it here keeps it
+	// valid from the first frame and for every zoom path.
+	GetSpacing(m_ViewportWidth, worldXmin, worldXmax, gridMajorSpacing, gridMinorSpacing);
 }
 
 void Graphics::TwoDCamera::UpdateView()
@@ -177,7 +195,6 @@ bool Graphics::TwoDCamera::OnMouseScroll(Application::MouseScrolledEvent& e)
 	MouseZoom(delta);
 	UpdateProjection();
 	UpdateView();
-	GetSpacing(m_ViewportWidth, worldXmin, worldXmax, gridMajorSpacing, gridMinorSpacing);
 	return false;
 }
 
@@ -233,20 +250,18 @@ void Graphics::TwoDCamera::MouseRotate(const glm::vec2& delta)
 	m_Pitch += delta.y * RotationSpeed();
 }
 
+// Multiplicative zoom: strictly positive, scale-invariant steps, so zoom is
+// "infinite" both ways within double range. (The old linear step with the
+// one-way m_zoomLevel ratchet made zoom-out crawl after a deep zoom-in and
+// could push m_zoom negative — a flipped ortho projection.)
+void Graphics::TwoDCamera::ZoomByFactor(double factor)
+{
+	m_zoom = std::clamp(m_zoom * factor, 1e-9, 1e12);
+}
+
 void Graphics::TwoDCamera::MouseZoom(float delta)
 {
-	//m_Distance -= delta * ZoomSpeed();
-	if ((m_zoom - (delta * m_zoomLevel)) <= 0.0) {
-		m_zoomLevel /= 10;
-	}
-	m_zoom -= delta * m_zoomLevel;
-
-	//if (m_Distance < 0.01f)
-	//{
-	//	m_FocalPoint += GetForwardDirection();
-	//	m_Distance = 1.0f;
-	//}
-	//UpdateProjection();
+	ZoomByFactor(std::exp((double)-delta));
 }
 
 glm::vec3 Graphics::TwoDCamera::CalculatePosition() const

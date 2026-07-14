@@ -16,15 +16,23 @@
                         <rect key="frame" x="0.0" y="0.0" width="1032" height="1376"/>
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                         <subviews>
+                            <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFill" horizontalHuggingPriority="251" verticalHuggingPriority="251" image="SplashImage.jpg" translatesAutoresizingMaskIntoConstraints="NO" id="Spl-Im-g01">
+                                <rect key="frame" x="0.0" y="0.0" width="1032" height="1376"/>
+                            </imageView>
                             <label opaque="NO" clipsSubviews="YES" userInteractionEnabled="NO" contentMode="center" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="AbstractEngine" textAlignment="center" lineBreakMode="middleTruncation" baselineAdjustment="alignBaselines" minimumFontSize="18" adjustsFontForContentSizeCategory="YES" translatesAutoresizingMaskIntoConstraints="NO" id="GJd-Yh-RWb">
                                 <rect key="frame" x="305.5" y="642.5" width="421" height="70.5"/>
                                 <fontDescription key="fontDescription" type="boldSystem" pointSize="59"/>
+                                <color key="textColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
                                 <nil key="highlightedColor"/>
                             </label>
                         </subviews>
                         <viewLayoutGuide key="safeArea" id="Bcu-3y-fUS"/>
                         <color key="backgroundColor" systemColor="systemBackgroundColor"/>
                         <constraints>
+                            <constraint firstItem="Spl-Im-g01" firstAttribute="leading" secondItem="Ze5-6b-2t3" secondAttribute="leading" id="Spl-ct-l01"/>
+                            <constraint firstItem="Spl-Im-g01" firstAttribute="top" secondItem="Ze5-6b-2t3" secondAttribute="top" id="Spl-ct-t01"/>
+                            <constraint firstAttribute="trailing" secondItem="Spl-Im-g01" secondAttribute="trailing" id="Spl-ct-r01"/>
+                            <constraint firstAttribute="bottom" secondItem="Spl-Im-g01" secondAttribute="bottom" id="Spl-ct-b01"/>
                             <constraint firstItem="GJd-Yh-RWb" firstAttribute="centerX" secondItem="Bcu-3y-fUS" secondAttribute="centerX" id="pam-um-f5D"/>
                             <constraint firstItem="GJd-Yh-RWb" firstAttribute="centerY" secondItem="Bcu-3y-fUS" secondAttribute="centerY" id="ydB-Ta-BA3"/>
                         </constraints>
@@ -36,6 +44,7 @@
         </scene>
     </scenes>
     <resources>
+        <image name="SplashImage.jpg" width="2732" height="1728"/>
         <systemColor name="systemBackgroundColor">
             <color white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
         </systemColor>
