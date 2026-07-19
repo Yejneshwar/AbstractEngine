@@ -26,6 +26,10 @@ namespace Graphics {
 
         virtual void SetData(const void* data, uint32_t size, int slot) override;
 
+        virtual void BindBuffer(uintptr_t nativeBuffer, int slot) override;
+
+        virtual void BindAccelerationStructure(uintptr_t nativeHandle, int slot) override;
+
         virtual void Dispatch(uint32_t width, uint32_t height, uint32_t depth) override;
         
         virtual void SetIntArray(const std::string &name, int *values, uint32_t count) override {};

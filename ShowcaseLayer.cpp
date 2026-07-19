@@ -162,7 +162,8 @@ namespace {
 			Graphics::MaterialDesc material;
 			material.baseColor = { 1.0f, 1.0f, 1.0f, 1.0f };
 			material.roughness = 0.4f;
-			material.emissive = { 4.0f, 2.4f, 0.8f };
+			material.emissive = { 1.0f, 0.75f, 0.45f }; // warm LED
+			material.emissiveIntensity = 4.0f;
 			material.vertexColorTint = false;
 			const MeshData sphere = MakeSphere({ -6.0, 0.6, 2.5 }, 0.3, 16, 24);
 			AddMesh("Emissive Sphere", sphere.vertices, sphere.indices, white, material);
@@ -283,7 +284,9 @@ namespace {
 			changed |= ImGui::ColorEdit4("Base Color", &material.baseColor.x, ImGuiColorEditFlags_Float);
 			changed |= ImGui::SliderFloat("Metallic", &material.metallic, 0.0f, 1.0f);
 			changed |= ImGui::SliderFloat("Roughness", &material.roughness, 0.0f, 1.0f);
-			changed |= ImGui::ColorEdit3("Emissive", &material.emissive.x, ImGuiColorEditFlags_Float | ImGuiColorEditFlags_HDR);
+			changed |= ImGui::ColorEdit3("Emissive Color", &material.emissive.x, ImGuiColorEditFlags_Float);
+			changed |= ImGui::SliderFloat("Emissive Intensity", &material.emissiveIntensity, 0.0f, 100.0f,
+				"%.2f", ImGuiSliderFlags_Logarithmic);
 			changed |= ImGui::Checkbox("Flat Shading", &material.flatShading);
 			if (changed) {
 				Graphics::BatchRenderer::UpdateMaterial(selected->material, material);

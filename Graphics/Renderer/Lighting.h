@@ -38,6 +38,8 @@ namespace Graphics {
 		PBR = 2,          // lit/rendered mode (IBL, GTAO, tonemap) — 3D viewports only
 		DebugNormals = 3, // world-space normals as color
 		Unlit = 4,        // legacy flat colors (2D viewport default)
+		RayTraced = 5,    // ReSTIR DI + radiance-cascade GI — 3D viewports on
+		                  // GPUs with hardware ray tracing only
 	};
 
 	enum class TonemapOperator : int {
@@ -83,7 +85,11 @@ namespace Graphics {
 		glm::vec4 baseColor = { 1.0f, 1.0f, 1.0f, 1.0f }; // sRGB-authored
 		float metallic = 0.0f;
 		float roughness = 0.5f;
-		glm::vec3 emissive = { 0.0f, 0.0f, 0.0f }; // linear, premultiplied by intensity
+		// Emission is authored as a display-referred color times a scalar
+		// intensity (linearized and premultiplied on upload — the GPU table
+		// keeps a single linear radiance value).
+		glm::vec3 emissive = { 0.0f, 0.0f, 0.0f }; // sRGB-authored color
+		float emissiveIntensity = 1.0f;
 		bool flatShading = false;
 		bool vertexColorTint = true;
 	};
@@ -116,6 +122,17 @@ namespace Graphics {
 		bool environmentBackground = true;
 		float backgroundBlur = 1.5f; // lod into the prefiltered environment
 		glm::vec4 backgroundColor = { 0.0f, 0.0f, 0.0f, 1.0f }; // when environmentBackground is off
+
+		// Ray-traced pipeline (ReSTIR DI + radiance-cascade GI). Ignored
+		// unless pipeline == RayTraced (which needs hardware ray tracing).
+		int rtInitialCandidates = 8;    // RIS candidates per pixel per frame
+		int rtSpatialTaps = 5;          // spatial-reuse neighbor reservoirs
+		float rtSpatialRadius = 24.0f;  // spatial-reuse radius (pixels)
+		float rtTemporalClamp = 20.0f;  // history length cap (reservoir M)
+		bool rtGIEnabled = true;        // radiance-cascade global illumination
+		float rtGIIntensity = 1.0f;
+		float rtGIRange = 0.5f;         // cascade 0 ray interval (world units)
+		int rtDebugView = 0;            // RayTracedRenderer::DebugView
 	};
 
 }

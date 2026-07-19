@@ -15,6 +15,7 @@
 #include <Renderer/FrameBuffer.h>
 #include <Renderer/ComputeShader.h>
 #include <Renderer/Lighting.h>
+#include <Renderer/RayTracing.h>
 #include "glm/gtc/matrix_inverse.hpp"
 #include <Logger.h>
 #include <Renderer/Shader.h>
@@ -74,6 +75,9 @@ namespace GUI {
         // HDR post chain (3D viewports): half-res GTAO target + the LDR
         // tonemapped texture that is actually displayed.
         Graphics::Ref<Graphics::Texture> AOTexture, DisplayTexture;
+        // Ray-traced pipeline state (reservoirs, cascades, history) — textures
+        // are created lazily the first time the pipeline runs.
+        Graphics::RayTracingViewport rayTracing;
 		Graphics::Ref<Graphics::Camera> ViewPortCamera;
 		SceneDataUBO uboDataScene;
 		Graphics::RenderSettings renderSettings;

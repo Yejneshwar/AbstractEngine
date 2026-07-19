@@ -90,6 +90,10 @@ namespace GUI {
         m_JFAComposite = Graphics::ComputeShader::Create(std::filesystem::path("./Resource/ComputeShaders/JFAComposite.glsl"));
         m_GTAOCompute = Graphics::ComputeShader::Create(std::filesystem::path("./Resource/ComputeShaders/GTAO.glsl"));
         m_TonemapCompute = Graphics::ComputeShader::Create(std::filesystem::path("./Resource/ComputeShaders/Tonemap.glsl"));
+		// Ray-traced pipeline shaders use GL_EXT_ray_query — only compiled on
+		// GPUs with hardware ray tracing.
+		if (Graphics::RayTracedRenderer::Supported())
+			Graphics::RayTracedRenderer::Init();
 	}
 
 	// Fill the per-viewport lighting UBO: key light (headlight follows the
@@ -140,6 +144,9 @@ namespace GUI {
 			case Graphics::ViewportPipeline::PBR:          shading = threeD ? Graphics::SceneShading::Lit : Graphics::SceneShading::Unlit; break;
 			case Graphics::ViewportPipeline::DebugNormals: shading = Graphics::SceneShading::Normals; break;
 			case Graphics::ViewportPipeline::Unlit:        shading = Graphics::SceneShading::Unlit; break;
+			// The raster pass under the ray-traced pipeline stays fully lit:
+			// its color is the fallback wherever nothing was traced.
+			case Graphics::ViewportPipeline::RayTraced:    shading = threeD ? Graphics::SceneShading::Lit : Graphics::SceneShading::Unlit; break;
 		}
 
 		lighting.params1 = {
@@ -433,6 +440,25 @@ namespace GUI {
 							const Graphics::RenderSettings& settings = v.renderSettings;
 							const uint32_t halfW = std::max(1u, v.ViewportSize.x / 2);
 							const uint32_t halfH = std::max(1u, v.ViewportSize.y / 2);
+
+							// Ray-traced pipeline: replace the raster HDR with
+							// the traced result (raster shows through where
+							// nothing was traced or lines/grid are closer).
+							bool rayTraced = false;
+							if (settings.pipeline == Graphics::ViewportPipeline::RayTraced
+								&& Graphics::RayTracedRenderer::IsInitialized()) {
+								Graphics::RayTracingCamera rtCamera;
+								rtCamera.view = v.uboDataScene.viewMatrix;
+								rtCamera.invView = v.uboDataScene.viewMatrixInverse;
+								rtCamera.proj = v.uboDataScene.projectionMatrix;
+								rtCamera.viewProj = v.uboDataScene.projViewMatrix;
+								rtCamera.position = glm::vec3(v.uboDataScene.cameraPos);
+								rayTraced = Graphics::RayTracedRenderer::Render(
+									v.rayTracing, settings, v.uboLighting, rtCamera,
+									v.Framebuffer->GetColorAttachmentRendererID(0),
+									v.Framebuffer->GetDepthAttachmentRendererID(),
+									v.ViewportSize.x, v.ViewportSize.y);
+							}
 #if BUILDING_METAL
 							// Metal dispatch takes total threads; GL takes 8x8 workgroup counts.
 							const int dispatchFullX = (int)v.ViewportSize.x, dispatchFullY = (int)v.ViewportSize.y;
@@ -444,7 +470,7 @@ namespace GUI {
 							const float depthRange01 = 0.0f;
 #endif
 
-							if (settings.aoEnabled) {
+							if (settings.aoEnabled && !rayTraced) {
 								const glm::mat4& projection = v.uboDataScene.projectionMatrix;
 								struct { glm::vec4 proj; glm::vec4 params; glm::vec4 dims; } gtaoParams = {
 									{ projection[0][0], std::abs(projection[1][1]), projection[2][2], projection[3][2] },
@@ -460,12 +486,15 @@ namespace GUI {
 							}
 
 							struct { glm::vec4 p0; glm::vec4 dims; } tonemapParams = {
-								{ settings.exposure, (float)(int)settings.tonemap, settings.aoEnabled ? 1.0f : 0.0f, settings.aoIntensity },
+								{ settings.exposure, (float)(int)settings.tonemap, (settings.aoEnabled && !rayTraced) ? 1.0f : 0.0f, settings.aoIntensity },
 								{ (float)v.ViewportSize.x, (float)v.ViewportSize.y, (float)halfW, (float)halfH },
 							};
+							const uintptr_t hdrInput = rayTraced
+								? v.rayTracing.rtColor->GetRendererID()
+								: v.Framebuffer->GetColorAttachmentRendererID(0);
 							m_TonemapCompute->Bind();
 							m_TonemapCompute->BindTexture(v.DisplayTexture->GetRendererID(), 0);                  // [[texture(0)]] LDR out
-							m_TonemapCompute->BindTexture(v.Framebuffer->GetColorAttachmentRendererID(0), 1);     // [[texture(1)]] HDR in
+							m_TonemapCompute->BindTexture(hdrInput, 1);                                           // [[texture(1)]] HDR in
 							m_TonemapCompute->BindTexture(v.AOTexture->GetRendererID(), 2);                       // [[texture(2)]] AO
 							m_TonemapCompute->SetData(&tonemapParams, sizeof(tonemapParams), 0);                  // [[buffer(0)]]
 							m_TonemapCompute->Dispatch(dispatchFullX, dispatchFullY, 1);
@@ -691,7 +720,23 @@ namespace GUI {
 		if (settings.pipeline == Graphics::ViewportPipeline::Wireframe)
 			changed |= ImGui::ColorEdit3("Wire Color", &settings.wireframeColor.x, ImGuiColorEditFlags_Float);
 
-		if (threeD && settings.pipeline == Graphics::ViewportPipeline::PBR) {
+		if (threeD && settings.pipeline == Graphics::ViewportPipeline::RayTraced) {
+			ImGui::SeparatorText("Ray Tracing (ReSTIR + Radiance Cascades)");
+			changed |= ImGui::SliderInt("Light Candidates", &settings.rtInitialCandidates, 1, 32);
+			changed |= ImGui::SliderInt("Spatial Taps", &settings.rtSpatialTaps, 0, 16);
+			changed |= ImGui::SliderFloat("Spatial Radius (px)", &settings.rtSpatialRadius, 1.0f, 64.0f);
+			changed |= ImGui::SliderFloat("History Clamp", &settings.rtTemporalClamp, 1.0f, 64.0f);
+			changed |= ImGui::Checkbox("Global Illumination (Radiance Cascades)", &settings.rtGIEnabled);
+			if (settings.rtGIEnabled) {
+				changed |= ImGui::SliderFloat("GI Intensity", &settings.rtGIIntensity, 0.0f, 4.0f);
+				changed |= ImGui::SliderFloat("GI Base Interval", &settings.rtGIRange, 0.05f, 4.0f);
+			}
+			const char* rtDebugViews[] = { "Off", "GI Irradiance", "Direct Light", "Normals", "Hit Distance", "History Length", "Reflections" };
+			changed |= ImGui::Combo("Debug View", &settings.rtDebugView, rtDebugViews, 7);
+		}
+
+		if (threeD && (settings.pipeline == Graphics::ViewportPipeline::PBR
+			|| settings.pipeline == Graphics::ViewportPipeline::RayTraced)) {
 			ImGui::SeparatorText("Key Light");
 			changed |= ImGui::Checkbox("Headlight (follows camera)", &settings.headlight);
 			changed |= ImGui::SliderFloat("Intensity", &settings.keyIntensity, 0.0f, 10.0f);
@@ -878,10 +923,13 @@ namespace GUI {
 
 				// 2D viewports have no HDR post chain, so no PBR there; they
 				// get the legacy Unlit default plus the debug/solid modes.
-				static const char* kPipelines3D[] = { "Wireframe", "Solid", "PBR (Rendered)", "Debug Normals" };
+				// Ray Traced needs hardware ray tracing — only listed on
+				// supported GPUs.
+				static const char* kPipelines3D[] = { "Wireframe", "Solid", "PBR (Rendered)", "Debug Normals", "Ray Traced" };
 				static const Graphics::ViewportPipeline kPipelineMap3D[] = {
 					Graphics::ViewportPipeline::Wireframe, Graphics::ViewportPipeline::Solid,
-					Graphics::ViewportPipeline::PBR, Graphics::ViewportPipeline::DebugNormals };
+					Graphics::ViewportPipeline::PBR, Graphics::ViewportPipeline::DebugNormals,
+					Graphics::ViewportPipeline::RayTraced };
 				static const char* kPipelines2D[] = { "Unlit", "Wireframe", "Solid", "Debug Normals" };
 				static const Graphics::ViewportPipeline kPipelineMap2D[] = {
 					Graphics::ViewportPipeline::Unlit, Graphics::ViewportPipeline::Wireframe,
@@ -890,14 +938,15 @@ namespace GUI {
 				const bool overlayThreeD = ViewPortIt->cameraType == CameraType::ThreeD;
 				const char* const* pipelineNames = overlayThreeD ? kPipelines3D : kPipelines2D;
 				const Graphics::ViewportPipeline* pipelineMap = overlayThreeD ? kPipelineMap3D : kPipelineMap2D;
+				const int pipelineCount = (overlayThreeD && Graphics::RayTracedRenderer::IsInitialized()) ? 5 : 4;
 
 				int pipeline = 0;
-				for (int i = 0; i < 4; ++i)
+				for (int i = 0; i < pipelineCount; ++i)
 					if (pipelineMap[i] == settings.pipeline)
 						pipeline = i;
 
 				ImGui::SetNextItemWidth(150.0f);
-				if (ImGui::Combo("##pipeline", &pipeline, pipelineNames, 4)) {
+				if (ImGui::Combo("##pipeline", &pipeline, pipelineNames, pipelineCount)) {
 					settings.pipeline = pipelineMap[pipeline];
 					m_updateAllViewPorts = true;
 				}

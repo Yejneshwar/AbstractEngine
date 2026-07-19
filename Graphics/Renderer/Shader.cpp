@@ -19,9 +19,9 @@
 namespace Graphics {
 
 #if BUILDING_METAL
-    std::string Shader::CompileSpirVToMSL(ShaderStage stage, const std::vector<uint32_t>& shaderData) {
+    std::string Shader::CompileSpirVToMSL(ShaderStage stage, const std::vector<uint32_t>& shaderData, bool usesRayQuery) {
         spirv_cross::CompilerMSL compiler(shaderData);
-        
+
         spirv_cross::CompilerMSL::Options msl_options;
         msl_options.platform = spirv_cross::CompilerMSL::Options::iOS;
         // Use the GLSL binding decorations as the MSL resource indices
@@ -31,6 +31,11 @@ namespace Graphics {
         // material (3) UBOs and the env/matcap textures (4/5) would silently
         // land on different indices than the C++ side binds to.
         msl_options.enable_decoration_binding = true;
+        // Ray queries translate to metal::raytracing::intersection_query,
+        // which needs MSL 2.4 (SPIRV-Cross throws below 2.3). Only raised for
+        // shaders that use it — everything else keeps the default version.
+        if (usesRayQuery)
+            msl_options.set_msl_version(2, 4);
         compiler.set_msl_options(msl_options);
         
         try{
@@ -160,14 +165,26 @@ namespace Graphics {
     void Shader::CompileOrGetSpirVBinaries(const ShaderProgramSources& shaderSources)
     {
         auto& shaderData = m_SPIRV;
-        
+
         shaderc::Compiler compiler;
         shaderc::CompileOptions options;
-        options.SetTargetEnvironment(shaderc_target_env_opengl, shaderc_env_version_opengl_4_5);
+        // GL_EXT_ray_query only exists under the Vulkan SPIR-V target (the
+        // extension's ops live in SPV_KHR_ray_query, which needs SPIR-V 1.4+).
+        // Everything else keeps the OpenGL target so GL-semantics builtins and
+        // binding rules stay as-is.
+        for (auto&& [stage, program] : shaderSources)
+            if (program.Source.find("GL_EXT_ray_query") != std::string::npos)
+                m_UsesRayQuery = true;
+        if (m_UsesRayQuery) {
+            options.SetTargetEnvironment(shaderc_target_env_vulkan, shaderc_env_version_vulkan_1_2);
+            options.SetTargetSpirv(shaderc_spirv_version_1_4);
+        } else {
+            options.SetTargetEnvironment(shaderc_target_env_opengl, shaderc_env_version_opengl_4_5);
+        }
         const bool optimize = false;
         if (optimize)
             options.SetOptimizationLevel(shaderc_optimization_level_performance);
-        
+
         shaderData.clear();
         for (auto&& [stage, program] : shaderSources)
         {

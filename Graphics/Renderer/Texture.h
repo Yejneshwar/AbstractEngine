@@ -14,6 +14,7 @@ namespace Graphics {
     {
         // Color
         RGBA8,
+        RGBA16FLOAT,
         RGBA32FLOAT
 
     };

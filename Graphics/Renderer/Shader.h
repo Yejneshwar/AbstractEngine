@@ -114,7 +114,8 @@ namespace Graphics {
         }
         
 #if BUILDING_METAL
-        static std::string CompileSpirVToMSL(ShaderStage stage, const std::vector<uint32_t>& shaderData);
+        // usesRayQuery selects MSL 2.4 (metal::raytracing intersection_query).
+        static std::string CompileSpirVToMSL(ShaderStage stage, const std::vector<uint32_t>& shaderData, bool usesRayQuery = false);
 #endif
         
         struct ShaderProgramSource
@@ -132,6 +133,11 @@ namespace Graphics {
         
         void CompileOrGetSpirVBinaries(const ShaderProgramSources& shaderSources);
         std::unordered_map<ShaderStage, std::vector<uint32_t>> m_SPIRV;
+
+        // Set while compiling: the source uses GL_EXT_ray_query, which needs
+        // the Vulkan SPIR-V target and (on Metal) MSL 2.4. Only supported on
+        // GPUs where RayTracedRenderer::Supported() — callers must gate.
+        bool m_UsesRayQuery = false;
         
         ShaderProgramSources m_ShaderSources;
         

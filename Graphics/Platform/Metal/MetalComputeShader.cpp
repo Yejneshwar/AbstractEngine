@@ -14,7 +14,7 @@ namespace Graphics {
         this->CompileOrGetSpirVBinaries(m_ShaderSources);
         
         auto&& spirVSource = m_SPIRV[ShaderStage::COMPUTE_SHADER];
-        auto msl_source = Shader::CompileSpirVToMSL(ShaderStage::COMPUTE_SHADER, spirVSource);
+        auto msl_source = Shader::CompileSpirVToMSL(ShaderStage::COMPUTE_SHADER, spirVSource, m_UsesRayQuery);
         this->CreateComputeShader(msl_source, "main0");
     }
 
@@ -32,9 +32,10 @@ namespace Graphics {
         // Convert the C++ source to NSString
         NS::String* sourceString = NS::String::string(MSLSrc.c_str(), NS::UTF8StringEncoding);
         
-        // Set up Metal compile options
+        // Set up Metal compile options. Ray-query shaders need MSL 2.4
+        // (metal::raytracing); everything else keeps the long-standing 2.0.
         MTL::CompileOptions* pOptions = MTL::CompileOptions::alloc()->init();
-        pOptions->setLanguageVersion(MTL::LanguageVersion2_0); // Adjust version as needed
+        pOptions->setLanguageVersion(m_UsesRayQuery ? MTL::LanguageVersion2_4 : MTL::LanguageVersion2_0);
         
         // Compile the shader source
         MTL::Library* pLibrary = pDevice->newLibrary(sourceString, pOptions, &pError);
@@ -95,6 +96,14 @@ namespace Graphics {
 
     void MetalComputeShader::SetData(const void* data, uint32_t size, int slot) {
         m_ComputeCommandEncoder->setBytes(data, size, slot);
+    }
+
+    void MetalComputeShader::BindBuffer(uintptr_t nativeBuffer, int slot) {
+        m_ComputeCommandEncoder->setBuffer((MTL::Buffer*)nativeBuffer, 0, slot);
+    }
+
+    void MetalComputeShader::BindAccelerationStructure(uintptr_t nativeHandle, int slot) {
+        m_ComputeCommandEncoder->setAccelerationStructure((MTL::AccelerationStructure*)nativeHandle, slot);
     }
 
     void MetalComputeShader::Dispatch(uint32_t width, uint32_t height, uint32_t depth) {

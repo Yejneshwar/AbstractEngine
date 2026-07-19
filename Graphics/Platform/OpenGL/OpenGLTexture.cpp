@@ -19,6 +19,8 @@ namespace Graphics {
 			switch (format) {
 			case TextureFormat::RGBA8:
 				return GL_RGBA8;
+			case TextureFormat::RGBA16FLOAT:
+				return GL_RGBA16F;
 			case TextureFormat::RGBA32FLOAT:
 				return GL_RGBA32F;
 			}

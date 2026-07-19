@@ -23,6 +23,7 @@ namespace Graphics {
             switch (format)
             {
                 case TextureFormat::RGBA8:           return MTL::PixelFormatRGBA8Unorm;
+                case TextureFormat::RGBA16FLOAT:     return MTL::PixelFormatRGBA16Float;
                 case TextureFormat::RGBA32FLOAT:     return MTL::PixelFormatRGBA32Float;
             }
         }

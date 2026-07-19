@@ -7,13 +7,15 @@ namespace Graphics {
 namespace {
 
 	MaterialDesc Make(glm::vec4 baseColor, float metallic, float roughness,
-	                  glm::vec3 emissive = { 0.0f, 0.0f, 0.0f }, bool flatShading = false)
+	                  glm::vec3 emissive = { 0.0f, 0.0f, 0.0f }, float emissiveIntensity = 1.0f,
+	                  bool flatShading = false)
 	{
 		MaterialDesc desc;
 		desc.baseColor = baseColor; // sRGB-authored (the shader linearizes)
 		desc.metallic = metallic;
 		desc.roughness = roughness;
-		desc.emissive = emissive;
+		desc.emissive = emissive;   // sRGB-authored color; intensity separate
+		desc.emissiveIntensity = emissiveIntensity;
 		desc.flatShading = flatShading;
 		desc.vertexColorTint = false; // presets define their own color
 		return desc;
@@ -49,7 +51,7 @@ namespace {
 			{ "Rubber",            Make({ 0.12f, 0.12f, 0.12f, 1.0f }, 0.0f, 0.95f) },
 			{ "Ceramic",           Make({ 0.97f, 0.96f, 0.94f, 1.0f }, 0.0f, 0.10f) },
 			{ "Glass (Tinted)",    Make({ 0.85f, 0.93f, 0.95f, 0.35f }, 0.0f, 0.05f) },
-			{ "LED White",         Make({ 1.00f, 1.00f, 1.00f, 1.0f }, 0.0f, 0.40f, { 4.0f, 4.0f, 3.6f }) },
+			{ "LED White",         Make({ 1.00f, 1.00f, 1.00f, 1.0f }, 0.0f, 0.40f, { 1.0f, 1.0f, 0.95f }, 4.0f) },
 		};
 		return s_Presets;
 	}

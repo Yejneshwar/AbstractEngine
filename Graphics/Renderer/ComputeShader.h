@@ -31,6 +31,16 @@ namespace Graphics {
         // `slot` (std140 UBO on GL, setBytes buffer index on Metal).
         virtual void SetData(const void* data, uint32_t size, int slot) = 0;
 
+        // Attach a native device buffer (MTL::Buffer* on Metal, GL buffer name
+        // on GL) as the SSBO at `slot`. Used by the ray-traced pipeline, which
+        // only exists where RayTracedRenderer::Supported() — hence the no-op
+        // default instead of a pure virtual.
+        virtual void BindBuffer(uintptr_t nativeBuffer, int slot) {}
+
+        // Attach a native acceleration structure (MTL::AccelerationStructure*)
+        // at the buffer index `slot` (GLSL: accelerationStructureEXT binding).
+        virtual void BindAccelerationStructure(uintptr_t nativeHandle, int slot) {}
+
         virtual void Dispatch(uint32_t width, uint32_t height, uint32_t depth) = 0;
 
         static Ref<ComputeShader> Create(const std::filesystem::path& path);

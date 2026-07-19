@@ -274,6 +274,8 @@ set(PLATFORM_METAL
 "Graphics/Platform/Metal/MetalUniformBuffer.cpp"
 "Graphics/Platform/Metal/MetalVertexArray.h"
 "Graphics/Platform/Metal/MetalVertexArray.cpp"
+"Graphics/Platform/Metal/MetalRayTracing.h"
+"Graphics/Platform/Metal/MetalRayTracing.cpp"
 )
 
 set(GRAPHICS_SRC "Graphics/GraphicsCore.h"
@@ -304,6 +306,8 @@ set(GRAPHICS_SRC "Graphics/GraphicsCore.h"
 "Graphics/Renderer/Environment.cpp"
 "Graphics/Renderer/MaterialLibrary.h"
 "Graphics/Renderer/MaterialLibrary.cpp"
+"Graphics/Renderer/RayTracing.h"
+"Graphics/Renderer/RayTracing.cpp"
 "Graphics/Renderer/Shader.h"
 "Graphics/Renderer/Shader.cpp"
 "Graphics/Renderer/ComputeShader.h"

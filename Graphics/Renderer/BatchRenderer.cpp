@@ -260,6 +260,9 @@ namespace Graphics {
 				std::vector<Graphics::MaterialDesc> descs;
 				Graphics::Ref<Graphics::UniformBuffer> buffer;
 				bool dirty = true;
+				// Bumped on every create/update — the ray-traced pipeline
+				// re-uploads its material buffer when this moves.
+				uint64_t version = 1;
 			};
 			static MaterialStorage s_MaterialData;
 
@@ -271,7 +274,9 @@ namespace Graphics {
 				if (desc.flatShading) flags |= Graphics::MaterialFlag_FlatNormals;
 				if (desc.vertexColorTint) flags |= Graphics::MaterialFlag_VertexTint;
 				material.mrfx = { desc.metallic, desc.roughness, (float)flags, 0.0f };
-				material.emissive = glm::vec4(desc.emissive, 0.0f);
+				// sRGB-authored emissive color -> linear radiance.
+				material.emissive = glm::vec4(
+					glm::pow(glm::max(desc.emissive, glm::vec3(0.0f)), glm::vec3(2.2f)) * std::max(desc.emissiveIntensity, 0.0f), 0.0f);
 				return material;
 			}
 
@@ -301,6 +306,7 @@ namespace Graphics {
 			s_MaterialData.descs.push_back(desc);
 			s_MaterialData.materials.push_back(ToGpuMaterial(desc));
 			s_MaterialData.dirty = true;
+			s_MaterialData.version++;
 			return (MaterialHandle)(s_MaterialData.materials.size() - 1);
 		}
 
@@ -312,6 +318,7 @@ namespace Graphics {
 			s_MaterialData.descs[handle] = desc;
 			s_MaterialData.materials[handle] = ToGpuMaterial(desc);
 			s_MaterialData.dirty = true;
+			s_MaterialData.version++;
 		}
 
 		MaterialDesc BatchRenderer::GetMaterial(MaterialHandle handle)
@@ -518,6 +525,9 @@ namespace Graphics {
 			uint32_t gpuIndexCapacity = 0;
 			bool gpuDirty = false;
 			bool initialized = false;
+			// Bumped on every create/destroy — the ray-traced pipeline
+			// rebuilds its acceleration structure when this moves.
+			uint64_t version = 1;
 		};
 
 		static RetainedMeshStorage s_Retained;
@@ -629,6 +639,7 @@ namespace Graphics {
 
 			s_Retained.meshes.push_back(range);
 			s_Retained.gpuDirty = true;
+			s_Retained.version++;
 
 			return (MeshHandle)s_Retained.meshes.size();
 		}
@@ -670,6 +681,7 @@ namespace Graphics {
 			s_Retained.vertices.swap(newVertices);
 			s_Retained.indices.swap(newIndices);
 			s_Retained.gpuDirty = true;
+			s_Retained.version++;
 			LOG_DEBUG_STREAM << "DestroyMesh: retained arena now " << s_Retained.vertices.size() << " vertices, " << s_Retained.indices.size() << " indices";
 		}
 
@@ -679,6 +691,26 @@ namespace Graphics {
 			if (handle == 0 || handle > s_Retained.meshes.size() || !s_Retained.meshes[handle - 1].alive)
 				return;
 			s_Retained.visible.push_back(handle);
+		}
+
+		BatchRenderer::RetainedSceneView BatchRenderer::GetRetainedSceneView()
+		{
+			InitMaterials();
+			RetainedSceneView view;
+			view.vertexData = s_Retained.vertices.data();
+			view.vertexCount = s_Retained.vertices.size();
+			view.vertexStride = sizeof(MeshVertex);
+			view.positionOffset = offsetof(MeshVertex, Position);
+			view.normalOffset = offsetof(MeshVertex, Normal);
+			view.colorOffset = offsetof(MeshVertex, Color);
+			view.materialOffset = offsetof(MeshVertex, aMaterial);
+			view.indexData = s_Retained.indices.data();
+			view.indexCount = s_Retained.indices.size();
+			view.materials = s_MaterialData.materials.data();
+			view.materialCount = s_MaterialData.materials.size();
+			view.geometryVersion = s_Retained.version;
+			view.materialVersion = s_MaterialData.version;
+			return view;
 		}
 
 		// Upload pending arena changes (rare) and draw this scene's visible

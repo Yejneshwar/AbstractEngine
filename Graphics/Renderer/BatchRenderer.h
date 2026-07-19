@@ -61,6 +61,29 @@ namespace Graphics {
 			// render target. Call once per viewport, after Framebuffer::Bind.
 			static void BindSceneResources();
 
+			// ---- Ray tracing scene view -------------------------------------
+			// Read-only view of the retained-mesh CPU arena + material table,
+			// used by the ray-traced pipeline to build its acceleration
+			// structure and attribute buffers. Pointers are invalidated by
+			// CreateMesh/DestroyMesh/CreateMaterial — consume within the frame
+			// and compare versions to know when to rebuild.
+			struct RetainedSceneView {
+				const void* vertexData = nullptr;   // interleaved MeshVertex array
+				size_t vertexCount = 0;
+				size_t vertexStride = 0;            // bytes
+				size_t positionOffset = 0;          // byte offsets into a vertex
+				size_t normalOffset = 0;
+				size_t colorOffset = 0;
+				size_t materialOffset = 0;          // int32 material-table index
+				const uint32_t* indexData = nullptr; // baked global indices
+				size_t indexCount = 0;
+				const GpuMaterial* materials = nullptr;
+				size_t materialCount = 0;
+				uint64_t geometryVersion = 0;
+				uint64_t materialVersion = 0;
+			};
+			static RetainedSceneView GetRetainedSceneView();
+
 			static void addData(const std::vector<double>& vertices, const std::vector<double>& vertexNormals, const std::vector<uint32_t>& indices, const int id = -1);
 
 			static void DrawMesh(const std::vector<double>& vertices, const std::vector<uint32_t>& indices, const GUI::DataType::vec4& color, const int id = -1);
